@@ -41,6 +41,8 @@ void main() {
         suburb: 'Heatherlands',
         townCity: 'George',
         postalCode: '6529',
+        photoLocalPath: '/tmp/photo.jpg',
+        photoUrl: 'https://example.com/photo.jpg',
       );
       final restored = Member.fromMap(member.toMap());
 
@@ -48,6 +50,22 @@ void main() {
       expect(restored.suburb, 'Heatherlands');
       expect(restored.townCity, 'George');
       expect(restored.postalCode, '6529');
+      expect(restored.photoLocalPath, '/tmp/photo.jpg');
+      expect(restored.photoUrl, 'https://example.com/photo.jpg');
+    });
+
+    test('firestore payload includes photoUrl not local path', () {
+      final member = Member.create(
+        saId: '9001015009087',
+        globalRecordNo: 'GTC-0000000001',
+        memberName: 'Thabo',
+        surname: 'Ndlovu',
+        photoLocalPath: '/tmp/photo.jpg',
+        photoUrl: 'https://example.com/photo.jpg',
+      );
+      final payload = member.toFirestore();
+      expect(payload['photoUrl'], 'https://example.com/photo.jpg');
+      expect(payload.containsKey('photoLocalPath'), isFalse);
     });
   });
 }

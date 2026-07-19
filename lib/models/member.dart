@@ -14,6 +14,8 @@ class Member {
   final String contactNo2;
   final String emailAddress;
   final String comment;
+  final String? photoLocalPath;
+  final String? photoUrl;
   final DateTime updatedAt;
   final bool pendingSync;
   final bool deleted;
@@ -32,6 +34,8 @@ class Member {
     this.contactNo2 = '',
     this.emailAddress = '',
     this.comment = '',
+    this.photoLocalPath,
+    this.photoUrl,
     required this.updatedAt,
     this.pendingSync = true,
     this.deleted = false,
@@ -50,6 +54,8 @@ class Member {
     String contactNo2 = '',
     String emailAddress = '',
     String comment = '',
+    String? photoLocalPath,
+    String? photoUrl,
   }) {
     return Member(
       id: const Uuid().v4(),
@@ -65,6 +71,8 @@ class Member {
       contactNo2: contactNo2,
       emailAddress: emailAddress,
       comment: comment,
+      photoLocalPath: photoLocalPath,
+      photoUrl: photoUrl,
       updatedAt: DateTime.now().toUtc(),
       pendingSync: true,
     );
@@ -84,9 +92,13 @@ class Member {
     String? contactNo2,
     String? emailAddress,
     String? comment,
+    String? photoLocalPath,
+    String? photoUrl,
     DateTime? updatedAt,
     bool? pendingSync,
     bool? deleted,
+    bool clearPhotoLocalPath = false,
+    bool clearPhotoUrl = false,
   }) {
     return Member(
       id: id ?? this.id,
@@ -102,6 +114,9 @@ class Member {
       contactNo2: contactNo2 ?? this.contactNo2,
       emailAddress: emailAddress ?? this.emailAddress,
       comment: comment ?? this.comment,
+      photoLocalPath:
+          clearPhotoLocalPath ? null : (photoLocalPath ?? this.photoLocalPath),
+      photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       updatedAt: updatedAt ?? this.updatedAt,
       pendingSync: pendingSync ?? this.pendingSync,
       deleted: deleted ?? this.deleted,
@@ -125,6 +140,8 @@ class Member {
       'contactNo2': contactNo2,
       'emailAddress': emailAddress,
       'comment': comment,
+      'photoLocalPath': photoLocalPath,
+      'photoUrl': photoUrl,
       'updatedAt': updatedAt.toIso8601String(),
       'pendingSync': pendingSync ? 1 : 0,
       'deleted': deleted ? 1 : 0,
@@ -146,6 +163,7 @@ class Member {
       'contactNo2': contactNo2,
       'emailAddress': emailAddress,
       'comment': comment,
+      'photoUrl': photoUrl,
       'updatedAt': updatedAt.toIso8601String(),
       'deleted': deleted,
     };
@@ -166,6 +184,8 @@ class Member {
       contactNo2: map['contactNo2'] as String? ?? '',
       emailAddress: map['emailAddress'] as String? ?? '',
       comment: map['comment'] as String? ?? '',
+      photoLocalPath: map['photoLocalPath'] as String?,
+      photoUrl: map['photoUrl'] as String?,
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: (map['pendingSync'] as int? ?? 0) == 1,
@@ -188,6 +208,7 @@ class Member {
       contactNo2: map['contactNo2'] as String? ?? '',
       emailAddress: map['emailAddress'] as String? ?? '',
       comment: map['comment'] as String? ?? '',
+      photoUrl: map['photoUrl'] as String?,
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: false,

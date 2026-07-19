@@ -90,7 +90,12 @@ class SyncEngine {
       if (local == null ||
           remote.updatedAt.isAfter(local.updatedAt) ||
           (remote.deleted && !local.deleted)) {
-        await _db.upsertMember(remote.copyWith(pendingSync: false));
+        await _db.upsertMember(
+          remote.copyWith(
+            pendingSync: false,
+            photoLocalPath: local?.photoLocalPath,
+          ),
+        );
       }
     }
   }
@@ -158,10 +163,28 @@ class SyncEngine {
   Future<void> _pushMembers() async {
     final pending = await _db.getPendingMembers();
     for (final member in pending) {
+      var photoUrl = member.photoUrl;
+      if ((photoUrl == null || photoUrl.isEmpty) &&
+          member.photoLocalPath != null &&
+          File(member.photoLocalPath!).existsSync()) {
+        final ext = member.photoLocalPath!.split('.').last.toLowerCase();
+        final ref = _storage
+            .ref()
+            .child('member_photos')
+            .child(member.id)
+            .child('profile.$ext');
+        await ref.putFile(File(member.photoLocalPath!));
+        photoUrl = await ref.getDownloadURL();
+        await _db.upsertMember(
+          member.copyWith(photoUrl: photoUrl, pendingSync: true),
+        );
+      }
+
+      final payload = member.copyWith(photoUrl: photoUrl);
       await _fs
           .collection(AppConstants.membersCollection)
           .doc(member.id)
-          .set(member.toFirestore(), SetOptions(merge: true));
+          .set(payload.toFirestore(), SetOptions(merge: true));
       await _db.markMemberSynced(member.id);
     }
   }

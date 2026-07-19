@@ -46,13 +46,25 @@ class DatabaseService {
     final dbPath = p.join(documents.path, 'garden_town_county.db');
     _db = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
     _initialized = true;
+  }
+
+  Future<void> _onUpgrade(Database database, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await database.execute(
+        'ALTER TABLE members ADD COLUMN photoLocalPath TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE members ADD COLUMN photoUrl TEXT',
+      );
+    }
   }
 
   Future<void> _onCreate(Database database, int version) async {
@@ -71,6 +83,8 @@ class DatabaseService {
         contactNo2 TEXT NOT NULL DEFAULT '',
         emailAddress TEXT NOT NULL DEFAULT '',
         comment TEXT NOT NULL DEFAULT '',
+        photoLocalPath TEXT,
+        photoUrl TEXT,
         updatedAt TEXT NOT NULL,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0
@@ -209,6 +223,24 @@ class DatabaseService {
     await db.update(
       'members',
       {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> updateMemberPhoto({
+    required String id,
+    String? photoLocalPath,
+    String? photoUrl,
+  }) async {
+    await db.update(
+      'members',
+      {
+        'photoLocalPath': photoLocalPath,
+        'photoUrl': photoUrl,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );

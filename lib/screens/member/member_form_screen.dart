@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -33,10 +36,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   String? _townCity;
   String? _postalCode;
   String? _currentId;
+  String? _photoLocalPath;
+  String? _photoUrl;
+  /// Stable id for new (unsaved) members so a photo can be staged.
+  String? _draftId;
   List<Member> _members = const [];
   int _browseIndex = -1;
   bool _loading = true;
   bool _saving = false;
+  bool _photoBusy = false;
 
   @override
   void initState() {
@@ -84,6 +92,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void _loadMember(Member member, int index) {
     setState(() {
       _currentId = member.id;
+      _draftId = null;
       _browseIndex = index;
       _saId.text = member.saId;
       _globalRecordNo.text = member.globalRecordNo;
@@ -97,6 +106,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _contactNo2.text = member.contactNo2;
       _email.text = member.emailAddress;
       _comment.text = member.comment;
+      _photoLocalPath = member.photoLocalPath;
+      _photoUrl = member.photoUrl;
     });
     ref.read(selectedMemberIdProvider.notifier).state = member.id;
   }
@@ -104,6 +115,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void _clearForm({required bool newMember}) {
     setState(() {
       _currentId = null;
+      _draftId = const Uuid().v4();
       if (newMember) _browseIndex = -1;
       _saId.clear();
       _globalRecordNo.clear();
@@ -117,8 +129,152 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _contactNo2.clear();
       _email.clear();
       _comment.clear();
+      _photoLocalPath = null;
+      _photoUrl = null;
     });
     ref.read(selectedMemberIdProvider.notifier).state = null;
+  }
+
+  Future<void> _pickMemberPhoto() async {
+    final memberId = _currentId ?? _draftId;
+    if (memberId == null) return;
+
+    setState(() => _photoBusy = true);
+    try {
+      // New members: stage photo after ensuring a draft row exists, or just
+      // copy locally via service once the member id is known.
+      if (_currentId == null) {
+        // Persist a minimal draft so photo FK / folder is stable, then reload.
+        final draft = Member(
+          id: memberId,
+          saId: _saId.text.trim().isEmpty ? 'DRAFT${memberId.substring(0, 8)}' : _saId.text.trim(),
+          globalRecordNo: _globalRecordNo.text.trim().isEmpty
+              ? 'DRAFT-${memberId.substring(0, 8)}'
+              : _globalRecordNo.text.trim(),
+          memberName: _memberName.text.trim().isEmpty ? 'New' : _memberName.text.trim(),
+          surname: _surname.text.trim().isEmpty ? 'Member' : _surname.text.trim(),
+          updatedAt: DateTime.now().toUtc(),
+          pendingSync: true,
+        );
+        await ref.read(memberRepositoryProvider).save(draft);
+        _currentId = memberId;
+        ref.read(selectedMemberIdProvider.notifier).state = memberId;
+      }
+
+      final path = await ref.read(fileStorageServiceProvider).pickMemberPhoto(
+            memberId: memberId,
+          );
+      if (path == null) return;
+
+      final updated = await ref.read(memberRepositoryProvider).getById(memberId);
+      if (!mounted) return;
+      setState(() {
+        _photoLocalPath = updated?.photoLocalPath ?? path;
+        _photoUrl = updated?.photoUrl;
+      });
+      await _bootstrap();
+      final index = _members.indexWhere((m) => m.id == memberId);
+      if (index >= 0) _loadMember(_members[index], index);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Photo upload failed: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _clearMemberPhoto() async {
+    if (_currentId == null) {
+      setState(() {
+        _photoLocalPath = null;
+        _photoUrl = null;
+      });
+      return;
+    }
+    await ref.read(databaseServiceProvider).updateMemberPhoto(
+          id: _currentId!,
+          photoLocalPath: null,
+          photoUrl: null,
+        );
+    setState(() {
+      _photoLocalPath = null;
+      _photoUrl = null;
+    });
+    await ref.read(syncEngineProvider).pushPending();
+  }
+
+  Widget _memberPhotoPanel() {
+    ImageProvider? image;
+    if (_photoLocalPath != null && File(_photoLocalPath!).existsSync()) {
+      image = FileImage(File(_photoLocalPath!));
+    } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+      image = NetworkImage(_photoUrl!);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: _photoBusy ? null : _pickMemberPhoto,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.forestGreen, width: 2),
+              image: image == null
+                  ? null
+                  : DecorationImage(image: image, fit: BoxFit.cover),
+            ),
+            child: image == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_photoBusy)
+                        const CircularProgressIndicator()
+                      else ...[
+                        const Icon(
+                          Icons.add_a_photo_outlined,
+                          size: 36,
+                          color: AppTheme.forestGreen,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Member Photo',
+                          style: TextStyle(
+                            color: AppTheme.forestGreen.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  )
+                : _photoBusy
+                    ? const ColoredBox(
+                        color: Colors.black26,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : null,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: _photoBusy ? null : _pickMemberPhoto,
+          icon: const Icon(Icons.photo_camera_outlined, size: 18),
+          label: Text(image == null ? 'Upload Photo' : 'Change Photo'),
+        ),
+        if (image != null)
+          TextButton(
+            onPressed: _photoBusy ? null : _clearMemberPhoto,
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+      ],
+    );
   }
 
   Future<void> _save() async {
@@ -150,12 +306,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         contactNo2: _contactNo2.text.trim(),
         emailAddress: _email.text.trim(),
         comment: _comment.text.trim(),
+        photoLocalPath: _photoLocalPath,
+        photoUrl: _photoUrl,
         updatedAt: DateTime.now().toUtc(),
         pendingSync: true,
         deleted: false,
       );
 
-      final saved = await ref.read(memberRepositoryProvider).save(member);
+      // Keep draft id when creating so a pre-picked photo stays linked.
+      final toSave = (_currentId == null && _draftId != null)
+          ? member.copyWith(id: _draftId)
+          : (_currentId != null ? member.copyWith(id: _currentId) : member);
+
+      final saved = await ref.read(memberRepositoryProvider).save(toSave);
       final user = ref.read(authUserProvider);
       if (user != null) {
         await ref.read(activityServiceProvider).record(
@@ -365,71 +528,93 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: TextFormField(
-                          controller: _saId,
-                          decoration: const InputDecoration(
-                            labelText: 'SA ID (max 13)',
-                          ),
-                          maxLength: AppConstants.saIdMaxLength,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _saId,
+                                    decoration: const InputDecoration(
+                                      labelText: 'SA ID (max 13)',
+                                    ),
+                                    maxLength: AppConstants.saIdMaxLength,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Required';
+                                      }
+                                      if (v.length >
+                                          AppConstants.saIdMaxLength) {
+                                        return 'Max 13 characters';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _globalRecordNo,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Global Record No (max 14)',
+                                    ),
+                                    maxLength:
+                                        AppConstants.globalRecordNoMaxLength,
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Required';
+                                      }
+                                      if (v.length >
+                                          AppConstants
+                                              .globalRecordNoMaxLength) {
+                                        return 'Max 14 characters';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _memberName,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Member Name',
+                                    ),
+                                    validator: (v) =>
+                                        (v == null || v.trim().isEmpty)
+                                            ? 'Required'
+                                            : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _surname,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Surname',
+                                    ),
+                                    validator: (v) =>
+                                        (v == null || v.trim().isEmpty)
+                                            ? 'Required'
+                                            : null,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'Required';
-                            }
-                            if (v.length > AppConstants.saIdMaxLength) {
-                              return 'Max 13 characters';
-                            }
-                            return null;
-                          },
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _globalRecordNo,
-                          decoration: const InputDecoration(
-                            labelText: 'Global Record No (max 14)',
-                          ),
-                          maxLength: AppConstants.globalRecordNoMaxLength,
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'Required';
-                            }
-                            if (v.length >
-                                AppConstants.globalRecordNoMaxLength) {
-                              return 'Max 14 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _memberName,
-                          decoration:
-                              const InputDecoration(labelText: 'Member Name'),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? 'Required' : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _surname,
-                          decoration:
-                              const InputDecoration(labelText: 'Surname'),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? 'Required' : null,
-                        ),
-                      ),
+                      const SizedBox(width: 16),
+                      _memberPhotoPanel(),
                     ],
                   ),
                   const SizedBox(height: 8),

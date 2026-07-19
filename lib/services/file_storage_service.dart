@@ -19,6 +19,58 @@ class FileStorageService {
   Future<List<MemberFile>> listForMember(String memberId) =>
       _db.getFilesForMember(memberId);
 
+  /// Pick a member profile photo (images only). Returns local copy path.
+  Future<String?> pickMemberPhoto({required String memberId}) async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      withData: false,
+      type: FileType.image,
+      initialDirectory: await _documentsDirectory(),
+    );
+    if (result == null || result.files.isEmpty) return null;
+
+    final picked = result.files.single;
+    final path = picked.path;
+    if (path == null) {
+      throw Exception('Could not read selected image path.');
+    }
+
+    final appDocs = await getApplicationDocumentsDirectory();
+    final photoDir = Directory(p.join(appDocs.path, 'member_photos', memberId));
+    if (!photoDir.existsSync()) {
+      await photoDir.create(recursive: true);
+    }
+
+    final ext = p.extension(picked.name).isEmpty
+        ? '.jpg'
+        : p.extension(picked.name);
+    final localCopy = File(p.join(photoDir.path, 'profile$ext'));
+    await File(path).copy(localCopy.path);
+
+    var photoUrl = '';
+    if (FirebaseBootstrap.ready) {
+      try {
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('member_photos')
+            .child(memberId)
+            .child('profile$ext');
+        await ref.putFile(localCopy);
+        photoUrl = await ref.getDownloadURL();
+      } catch (_) {
+        // Local path kept; SyncEngine retries cloud upload.
+      }
+    }
+
+    await _db.updateMemberPhoto(
+      id: memberId,
+      photoLocalPath: localCopy.path,
+      photoUrl: photoUrl.isEmpty ? null : photoUrl,
+    );
+    await _sync.pushPending();
+    return localCopy.path;
+  }
+
   /// Opens the system file explorer (Documents preferred) and uploads.
   Future<MemberFile?> pickAndUpload({
     required String memberId,
