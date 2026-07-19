@@ -10,6 +10,7 @@ import 'screens/landing/landing_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
 import 'screens/sos/sos_screen.dart';
+import 'screens/users/add_user_screen.dart';
 import 'widgets/app_drawer.dart';
 
 class GardenTownCountyApp extends ConsumerWidget {
@@ -35,13 +36,28 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(appSectionProvider);
     final refreshTick = ref.watch(appRefreshTickProvider);
+    final isAdmin = ref.watch(isAdminProvider);
     final isHome = section == AppSection.home;
+
+    // Non-admins cannot remain on admin-only sections.
+    final effectiveSection =
+        (!isAdmin &&
+                (section == AppSection.activities ||
+                    section == AppSection.addUser))
+            ? AppSection.home
+            : section;
+
+    if (effectiveSection != section) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(appSectionProvider.notifier).state = AppSection.home;
+      });
+    }
 
     return Scaffold(
       appBar: isHome
           ? null
           : AppBar(
-              title: Text(_titleFor(section)),
+              title: Text(_titleFor(effectiveSection)),
             ),
       drawer: const AppDrawer(),
       body: LayoutBuilder(
@@ -58,7 +74,7 @@ class AppShell extends ConsumerWidget {
               child: SizedBox(
                 height: constraints.maxHeight,
                 width: constraints.maxWidth,
-                child: isHome
+                child: effectiveSection == AppSection.home
                     ? Stack(
                         fit: StackFit.expand,
                         children: [
@@ -85,8 +101,10 @@ class AppShell extends ConsumerWidget {
                         ],
                       )
                     : KeyedSubtree(
-                        key: ValueKey('section-$section-$refreshTick'),
-                        child: _bodyFor(section),
+                        key: ValueKey(
+                          'section-$effectiveSection-$refreshTick',
+                        ),
+                        child: _bodyFor(effectiveSection),
                       ),
               ),
             ),
@@ -106,6 +124,8 @@ class AppShell extends ConsumerWidget {
         return 'SOS';
       case AppSection.activities:
         return 'Activities';
+      case AppSection.addUser:
+        return 'Add User';
       case AppSection.global528:
         return 'Global 528';
       case AppSection.global928:
@@ -125,6 +145,8 @@ class AppShell extends ConsumerWidget {
         return const SosScreen();
       case AppSection.activities:
         return const ActivitiesScreen();
+      case AppSection.addUser:
+        return const AddUserScreen();
       case AppSection.global528:
         return const PlaceholderScreen(title: 'Global 528');
       case AppSection.global928:

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/activity_log.dart';
+import '../models/app_user.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/sos_preset.dart';
@@ -20,9 +21,15 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
   return SyncEngine(ref.watch(databaseServiceProvider));
 });
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(ref.watch(databaseServiceProvider));
+});
 
 final authUserProvider = StateProvider<AuthUser?>((ref) => null);
+
+final isAdminProvider = Provider<bool>((ref) {
+  return ref.watch(authUserProvider)?.isAdmin ?? false;
+});
 
 final memberRepositoryProvider = Provider<MemberRepository>((ref) {
   return MemberRepository(
@@ -71,12 +78,18 @@ final sosPresetsProvider =
   return ref.watch(databaseServiceProvider).getSosPresets();
 });
 
+final appUsersProvider =
+    FutureProvider.autoDispose<List<AppUser>>((ref) async {
+  return ref.watch(authServiceProvider).listOperators();
+});
+
 /// Navigation target shown inside the shell after login.
 enum AppSection {
   home,
   memberInfo,
   sos,
   activities,
+  addUser,
   global528,
   global928,
   lro,
@@ -95,6 +108,7 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(membersProvider);
   ref.invalidate(activitiesProvider);
   ref.invalidate(sosPresetsProvider);
+  ref.invalidate(appUsersProvider);
   for (final type in LookupType.values) {
     ref.invalidate(lookupsProvider(type));
   }

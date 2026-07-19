@@ -3,11 +3,14 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../core/constants/app_constants.dart';
 import '../models/activity_log.dart';
+import '../models/app_user.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
 import '../models/sos_preset.dart';
+import 'password_hasher.dart';
 
 /// Offline-first SQLite access layer for Garden Town County.
 /// On web, uses an in-memory store (SQLite is unavailable in browsers).
@@ -24,6 +27,7 @@ class DatabaseService {
   final Map<String, MemberFile> _files = {};
   final Map<String, ActivityLog> _activities = {};
   final Map<String, SosPreset> _presets = {};
+  final Map<String, AppUser> _appUsers = {};
 
   Database get db {
     final database = _db;
@@ -39,6 +43,7 @@ class DatabaseService {
     if (kIsWeb) {
       _memoryMode = true;
       _initialized = true;
+      await ensureSeedAdmin();
       return;
     }
 
@@ -54,7 +59,7 @@ class DatabaseService {
     final dbPath = p.join(documents.path, 'garden_town_county.db');
     _db = await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -62,6 +67,7 @@ class DatabaseService {
       onUpgrade: _onUpgrade,
     );
     _initialized = true;
+    await ensureSeedAdmin();
   }
 
   Future<void> _onUpgrade(
@@ -77,6 +83,25 @@ class DatabaseService {
         'ALTER TABLE members ADD COLUMN photoUrl TEXT',
       );
     }
+    if (oldVersion < 3) {
+      await _createAppUsersTable(database);
+    }
+  }
+
+  Future<void> _createAppUsersTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS app_users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        displayName TEXT NOT NULL,
+        passwordHash TEXT NOT NULL,
+        role TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        active INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
   }
 
   Future<void> _onCreate(Database database, int version) async {
@@ -162,6 +187,137 @@ class DatabaseService {
     );
     await database.execute(
       'CREATE INDEX idx_member_files_member ON member_files(memberId)',
+    );
+    await _createAppUsersTable(database);
+  }
+
+  Future<void> ensureSeedAdmin() async {
+    final existing =
+        await getAppUserByUsername(AppConstants.demoUsername);
+    if (existing != null) return;
+
+    final admin = AppUser(
+      id: 'demo-admin',
+      username: AppConstants.demoUsername,
+      displayName: AppConstants.demoDisplayName,
+      passwordHash: PasswordHasher.hash(AppConstants.demoPassword),
+      role: UserRole.admin,
+      updatedAt: DateTime.now().toUtc(),
+      pendingSync: true,
+    );
+    await upsertAppUser(admin);
+  }
+
+  // ── App users (operators) ──────────────────────────────────────────────
+
+  Future<List<AppUser>> getAppUsers() async {
+    if (_memoryMode) {
+      final list = _appUsers.values.where((u) => !u.deleted).toList()
+        ..sort(
+          (a, b) =>
+              a.username.toLowerCase().compareTo(b.username.toLowerCase()),
+        );
+      return list;
+    }
+    final rows = await db.query(
+      'app_users',
+      where: 'deleted = 0',
+      orderBy: 'username COLLATE NOCASE ASC',
+    );
+    return rows.map(AppUser.fromMap).toList();
+  }
+
+  Future<AppUser?> getAppUserById(String id) async {
+    if (_memoryMode) {
+      final user = _appUsers[id];
+      if (user == null || user.deleted) return null;
+      return user;
+    }
+    final rows = await db.query(
+      'app_users',
+      where: 'id = ? AND deleted = 0',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AppUser.fromMap(rows.first);
+  }
+
+  Future<AppUser?> getAppUserByUsername(String username) async {
+    final key = username.trim().toLowerCase();
+    if (_memoryMode) {
+      for (final user in _appUsers.values) {
+        if (!user.deleted && user.username == key) return user;
+      }
+      return null;
+    }
+    final rows = await db.query(
+      'app_users',
+      where: 'username = ? AND deleted = 0',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AppUser.fromMap(rows.first);
+  }
+
+  Future<void> upsertAppUser(AppUser user) async {
+    if (_memoryMode) {
+      _appUsers[user.id] = user;
+      return;
+    }
+    await db.insert(
+      'app_users',
+      user.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> softDeleteAppUser(String id) async {
+    if (_memoryMode) {
+      final user = _appUsers[id];
+      if (user != null) {
+        _appUsers[id] = user.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
+    await db.update(
+      'app_users',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<AppUser>> getPendingAppUsers() async {
+    if (_memoryMode) {
+      return _appUsers.values.where((u) => u.pendingSync).toList();
+    }
+    final rows = await db.query('app_users', where: 'pendingSync = 1');
+    return rows.map(AppUser.fromMap).toList();
+  }
+
+  Future<void> markAppUserSynced(String id) async {
+    if (_memoryMode) {
+      final user = _appUsers[id];
+      if (user != null) {
+        _appUsers[id] = user.copyWith(pendingSync: false);
+      }
+      return;
+    }
+    await db.update(
+      'app_users',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 

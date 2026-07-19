@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/constants/app_constants.dart';
 import '../models/activity_log.dart';
+import '../models/app_user.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
@@ -24,6 +25,7 @@ class SyncEngine {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _filesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _activitiesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _presetsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _usersSub;
   Timer? _pushTimer;
   bool _pushing = false;
 
@@ -49,6 +51,7 @@ class SyncEngine {
     await _filesSub?.cancel();
     await _activitiesSub?.cancel();
     await _presetsSub?.cancel();
+    await _usersSub?.cancel();
     _pushTimer?.cancel();
   }
 
@@ -77,6 +80,22 @@ class SyncEngine {
         .collection(AppConstants.sosPresetsCollection)
         .snapshots()
         .listen(_onPresetsSnapshot, onError: _logError);
+
+    _usersSub = _fs
+        .collection(AppConstants.appUsersCollection)
+        .snapshots()
+        .listen(_onUsersSnapshot, onError: _logError);
+  }
+
+  Future<void> _onUsersSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = AppUser.fromFirestore({...data, 'id': change.doc.id});
+      await _db.upsertAppUser(remote.copyWith(pendingSync: false));
+    }
   }
 
   Future<void> _onMembersSnapshot(
@@ -153,6 +172,7 @@ class SyncEngine {
       await _pushFiles();
       await _pushActivities();
       await _pushPresets();
+      await _pushAppUsers();
     } catch (error, stack) {
       _logError(error, stack);
     } finally {
@@ -244,6 +264,17 @@ class SyncEngine {
           .doc(preset.id)
           .set(preset.toFirestore(), SetOptions(merge: true));
       await _db.markSosPresetSynced(preset.id);
+    }
+  }
+
+  Future<void> _pushAppUsers() async {
+    final pending = await _db.getPendingAppUsers();
+    for (final user in pending) {
+      await _fs
+          .collection(AppConstants.appUsersCollection)
+          .doc(user.id)
+          .set(user.toFirestore(), SetOptions(merge: true));
+      await _db.markAppUserSynced(user.id);
     }
   }
 

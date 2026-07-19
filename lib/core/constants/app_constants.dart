@@ -7,6 +7,7 @@ class AppConstants {
   static const String memberFilesCollection = 'member_files';
   static const String activitiesCollection = 'activities';
   static const String sosPresetsCollection = 'sos_presets';
+  static const String appUsersCollection = 'app_users';
 
   static const int saIdMaxLength = 13;
   static const int globalRecordNoMaxLength = 14;

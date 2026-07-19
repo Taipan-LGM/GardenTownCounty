@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
+import '../models/app_user.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
 
@@ -12,6 +13,7 @@ class AppDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(appSectionProvider);
     final user = ref.watch(authUserProvider);
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Drawer(
       child: SafeArea(
@@ -37,6 +39,14 @@ class AppDrawer extends ConsumerWidget {
                     user?.displayName ?? 'Guest',
                     style: const TextStyle(color: Colors.white70),
                   ),
+                  if (user != null)
+                    Text(
+                      user.role.label,
+                      style: const TextStyle(
+                        color: AppTheme.gold,
+                        fontSize: 12,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -99,14 +109,24 @@ class AppDrawer extends ConsumerWidget {
               selected: section == AppSection.lro,
               onTap: () => _go(context, ref, AppSection.lro),
             ),
-            _item(
-              context,
-              ref,
-              icon: Icons.timeline,
-              label: 'Activities',
-              selected: section == AppSection.activities,
-              onTap: () => _go(context, ref, AppSection.activities),
-            ),
+            if (isAdmin) ...[
+              _item(
+                context,
+                ref,
+                icon: Icons.person_add_alt_1,
+                label: 'Add User',
+                selected: section == AppSection.addUser,
+                onTap: () => _go(context, ref, AppSection.addUser),
+              ),
+              _item(
+                context,
+                ref,
+                icon: Icons.timeline,
+                label: 'Activities',
+                selected: section == AppSection.activities,
+                onTap: () => _go(context, ref, AppSection.activities),
+              ),
+            ],
             const Spacer(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.white70),

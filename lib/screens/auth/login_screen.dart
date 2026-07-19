@@ -148,7 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Demo: ${AppConstants.demoUsername} / ${AppConstants.demoPassword}',
+                        'Admin: ${AppConstants.demoUsername} / ${AppConstants.demoPassword}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 12,
