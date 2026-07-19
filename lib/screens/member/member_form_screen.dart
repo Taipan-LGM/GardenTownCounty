@@ -236,6 +236,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String?>(
+                key: ValueKey(
+                  '${type.storageKey}-${_currentId ?? 'new'}-$effective',
+                ),
                 initialValue: effective,
                 decoration: InputDecoration(labelText: label),
                 items: [
@@ -359,6 +362,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             child: Form(
               key: _formKey,
               child: ListView(
+                key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
                   Row(
                     children: [
