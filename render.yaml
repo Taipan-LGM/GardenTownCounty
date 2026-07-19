@@ -1,0 +1,17 @@
+# Deploy Flutter web build as a static site on Render.
+# Desktop/mobile installs still ship from GitHub releases / local builds.
+services:
+  - type: web
+    name: garden-town-county
+    runtime: static
+    buildCommand: |
+      git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
+      export PATH="$HOME/flutter/bin:$PATH"
+      flutter config --enable-web
+      flutter pub get
+      flutter build web --release
+    staticPublishPath: build/web
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
