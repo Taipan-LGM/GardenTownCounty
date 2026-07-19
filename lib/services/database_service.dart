@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -12,12 +10,20 @@ import '../models/member_file.dart';
 import '../models/sos_preset.dart';
 
 /// Offline-first SQLite access layer for Garden Town County.
+/// On web, uses an in-memory store (SQLite is unavailable in browsers).
 class DatabaseService {
   DatabaseService._();
   static final DatabaseService instance = DatabaseService._();
 
   Database? _db;
   bool _initialized = false;
+  bool _memoryMode = false;
+
+  final Map<String, Member> _members = {};
+  final Map<String, LookupItem> _lookups = {};
+  final Map<String, MemberFile> _files = {};
+  final Map<String, ActivityLog> _activities = {};
+  final Map<String, SosPreset> _presets = {};
 
   Database get db {
     final database = _db;
@@ -30,16 +36,18 @@ class DatabaseService {
   Future<void> init() async {
     if (_initialized) return;
 
-    if (!kIsWeb &&
-        (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
+    if (kIsWeb) {
+      _memoryMode = true;
+      _initialized = true;
+      return;
     }
 
-    if (kIsWeb) {
-      throw UnsupportedError(
-        'SQLite is not supported on web. Run the desktop/mobile build.',
-      );
+    // Desktop FFI (avoid dart:io import so web can compile).
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
     }
 
     final documents = await getApplicationDocumentsDirectory();
@@ -56,7 +64,11 @@ class DatabaseService {
     _initialized = true;
   }
 
-  Future<void> _onUpgrade(Database database, int oldVersion, int newVersion) async {
+  Future<void> _onUpgrade(
+    Database database,
+    int oldVersion,
+    int newVersion,
+  ) async {
     if (oldVersion < 2) {
       await database.execute(
         'ALTER TABLE members ADD COLUMN photoLocalPath TEXT',
@@ -156,6 +168,15 @@ class DatabaseService {
   // ── Members ────────────────────────────────────────────────────────────
 
   Future<List<Member>> getAllMembers() async {
+    if (_memoryMode) {
+      final list = _members.values.where((m) => !m.deleted).toList()
+        ..sort((a, b) {
+          final s = a.surname.toLowerCase().compareTo(b.surname.toLowerCase());
+          if (s != 0) return s;
+          return a.memberName.toLowerCase().compareTo(b.memberName.toLowerCase());
+        });
+      return list;
+    }
     final rows = await db.query(
       'members',
       where: 'deleted = 0',
@@ -165,6 +186,11 @@ class DatabaseService {
   }
 
   Future<Member?> getMemberById(String id) async {
+    if (_memoryMode) {
+      final m = _members[id];
+      if (m == null || m.deleted) return null;
+      return m;
+    }
     final rows = await db.query(
       'members',
       where: 'id = ? AND deleted = 0',
@@ -176,6 +202,26 @@ class DatabaseService {
   }
 
   Future<List<Member>> searchMembers(String query) async {
+    if (_memoryMode) {
+      final q = query.trim().toLowerCase();
+      return (await getAllMembers()).where((m) {
+        final hay = [
+          m.saId,
+          m.globalRecordNo,
+          m.memberName,
+          m.surname,
+          m.address,
+          m.suburb,
+          m.townCity,
+          m.postalCode,
+          m.contactNo1,
+          m.contactNo2,
+          m.emailAddress,
+          m.comment,
+        ].join(' ').toLowerCase();
+        return hay.contains(q);
+      }).toList();
+    }
     final q = '%${query.trim()}%';
     final rows = await db.query(
       'members',
@@ -194,6 +240,10 @@ class DatabaseService {
   }
 
   Future<void> upsertMember(Member member) async {
+    if (_memoryMode) {
+      _members[member.id] = member;
+      return;
+    }
     await db.insert(
       'members',
       member.toMap(),
@@ -202,6 +252,17 @@ class DatabaseService {
   }
 
   Future<void> softDeleteMember(String id) async {
+    if (_memoryMode) {
+      final m = _members[id];
+      if (m != null) {
+        _members[id] = m.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
     await db.update(
       'members',
       {
@@ -215,11 +276,19 @@ class DatabaseService {
   }
 
   Future<List<Member>> getPendingMembers() async {
+    if (_memoryMode) {
+      return _members.values.where((m) => m.pendingSync).toList();
+    }
     final rows = await db.query('members', where: 'pendingSync = 1');
     return rows.map(Member.fromMap).toList();
   }
 
   Future<void> markMemberSynced(String id) async {
+    if (_memoryMode) {
+      final m = _members[id];
+      if (m != null) _members[id] = m.copyWith(pendingSync: false);
+      return;
+    }
     await db.update(
       'members',
       {'pendingSync': 0},
@@ -233,6 +302,20 @@ class DatabaseService {
     String? photoLocalPath,
     String? photoUrl,
   }) async {
+    if (_memoryMode) {
+      final m = _members[id];
+      if (m != null) {
+        _members[id] = m.copyWith(
+          photoLocalPath: photoLocalPath,
+          photoUrl: photoUrl,
+          clearPhotoLocalPath: photoLocalPath == null,
+          clearPhotoUrl: photoUrl == null,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
     await db.update(
       'members',
       {
@@ -249,6 +332,15 @@ class DatabaseService {
   // ── Lookups ────────────────────────────────────────────────────────────
 
   Future<List<LookupItem>> getLookups(LookupType type) async {
+    if (_memoryMode) {
+      final list = _lookups.values
+          .where((l) => !l.deleted && l.type == type)
+          .toList()
+        ..sort(
+          (a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()),
+        );
+      return list;
+    }
     final rows = await db.query(
       'lookups',
       where: 'type = ? AND deleted = 0',
@@ -259,6 +351,10 @@ class DatabaseService {
   }
 
   Future<void> upsertLookup(LookupItem item) async {
+    if (_memoryMode) {
+      _lookups[item.id] = item;
+      return;
+    }
     await db.insert(
       'lookups',
       item.toMap(),
@@ -267,6 +363,17 @@ class DatabaseService {
   }
 
   Future<void> softDeleteLookup(String id) async {
+    if (_memoryMode) {
+      final item = _lookups[id];
+      if (item != null) {
+        _lookups[id] = item.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
     await db.update(
       'lookups',
       {
@@ -280,11 +387,19 @@ class DatabaseService {
   }
 
   Future<List<LookupItem>> getPendingLookups() async {
+    if (_memoryMode) {
+      return _lookups.values.where((l) => l.pendingSync).toList();
+    }
     final rows = await db.query('lookups', where: 'pendingSync = 1');
     return rows.map(LookupItem.fromMap).toList();
   }
 
   Future<void> markLookupSynced(String id) async {
+    if (_memoryMode) {
+      final item = _lookups[id];
+      if (item != null) _lookups[id] = item.copyWith(pendingSync: false);
+      return;
+    }
     await db.update(
       'lookups',
       {'pendingSync': 0},
@@ -296,6 +411,16 @@ class DatabaseService {
   // ── Member files ───────────────────────────────────────────────────────
 
   Future<List<MemberFile>> getFilesForMember(String memberId) async {
+    if (_memoryMode) {
+      final list = _files.values
+          .where((f) => !f.deleted && f.memberId == memberId)
+          .toList()
+        ..sort(
+          (a, b) =>
+              a.fileName.toLowerCase().compareTo(b.fileName.toLowerCase()),
+        );
+      return list;
+    }
     final rows = await db.query(
       'member_files',
       where: 'memberId = ? AND deleted = 0',
@@ -306,6 +431,10 @@ class DatabaseService {
   }
 
   Future<void> upsertMemberFile(MemberFile file) async {
+    if (_memoryMode) {
+      _files[file.id] = file;
+      return;
+    }
     await db.insert(
       'member_files',
       file.toMap(),
@@ -314,6 +443,13 @@ class DatabaseService {
   }
 
   Future<void> softDeleteMemberFile(String id) async {
+    if (_memoryMode) {
+      final file = _files[id];
+      if (file != null) {
+        _files[id] = file.copyWith(deleted: true, pendingSync: true);
+      }
+      return;
+    }
     await db.update(
       'member_files',
       {
@@ -326,6 +462,11 @@ class DatabaseService {
   }
 
   Future<List<MemberFile>> getPendingMemberFiles() async {
+    if (_memoryMode) {
+      return _files.values
+          .where((f) => f.pendingSync && !f.deleted)
+          .toList();
+    }
     final rows = await db.query(
       'member_files',
       where: 'pendingSync = 1 AND deleted = 0',
@@ -334,6 +475,16 @@ class DatabaseService {
   }
 
   Future<void> markMemberFileSynced(String id, {String? storageUrl}) async {
+    if (_memoryMode) {
+      final file = _files[id];
+      if (file != null) {
+        _files[id] = file.copyWith(
+          pendingSync: false,
+          storageUrl: storageUrl,
+        );
+      }
+      return;
+    }
     final values = <String, Object?>{'pendingSync': 0};
     if (storageUrl != null) {
       values['storageUrl'] = storageUrl;
@@ -349,6 +500,11 @@ class DatabaseService {
   // ── Activities ─────────────────────────────────────────────────────────
 
   Future<List<ActivityLog>> getActivities() async {
+    if (_memoryMode) {
+      final list = _activities.values.toList()
+        ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+      return list;
+    }
     final rows = await db.query(
       'activities',
       orderBy: 'occurredAt DESC',
@@ -357,6 +513,10 @@ class DatabaseService {
   }
 
   Future<void> insertActivity(ActivityLog activity) async {
+    if (_memoryMode) {
+      _activities[activity.id] = activity;
+      return;
+    }
     await db.insert(
       'activities',
       activity.toMap(),
@@ -365,11 +525,30 @@ class DatabaseService {
   }
 
   Future<List<ActivityLog>> getPendingActivities() async {
+    if (_memoryMode) {
+      return _activities.values.where((a) => a.pendingSync).toList();
+    }
     final rows = await db.query('activities', where: 'pendingSync = 1');
     return rows.map(ActivityLog.fromMap).toList();
   }
 
   Future<void> markActivitySynced(String id) async {
+    if (_memoryMode) {
+      final a = _activities[id];
+      if (a != null) {
+        _activities[id] = ActivityLog(
+          id: a.id,
+          userName: a.userName,
+          action: a.action,
+          occurredAt: a.occurredAt,
+          latitude: a.latitude,
+          longitude: a.longitude,
+          locationLabel: a.locationLabel,
+          pendingSync: false,
+        );
+      }
+      return;
+    }
     await db.update(
       'activities',
       {'pendingSync': 0},
@@ -381,6 +560,13 @@ class DatabaseService {
   // ── SOS presets ────────────────────────────────────────────────────────
 
   Future<List<SosPreset>> getSosPresets() async {
+    if (_memoryMode) {
+      final list = _presets.values.where((p) => !p.deleted).toList()
+        ..sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
+      return list;
+    }
     final rows = await db.query(
       'sos_presets',
       where: 'deleted = 0',
@@ -390,6 +576,10 @@ class DatabaseService {
   }
 
   Future<void> upsertSosPreset(SosPreset preset) async {
+    if (_memoryMode) {
+      _presets[preset.id] = preset;
+      return;
+    }
     await db.insert(
       'sos_presets',
       preset.toMap(),
@@ -398,6 +588,17 @@ class DatabaseService {
   }
 
   Future<void> softDeleteSosPreset(String id) async {
+    if (_memoryMode) {
+      final preset = _presets[id];
+      if (preset != null) {
+        _presets[id] = preset.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
     await db.update(
       'sos_presets',
       {
@@ -411,11 +612,21 @@ class DatabaseService {
   }
 
   Future<List<SosPreset>> getPendingSosPresets() async {
+    if (_memoryMode) {
+      return _presets.values.where((p) => p.pendingSync).toList();
+    }
     final rows = await db.query('sos_presets', where: 'pendingSync = 1');
     return rows.map(SosPreset.fromMap).toList();
   }
 
   Future<void> markSosPresetSynced(String id) async {
+    if (_memoryMode) {
+      final preset = _presets[id];
+      if (preset != null) {
+        _presets[id] = preset.copyWith(pendingSync: false);
+      }
+      return;
+    }
     await db.update(
       'sos_presets',
       {'pendingSync': 0},

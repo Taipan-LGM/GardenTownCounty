@@ -85,3 +85,18 @@ enum AppSection {
 final appSectionProvider = StateProvider<AppSection>((ref) => AppSection.home);
 
 final selectedMemberIdProvider = StateProvider<String?>((ref) => null);
+
+/// Bump to force screens that key off this value to reload (e.g. Member form).
+final appRefreshTickProvider = StateProvider<int>((ref) => 0);
+
+/// Pull-to-refresh: sync cloud + invalidate cached lists.
+Future<void> refreshApp(WidgetRef ref) async {
+  await ref.read(syncEngineProvider).pushPending();
+  ref.invalidate(membersProvider);
+  ref.invalidate(activitiesProvider);
+  ref.invalidate(sosPresetsProvider);
+  for (final type in LookupType.values) {
+    ref.invalidate(lookupsProvider(type));
+  }
+  ref.read(appRefreshTickProvider.notifier).state++;
+}

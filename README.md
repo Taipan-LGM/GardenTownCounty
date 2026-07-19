@@ -63,15 +63,22 @@ Until that flag is true, the app runs **SQLite-only** (fully usable offline).
 
 Writes always go to SQLite first (`pendingSync = 1`), then sync when cloud is available.
 
-## Deploy (Render)
+## Deploy
 
-`render.yaml` builds Flutter web and publishes `build/web` as a static site.
+### GitHub Pages (automatic)
 
-1. Push this repo to GitHub.
-2. In Render → New → Blueprint → select the repo.
-3. Or create a Static Site with build command from `render.yaml`.
+On every push to `main`, GitHub Actions builds Flutter web and publishes Pages.
 
-> Note: SQLite is not available in the browser. Use desktop/mobile builds for the full offline database. Web is suitable for UI preview once a web persistence strategy is added.
+**App URL:** https://taipan-lgm.github.io/GardenTownCounty/
+
+### Render
+
+`render.yaml` builds Flutter web as a static site.
+
+1. Render → New → Blueprint → select this repo  
+2. Or create a Static Site using the build command in `render.yaml`
+
+> Web uses an in-memory database (session-only). Desktop/mobile keep full SQLite offline storage.
 
 ## Tests
 

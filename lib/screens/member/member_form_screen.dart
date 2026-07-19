@@ -651,8 +651,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         child: TextFormField(
                           controller: _contactNo1,
                           decoration: const InputDecoration(
-                            labelText: 'Contact No 1',
+                            labelText: 'Contact No 1 (max 12)',
                           ),
+                          maxLength: AppConstants.contactNoMaxLength,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(
+                              AppConstants.contactNoMaxLength,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -660,8 +667,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         child: TextFormField(
                           controller: _contactNo2,
                           decoration: const InputDecoration(
-                            labelText: 'Contact No 2',
+                            labelText: 'Contact No 2 (max 12)',
                           ),
+                          maxLength: AppConstants.contactNoMaxLength,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(
+                              AppConstants.contactNoMaxLength,
+                            ),
+                          ],
                         ),
                       ),
                     ],

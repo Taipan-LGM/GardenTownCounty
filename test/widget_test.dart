@@ -8,6 +8,7 @@ void main() {
     expect(AppConstants.demoUsername, isNotEmpty);
     expect(AppConstants.saIdMaxLength, 13);
     expect(AppConstants.globalRecordNoMaxLength, 14);
+    expect(AppConstants.contactNoMaxLength, 12);
   });
 
   test('member firestore payload omits local pendingSync flag', () {

@@ -43,6 +43,14 @@ class AppDrawer extends ConsumerWidget {
             _item(
               context,
               ref,
+              icon: Icons.home,
+              label: 'Home',
+              selected: section == AppSection.home,
+              onTap: () => _go(context, ref, AppSection.home),
+            ),
+            _item(
+              context,
+              ref,
               icon: Icons.search,
               label: 'Search',
               selected: false,
@@ -100,11 +108,6 @@ class AppDrawer extends ConsumerWidget {
               onTap: () => _go(context, ref, AppSection.activities),
             ),
             const Spacer(),
-            ListTile(
-              leading: const Icon(Icons.home, color: Colors.white70),
-              title: const Text('Landing', style: TextStyle(color: Colors.white)),
-              onTap: () => _go(context, ref, AppSection.home),
-            ),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.white70),
               title: const Text('Sign out', style: TextStyle(color: Colors.white)),

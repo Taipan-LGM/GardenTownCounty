@@ -12,8 +12,10 @@ Future<void> main() async {
 
   await FirebaseBootstrap.initialize();
 
-  if (!kIsWeb) {
-    await DatabaseService.instance.init();
+  // SQLite on desktop/mobile; in-memory store on web preview.
+  await DatabaseService.instance.init();
+  if (kIsWeb) {
+    debugPrint('Running web preview with in-memory database.');
   }
 
   final container = ProviderContainer();

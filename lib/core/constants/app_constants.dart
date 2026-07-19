@@ -10,6 +10,7 @@ class AppConstants {
 
   static const int saIdMaxLength = 13;
   static const int globalRecordNoMaxLength = 14;
+  static const int contactNoMaxLength = 12;
 
   /// Demo login when Firebase Auth is not configured.
   static const String demoUsername = 'admin';

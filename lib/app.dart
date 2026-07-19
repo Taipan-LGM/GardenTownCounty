@@ -34,49 +34,72 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(appSectionProvider);
-    final isLanding = section == AppSection.home;
+    final refreshTick = ref.watch(appRefreshTickProvider);
+    final isHome = section == AppSection.home;
 
     return Scaffold(
-      // Landing: zero chrome — logo fills 100% of the viewport.
-      appBar: isLanding
+      appBar: isHome
           ? null
           : AppBar(
               title: Text(_titleFor(section)),
             ),
       drawer: const AppDrawer(),
-      body: isLanding
-          ? Stack(
-              fit: StackFit.expand,
-              children: [
-                const LandingScreen(),
-                SafeArea(
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Builder(
-                      builder: (context) {
-                        return IconButton(
-                          icon: const Icon(
-                            Icons.menu,
-                            color: AppTheme.gold,
-                            size: 32,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return RefreshIndicator(
+            color: AppTheme.gold,
+            backgroundColor: AppTheme.forestGreen,
+            displacement: 40,
+            onRefresh: () => refreshApp(ref),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              child: SizedBox(
+                height: constraints.maxHeight,
+                width: constraints.maxWidth,
+                child: isHome
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const LandingScreen(),
+                          SafeArea(
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Builder(
+                                builder: (context) {
+                                  return IconButton(
+                                    icon: const Icon(
+                                      Icons.menu,
+                                      color: AppTheme.gold,
+                                      size: 32,
+                                    ),
+                                    tooltip: 'Open menu',
+                                    onPressed: () =>
+                                        Scaffold.of(context).openDrawer(),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
-                          tooltip: 'Open menu',
-                          onPressed: () => Scaffold.of(context).openDrawer(),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : _bodyFor(section),
+                        ],
+                      )
+                    : KeyedSubtree(
+                        key: ValueKey('section-$section-$refreshTick'),
+                        child: _bodyFor(section),
+                      ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
   String _titleFor(AppSection section) {
     switch (section) {
       case AppSection.home:
-        return AppConstants.appName;
+        return 'Home';
       case AppSection.memberInfo:
         return 'Member Info';
       case AppSection.sos:
