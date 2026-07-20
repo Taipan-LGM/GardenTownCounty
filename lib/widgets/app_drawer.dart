@@ -28,34 +28,59 @@ class AppDrawer extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DrawerHeader(
+              margin: EdgeInsets.zero,
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
               decoration: const BoxDecoration(color: AppTheme.forestGreen),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+              child: Stack(
                 children: [
-                  const RoundCountyLogo(size: 48),
-                  const SizedBox(height: 8),
-                  Text(
-                    countyName,
-                    style: const TextStyle(
-                      color: AppTheme.gold,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user?.displayName ?? 'Guest',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  if (user != null)
-                    Text(
-                      user.role,
-                      style: const TextStyle(
-                        color: AppTheme.gold,
-                        fontSize: 12,
+                  // Settings cork — top right of left bar header.
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: IconButton(
+                      tooltip: strings.settings,
+                      icon: Icon(
+                        Icons.settings,
+                        color: section == AppSection.settings
+                            ? AppTheme.gold
+                            : Colors.white,
                       ),
+                      onPressed: () =>
+                          _go(context, ref, AppSection.settings),
                     ),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const RoundCountyLogo(size: 48),
+                        const SizedBox(height: 8),
+                        Text(
+                          countyName,
+                          style: const TextStyle(
+                            color: AppTheme.gold,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.displayName ?? 'Guest',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        if (user != null)
+                          Text(
+                            user.role,
+                            style: const TextStyle(
+                              color: AppTheme.gold,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -81,14 +106,6 @@ class AppDrawer extends ConsumerWidget {
                       Navigator.of(context).pop();
                       await showGlobalSearchDialog(context, ref);
                     },
-                  ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.settings,
-                    label: strings.settings,
-                    selected: section == AppSection.settings,
-                    onTap: () => _go(context, ref, AppSection.settings),
                   ),
                   _item(
                     context,
@@ -156,12 +173,31 @@ class AppDrawer extends ConsumerWidget {
                       icon: Icons.timeline,
                       label: strings.activities,
                       selected: section == AppSection.activities,
-                      onTap: () => _go(context, ref, AppSection.activities),
+                      onTap: () =>
+                          _go(context, ref, AppSection.activities),
                     ),
+                  // Sign out — just below Activities.
+                  ListTile(
+                    leading:
+                        const Icon(Icons.logout, color: Colors.white70),
+                    title: Text(
+                      strings.signOut,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    onTap: () async {
+                      await ref.read(authServiceProvider).signOut();
+                      ref.read(authUserProvider.notifier).state = null;
+                      ref.read(appSectionProvider.notifier).state =
+                          AppSection.home;
+                      ref.read(landingCompleteProvider.notifier).state =
+                          false;
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                  ),
                 ],
               ),
             ),
-            // County Information — above Sign out, centered, white band.
+            // County Information — centered, white band.
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: Container(
@@ -205,20 +241,6 @@ class AppDrawer extends ConsumerWidget {
                   ],
                 ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.white70),
-              title: Text(
-                strings.signOut,
-                style: const TextStyle(color: Colors.white),
-              ),
-              onTap: () async {
-                await ref.read(authServiceProvider).signOut();
-                ref.read(authUserProvider.notifier).state = null;
-                ref.read(appSectionProvider.notifier).state = AppSection.home;
-                ref.read(landingCompleteProvider.notifier).state = false;
-                if (context.mounted) Navigator.of(context).pop();
-              },
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
