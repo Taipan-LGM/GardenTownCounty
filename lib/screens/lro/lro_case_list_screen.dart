@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/theme/app_theme.dart';
+import '../../widgets/lro/lro_theme.dart';
 import '../../models/lro_case.dart';
 import '../../providers/providers.dart';
 import '../../widgets/lro/lro_search_bar.dart';
@@ -94,7 +94,8 @@ class _LroCaseListScreenState extends ConsumerState<LroCaseListScreen> {
     final casesAsync = ref.watch(provider);
     final dateFmt = DateFormat('yyyy-MM-dd');
 
-    return Padding(
+    return LroThemed(
+      child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -104,10 +105,10 @@ class _LroCaseListScreenState extends ConsumerState<LroCaseListScreen> {
               Expanded(
                 child: Text(
                   widget.caseType.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.forestGreen,
+                    color: LroTheme.text(context),
                   ),
                 ),
               ),
@@ -277,6 +278,7 @@ class _LroCaseListScreenState extends ConsumerState<LroCaseListScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

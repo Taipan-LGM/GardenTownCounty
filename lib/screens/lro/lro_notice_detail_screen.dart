@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/theme/app_theme.dart';
+import '../../widgets/lro/lro_theme.dart';
 import '../../models/lro_history.dart';
 import '../../models/lro_notice.dart';
 import '../../providers/providers.dart';
@@ -131,7 +131,8 @@ class _LroNoticeDetailScreenState extends ConsumerState<LroNoticeDetailScreen> {
   Widget build(BuildContext context) {
     final notice = _notice;
 
-    return Scaffold(
+    return LroThemed(
+      child: Scaffold(
       appBar: AppBar(
         title: Text(notice?.title ?? 'Notice Detail'),
         actions: notice == null
@@ -206,7 +207,7 @@ class _LroNoticeDetailScreenState extends ConsumerState<LroNoticeDetailScreen> {
                     Text(
                       'Audit History',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppTheme.forestGreen,
+                            color: LroTheme.text(context),
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -227,6 +228,7 @@ class _LroNoticeDetailScreenState extends ConsumerState<LroNoticeDetailScreen> {
                       ),
                   ],
                 ),
+    ),
     );
   }
 }

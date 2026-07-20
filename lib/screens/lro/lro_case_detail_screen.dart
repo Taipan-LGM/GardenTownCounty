@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/theme/app_theme.dart';
+import '../../widgets/lro/lro_theme.dart';
 import '../../models/lro_case.dart';
 import '../../models/lro_document.dart';
 import '../../models/lro_history.dart';
@@ -192,7 +192,8 @@ class _LroCaseDetailScreenState extends ConsumerState<LroCaseDetailScreen> {
     final membersAsync = ref.watch(membersProvider);
     final lroCase = _lroCase;
 
-    return Scaffold(
+    return LroThemed(
+      child: Scaffold(
       appBar: AppBar(
         title: Text(
           lroCase == null
@@ -362,7 +363,7 @@ class _LroCaseDetailScreenState extends ConsumerState<LroCaseDetailScreen> {
                             Text(
                               'Attachments',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: AppTheme.forestGreen,
+                                    color: LroTheme.text(context),
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
@@ -393,7 +394,7 @@ class _LroCaseDetailScreenState extends ConsumerState<LroCaseDetailScreen> {
                         Text(
                           'Audit History',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: AppTheme.forestGreen,
+                                color: LroTheme.text(context),
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
@@ -418,6 +419,7 @@ class _LroCaseDetailScreenState extends ConsumerState<LroCaseDetailScreen> {
                     );
                   },
                 ),
+    ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../widgets/lro/lro_theme.dart';
 import '../../models/lro_case.dart';
 import '../../providers/providers.dart';
 import '../../widgets/lro/lro_stat_card.dart';
@@ -48,20 +49,21 @@ class LroDashboardScreen extends ConsumerWidget {
     final feedAsync = ref.watch(lroNoticeFeedProvider);
     final dateFmt = DateFormat('yyyy-MM-dd');
 
-    return Padding(
+    return LroThemed(
+      child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'LRO Dashboard',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.forestGreen,
+                    color: LroTheme.text(context),
                   ),
                 ),
               ),
@@ -164,7 +166,7 @@ class LroDashboardScreen extends ConsumerWidget {
                       title: 'Published',
                       count: published,
                       icon: Icons.verified_outlined,
-                      color: AppTheme.forestGreen,
+                      color: LroTheme.text(context),
                     ),
                   ),
                   SizedBox(
@@ -238,7 +240,7 @@ class LroDashboardScreen extends ConsumerWidget {
           Text(
             'Public Notice Feed',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppTheme.forestGreen,
+                  color: LroTheme.text(context),
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -313,6 +315,7 @@ class LroDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

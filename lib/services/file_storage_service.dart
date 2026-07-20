@@ -9,12 +9,25 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/lro_document.dart';
+import '../models/member.dart';
 import '../models/member_file.dart';
 import 'database_service.dart';
 import 'file_storage_io_stub.dart'
     if (dart.library.io) 'file_storage_io.dart' as io;
 import 'firebase_bootstrap.dart';
 import 'sync_engine.dart';
+
+class MemberPhotoPickResult {
+  const MemberPhotoPickResult({
+    required this.path,
+    required this.bytes,
+    this.photoUrl,
+  });
+
+  final String path;
+  final Uint8List bytes;
+  final String? photoUrl;
+}
 
 class FileStorageService {
   FileStorageService(this._db, this._sync);
@@ -23,30 +36,25 @@ class FileStorageService {
   final SyncEngine _sync;
 
   static const _webPhotoPrefix = 'gtc_member_photo_';
-  static const _maxPhotoBytes = 8 * 1024 * 1024;
+  static const _maxPhotoBytes = 12 * 1024 * 1024;
 
-  /// In-memory photo cache (survives prefs quota failures on web).
   final Map<String, Uint8List> _photoMemory = {};
 
   Future<List<MemberFile>> listForMember(String memberId) =>
       _db.getFilesForMember(memberId);
 
-  /// Pick a member profile photo. Returns a display path / web marker.
-  /// Call [peekPhotoBytes] / [loadWebPhotoBytes] afterward for UI bytes.
-  Future<String?> pickMemberPhoto({required String memberId}) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      withData: true,
-      type: FileType.image,
-    );
-    if (result == null || result.files.isEmpty) return null;
+  /// Pick a member profile photo. Always returns display bytes on success.
+  Future<MemberPhotoPickResult?> pickMemberPhoto({
+    required String memberId,
+  }) async {
+    final picked = await _pickImageFile();
+    if (picked == null) return null;
 
-    final picked = result.files.single;
     var bytes = picked.bytes;
     final path = picked.path;
     final ext = _extOf(picked.name);
 
-    // Desktop path-only (no bytes).
+    // Desktop path-only.
     if (bytes == null && path != null && !kIsWeb) {
       final localCopy = await io.copyPhotoToAppDocs(
         sourcePath: path,
@@ -63,34 +71,44 @@ class FileStorageService {
           );
         } catch (_) {}
       }
-      await _db.updateMemberPhoto(
-        id: memberId,
-        photoLocalPath: localCopy,
+      // Read back for UI preview.
+      Uint8List preview;
+      try {
+        preview = await io.readFileBytes(localCopy);
+      } catch (_) {
+        preview = Uint8List(0);
+      }
+      if (preview.isNotEmpty) {
+        _photoMemory[memberId] = preview;
+      }
+      await _persistPhotoMeta(
+        memberId: memberId,
+        localPath: localCopy,
         photoUrl: photoUrl,
       );
       await _safePush();
-      return localCopy;
+      return MemberPhotoPickResult(
+        path: localCopy,
+        bytes: preview.isNotEmpty ? preview : Uint8List(0),
+        photoUrl: photoUrl,
+      );
     }
 
-    if (bytes == null) {
+    if (bytes == null || bytes.isEmpty) {
       throw Exception(
-        'Could not read selected image. Try a JPG or PNG under 8 MB.',
+        'Browser did not return image bytes. Try JPG/PNG, or another browser.',
       );
     }
 
     if (bytes.length > _maxPhotoBytes) {
-      throw Exception('Photo too large (max 8 MB).');
+      throw Exception('Photo too large (max 12 MB).');
     }
 
-    // Downscale for web storage + display.
     var imageBytes = bytes;
     try {
-      imageBytes = await _downscaleImage(imageBytes, maxSide: 800);
-    } catch (_) {
-      // Keep original bytes if codec fails.
-    }
+      imageBytes = await _downscaleImage(imageBytes, maxSide: 720);
+    } catch (_) {}
 
-    // Memory + prefs cache (base64 only — never put data-URI in DB/Firestore).
     _photoMemory[memberId] = imageBytes;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -98,9 +116,7 @@ class FileStorageService {
         '$_webPhotoPrefix$memberId',
         base64Encode(imageBytes),
       );
-    } catch (_) {
-      // Prefs quota exceeded — memory cache still works this session.
-    }
+    } catch (_) {}
 
     String? photoUrl;
     if (FirebaseBootstrap.ready) {
@@ -115,19 +131,83 @@ class FileStorageService {
           SettableMetadata(contentType: 'image/png'),
         );
         photoUrl = await ref.getDownloadURL();
-      } catch (_) {
-        // Offline / Storage rules — local photo still works.
-      }
+      } catch (_) {}
     }
 
     final marker = 'web-photo://$memberId';
-    await _db.updateMemberPhoto(
-      id: memberId,
-      photoLocalPath: marker,
+    await _persistPhotoMeta(
+      memberId: memberId,
+      localPath: marker,
       photoUrl: photoUrl,
     );
     await _safePush();
-    return marker;
+
+    return MemberPhotoPickResult(
+      path: marker,
+      bytes: imageBytes,
+      photoUrl: photoUrl,
+    );
+  }
+
+  Future<PlatformFile?> _pickImageFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: const [
+          'jpg',
+          'jpeg',
+          'png',
+          'webp',
+          'gif',
+          'bmp',
+        ],
+      );
+      if (result != null && result.files.isNotEmpty) {
+        return result.files.single;
+      }
+    } catch (_) {
+      // Fall through to FileType.any.
+    }
+
+    final fallback = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      withData: true,
+      type: FileType.any,
+    );
+    if (fallback == null || fallback.files.isEmpty) return null;
+    return fallback.files.single;
+  }
+
+  Future<void> _persistPhotoMeta({
+    required String memberId,
+    required String localPath,
+    String? photoUrl,
+  }) async {
+    final existing = await _db.getMemberById(memberId);
+    if (existing == null) {
+      // Ensure a row exists so photo metadata is never silently dropped.
+      await _db.upsertMember(
+        Member(
+          id: memberId,
+          saId: memberId.replaceAll('-', '').substring(0, 13),
+          globalRecordNo: 'P-${memberId.substring(0, 8)}',
+          memberName: 'Photo',
+          surname: 'Pending',
+          photoLocalPath: localPath,
+          photoUrl: photoUrl,
+          updatedAt: DateTime.now().toUtc(),
+          pendingSync: true,
+        ),
+      );
+      return;
+    }
+    await _db.updateMemberPhoto(
+      id: memberId,
+      photoLocalPath: localPath,
+      photoUrl: photoUrl,
+    );
   }
 
   Future<void> _safePush() async {
@@ -181,7 +261,6 @@ class FileStorageService {
     }
   }
 
-  /// Expose last-picked bytes immediately for UI (avoids race with prefs).
   Uint8List? peekPhotoBytes(String memberId) => _photoMemory[memberId];
 
   Future<MemberFile?> pickAndUpload({

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
+import 'lro_theme.dart';
 
 /// Compact stat tile used on the LRO dashboard (total cases, pending, etc.).
 class LroStatCard extends StatelessWidget {
@@ -23,32 +23,31 @@ class LroStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = color ?? AppTheme.forestGreen;
+    final accent = color ?? LroTheme.text(context);
+    final fg = LroTheme.text(context);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
                   if (icon != null) ...[
                     Icon(icon, color: accent, size: 20),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                   ],
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: accent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: fg,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ],
@@ -56,18 +55,20 @@ class LroStatCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '$count',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: accent,
-                    ),
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   subtitle!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fg.withValues(alpha: 0.75),
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ],

@@ -167,14 +167,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     setState(() => _photoBusy = true);
     try {
       if (_currentId == null) {
+        final stamp = DateTime.now().millisecondsSinceEpoch.toString();
+        final draftSaId =
+            stamp.length >= 13 ? stamp.substring(stamp.length - 13) : stamp;
+        final draftGr = 'T-$stamp';
         final draft = Member(
           id: memberId,
-          saId: _saId.text.trim().isEmpty
-              ? 'DRAFT${memberId.substring(0, 8)}'
-              : _saId.text.trim(),
-          globalRecordNo: _globalRecordNo.text.trim().isEmpty
-              ? 'DRAFT-${memberId.substring(0, 8)}'
-              : _globalRecordNo.text.trim(),
+          saId: draftSaId,
+          globalRecordNo:
+              draftGr.length > 14 ? draftGr.substring(0, 14) : draftGr,
           memberName: _memberName.text.trim().isEmpty
               ? 'New'
               : _memberName.text.trim(),
@@ -184,44 +185,33 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           updatedAt: DateTime.now().toUtc(),
           pendingSync: true,
         );
-        // Local upsert only — avoid sync failures blocking photo pick.
         await ref.read(databaseServiceProvider).upsertMember(draft);
         _currentId = memberId;
         ref.read(selectedMemberIdProvider.notifier).state = memberId;
       }
 
       final storage = ref.read(fileStorageServiceProvider);
-      final path = await storage.pickMemberPhoto(memberId: memberId);
-      if (path == null) return;
-
-      final updated =
-          await ref.read(memberRepositoryProvider).getById(memberId);
+      final result = await storage.pickMemberPhoto(memberId: memberId);
+      if (result == null) return;
       if (!mounted) return;
 
-      final localPath = updated?.photoLocalPath ?? path;
-      final photoUrl = updated?.photoUrl;
-      final bytes = storage.peekPhotoBytes(memberId) ??
-          await storage.loadWebPhotoBytes(memberId);
-
+      // Apply preview immediately — do not wait on list refresh.
       setState(() {
-        _photoLocalPath = localPath;
-        _photoUrl = photoUrl;
-        if (bytes != null) _photoBytes = bytes;
+        _photoLocalPath = result.path;
+        _photoUrl = result.photoUrl;
+        if (result.bytes.isNotEmpty) {
+          _photoBytes = result.bytes;
+        }
         _draftId = null;
+        _currentId = memberId;
       });
-
-      if (bytes == null) {
-        await _loadPhotoBytes(memberId, localPath, photoUrl);
-      }
 
       final members = await ref.read(memberRepositoryProvider).getAll();
       if (!mounted) return;
       setState(() {
         _members = members;
         _browseIndex = members.indexWhere((m) => m.id == memberId);
-        _currentId = memberId;
       });
-      ref.read(selectedMemberIdProvider.notifier).state = memberId;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -586,81 +576,87 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      // Fields stretch left → photo; photo sits in the middle.
+                      const photoSize = 320.0;
+                      // 4 fields spaced evenly to match photo panel height.
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Column(
-                              children: [
-                                TextFormField(
-                                  controller: _saId,
-                                  decoration: const InputDecoration(
-                                    labelText: 'SA ID (max 13)',
+                            child: SizedBox(
+                              height: photoSize,
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  TextFormField(
+                                    controller: _saId,
+                                    decoration: const InputDecoration(
+                                      labelText: 'SA ID (max 13)',
+                                      isDense: true,
+                                    ),
+                                    maxLength: AppConstants.saIdMaxLength,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Required';
+                                      }
+                                      if (v.length >
+                                          AppConstants.saIdMaxLength) {
+                                        return 'Max 13 characters';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                  maxLength: AppConstants.saIdMaxLength,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  validator: (v) {
-                                    if (v == null || v.trim().isEmpty) {
-                                      return 'Required';
-                                    }
-                                    if (v.length >
-                                        AppConstants.saIdMaxLength) {
-                                      return 'Max 13 characters';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _globalRecordNo,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Global Record No (max 14)',
+                                  TextFormField(
+                                    controller: _globalRecordNo,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Global Record No (max 14)',
+                                      isDense: true,
+                                    ),
+                                    maxLength:
+                                        AppConstants.globalRecordNoMaxLength,
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Required';
+                                      }
+                                      if (v.length >
+                                          AppConstants
+                                              .globalRecordNoMaxLength) {
+                                        return 'Max 14 characters';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                  maxLength:
-                                      AppConstants.globalRecordNoMaxLength,
-                                  validator: (v) {
-                                    if (v == null || v.trim().isEmpty) {
-                                      return 'Required';
-                                    }
-                                    if (v.length >
-                                        AppConstants
-                                            .globalRecordNoMaxLength) {
-                                      return 'Max 14 characters';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _memberName,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Member Name',
+                                  TextFormField(
+                                    controller: _memberName,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Member Name',
+                                      isDense: true,
+                                    ),
+                                    validator: (v) =>
+                                        (v == null || v.trim().isEmpty)
+                                            ? 'Required'
+                                            : null,
                                   ),
-                                  validator: (v) =>
-                                      (v == null || v.trim().isEmpty)
-                                          ? 'Required'
-                                          : null,
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _surname,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Surname',
+                                  TextFormField(
+                                    controller: _surname,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Surname',
+                                      isDense: true,
+                                    ),
+                                    validator: (v) =>
+                                        (v == null || v.trim().isEmpty)
+                                            ? 'Required'
+                                            : null,
                                   ),
-                                  validator: (v) =>
-                                      (v == null || v.trim().isEmpty)
-                                          ? 'Required'
-                                          : null,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 16),
                           _memberPhotoPanel(),
-                          // Spacer keeps photo visually toward the middle.
                           if (constraints.maxWidth > 720)
                             const Expanded(child: SizedBox()),
                         ],

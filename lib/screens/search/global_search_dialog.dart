@@ -58,7 +58,17 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Global Search'),
+      title: Row(
+        children: [
+          const Expanded(child: Text('Global Search')),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(24, 12, 8, 0),
       content: SizedBox(
         width: 520,
         child: Column(

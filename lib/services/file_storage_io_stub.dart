@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/lro_document.dart';
 import '../models/member_file.dart';
 import 'database_service.dart';
@@ -17,6 +19,10 @@ Future<String> uploadPhotoFile({
   required String ext,
 }) async {
   throw UnsupportedError('Desktop photo upload not available.');
+}
+
+Future<Uint8List> readFileBytes(String path) async {
+  throw UnsupportedError('Desktop file read not available.');
 }
 
 Future<MemberFile?> pickAndUploadDesktop({

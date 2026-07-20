@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/lro_notice.dart';
 import '../../providers/providers.dart';
+import '../../widgets/lro/lro_theme.dart';
 import '../../widgets/lro/lro_search_bar.dart';
 import '../../widgets/lro/lro_status_badge.dart';
 import 'lro_notice_detail_screen.dart';
@@ -75,7 +76,8 @@ class _LroNoticeListScreenState extends ConsumerState<LroNoticeListScreen> {
     final noticesAsync = ref.watch(lroNoticesProvider);
     final dateFmt = DateFormat('yyyy-MM-dd');
 
-    return Scaffold(
+    return LroThemed(
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Public Notices'),
         actions: [
@@ -183,6 +185,7 @@ class _LroNoticeListScreenState extends ConsumerState<LroNoticeListScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

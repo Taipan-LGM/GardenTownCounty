@@ -111,25 +111,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(
-              style: TextButton.styleFrom(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.forestGreen,
+                side: const BorderSide(color: Colors.white, width: 2),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 6,
+                  horizontal: 16,
+                  vertical: 10,
                 ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: AppTheme.forestGreen,
               ),
               onPressed: () => showCountySettingsDialog(context, ref),
-              child: Text(
+              child: const Text(
                 'County Settings',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.forestGreen,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.forestGreen,
-                    ),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),

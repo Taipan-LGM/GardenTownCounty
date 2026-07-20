@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
@@ -37,6 +38,10 @@ Future<String> uploadPhotoFile({
       .child('profile$ext');
   await ref.putFile(File(localPath));
   return ref.getDownloadURL();
+}
+
+Future<Uint8List> readFileBytes(String path) async {
+  return File(path).readAsBytes();
 }
 
 Future<MemberFile?> pickAndUploadDesktop({

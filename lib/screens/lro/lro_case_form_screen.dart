@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../widgets/lro/lro_theme.dart';
 import '../../models/lro_case.dart';
 import '../../providers/providers.dart';
 
@@ -234,7 +235,8 @@ class _LroCaseFormScreenState extends ConsumerState<LroCaseFormScreen> {
     final isAdmin = ref.watch(isAdminProvider);
     final membersAsync = ref.watch(membersProvider);
 
-    return Scaffold(
+    return LroThemed(
+      child: Scaffold(
       appBar: AppBar(
         title: Text('${_isEdit ? 'Edit' : 'New'} ${widget.caseType.label} Case'),
       ),
@@ -392,6 +394,7 @@ class _LroCaseFormScreenState extends ConsumerState<LroCaseFormScreen> {
           );
         },
       ),
+    ),
     );
   }
 }

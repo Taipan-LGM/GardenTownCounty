@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/lro_notice.dart';
 import '../../providers/providers.dart';
+import '../../widgets/lro/lro_theme.dart';
 
 /// Create/edit form for a public notice.
 class LroNoticeFormScreen extends ConsumerStatefulWidget {
@@ -139,7 +140,8 @@ class _LroNoticeFormScreenState extends ConsumerState<LroNoticeFormScreen> {
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(membersProvider);
 
-    return Scaffold(
+    return LroThemed(
+      child: Scaffold(
       appBar: AppBar(title: Text(_isEdit ? 'Edit Notice' : 'New Notice')),
       body: membersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -238,6 +240,7 @@ class _LroNoticeFormScreenState extends ConsumerState<LroNoticeFormScreen> {
           );
         },
       ),
+    ),
     );
   }
 }
