@@ -330,6 +330,18 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 ),
               ],
               const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed:
+                    _busy ? null : () => _createBackup(external: !kIsWeb),
+                icon: const Icon(Icons.download),
+                label: const Text('Download Backup (.gtb)'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: AppTheme.forestGreen,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 16),
               _sectionCard(
                 icon: Icons.computer,
                 title: strings.localBackup,

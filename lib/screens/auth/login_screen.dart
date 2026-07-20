@@ -47,6 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             action: 'Login',
             captureGps: true,
           );
+      ref.invalidate(activitiesProvider);
 
       if (!mounted) return;
     } catch (error) {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -21,6 +22,7 @@ class FileStorageService {
   final SyncEngine _sync;
 
   static const _webPhotoPrefix = 'gtc_member_photo_';
+  static const _maxPhotoBytes = 5 * 1024 * 1024;
 
   Future<List<MemberFile>> listForMember(String memberId) =>
       _db.getFilesForMember(memberId);
@@ -35,79 +37,114 @@ class FileStorageService {
     if (result == null || result.files.isEmpty) return null;
 
     final picked = result.files.single;
-    final bytes = picked.bytes;
+    var bytes = picked.bytes;
     final path = picked.path;
 
-    if (bytes == null && path == null) {
-      throw Exception('Could not read selected image.');
-    }
-
-    final ext = p.extension(picked.name).isEmpty
-        ? '.jpg'
-        : p.extension(picked.name);
-
-    if (kIsWeb || bytes != null) {
-      final data = bytes!;
-      if (data.length > 2 * 1024 * 1024) {
-        throw Exception('Photo too large (max 2 MB).');
-      }
-      final prefs = await SharedPreferences.getInstance();
-      final dataUri = Uri.dataFromBytes(
-        data,
-        mimeType: _mimeForExt(ext),
-      ).toString();
-      await prefs.setString('$_webPhotoPrefix$memberId', dataUri);
-
-      var photoUrl = dataUri;
+    // Desktop sometimes returns path only — read file when needed.
+    if (bytes == null && path != null && !kIsWeb) {
+      final localCopy = await io.copyPhotoToAppDocs(
+        sourcePath: path,
+        memberId: memberId,
+        ext: _extOf(picked.name),
+      );
+      var photoUrl = '';
       if (FirebaseBootstrap.ready) {
         try {
-          final ref = FirebaseStorage.instance
-              .ref()
-              .child('member_photos')
-              .child(memberId)
-              .child('profile$ext');
-          await ref.putData(data);
-          photoUrl = await ref.getDownloadURL();
-        } catch (_) {
-          // Keep data URI for local display.
-        }
+          photoUrl = await io.uploadPhotoFile(
+            localPath: localCopy,
+            memberId: memberId,
+            ext: _extOf(picked.name),
+          );
+        } catch (_) {}
       }
-
-      final marker = 'web-photo://$memberId';
       await _db.updateMemberPhoto(
         id: memberId,
-        photoLocalPath: marker,
-        photoUrl: photoUrl,
+        photoLocalPath: localCopy,
+        photoUrl: photoUrl.isEmpty ? null : photoUrl,
       );
-      await _sync.pushPending();
-      return marker;
+      await _safePush();
+      return localCopy;
     }
 
-    // Desktop path-based copy.
-    final localCopy = await io.copyPhotoToAppDocs(
-      sourcePath: path!,
-      memberId: memberId,
-      ext: ext,
-    );
+    if (bytes == null) {
+      throw Exception(
+        'Could not read selected image. Try JPG/PNG under 5 MB.',
+      );
+    }
 
-    var photoUrl = '';
+    if (bytes.length > _maxPhotoBytes) {
+      throw Exception('Photo too large (max 5 MB).');
+    }
+
+    // Downscale so web localStorage / data-URI stays under quota.
+    bytes = await _downscaleImage(bytes, maxSide: 1024);
+    final ext = '.png';
+
+    final dataUri = Uri.dataFromBytes(
+      bytes,
+      mimeType: 'image/png',
+    ).toString();
+
+    // Prefs cache is best-effort (web localStorage quota).
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_webPhotoPrefix$memberId', dataUri);
+    } catch (_) {}
+
+    var photoUrl = dataUri;
     if (FirebaseBootstrap.ready) {
       try {
-        photoUrl = await io.uploadPhotoFile(
-          localPath: localCopy,
-          memberId: memberId,
-          ext: ext,
-        );
-      } catch (_) {}
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('member_photos')
+            .child(memberId)
+            .child('profile$ext');
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/png'));
+        photoUrl = await ref.getDownloadURL();
+      } catch (_) {
+        // Keep data URI for local display / offline.
+      }
     }
 
+    final marker = 'web-photo://$memberId';
     await _db.updateMemberPhoto(
       id: memberId,
-      photoLocalPath: localCopy,
-      photoUrl: photoUrl.isEmpty ? null : photoUrl,
+      photoLocalPath: marker,
+      photoUrl: photoUrl,
     );
-    await _sync.pushPending();
-    return localCopy;
+    await _safePush();
+    return marker;
+  }
+
+  Future<void> _safePush() async {
+    try {
+      await _sync.pushPending();
+    } catch (_) {}
+  }
+
+  Future<Uint8List> _downscaleImage(
+    Uint8List bytes, {
+    required int maxSide,
+  }) async {
+    try {
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: maxSide,
+      );
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (bd == null) return bytes;
+      return bd.buffer.asUint8List();
+    } catch (_) {
+      return bytes;
+    }
+  }
+
+  String _extOf(String name) {
+    final ext = p.extension(name);
+    return ext.isEmpty ? '.jpg' : ext;
   }
 
   Future<Uint8List?> loadWebPhotoBytes(String memberId) async {
@@ -166,7 +203,7 @@ class FileStorageService {
         } catch (_) {}
       }
       await _db.upsertMemberFile(memberFile);
-      await _sync.pushPending();
+      await _safePush();
       return memberFile;
     }
 
@@ -191,25 +228,12 @@ class FileStorageService {
       pendingSync: true,
     );
     await _db.upsertMemberFile(updated);
-    await _sync.pushPending();
+    await _safePush();
   }
 
   Future<void> deleteFile(MemberFile file) async {
     await _db.softDeleteMemberFile(file.id);
-    await _sync.pushPending();
-  }
-
-  String _mimeForExt(String ext) {
-    switch (ext.toLowerCase()) {
-      case '.png':
-        return 'image/png';
-      case '.gif':
-        return 'image/gif';
-      case '.webp':
-        return 'image/webp';
-      default:
-        return 'image/jpeg';
-    }
+    await _safePush();
   }
 
   String _guessContentType(String fileName) {
