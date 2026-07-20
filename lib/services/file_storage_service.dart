@@ -1,12 +1,16 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/member_file.dart';
 import 'database_service.dart';
+import 'file_storage_io_stub.dart'
+    if (dart.library.io) 'file_storage_io.dart' as io;
 import 'firebase_bootstrap.dart';
 import 'sync_engine.dart';
 
@@ -16,62 +20,110 @@ class FileStorageService {
   final DatabaseService _db;
   final SyncEngine _sync;
 
+  static const _webPhotoPrefix = 'gtc_member_photo_';
+
   Future<List<MemberFile>> listForMember(String memberId) =>
       _db.getFilesForMember(memberId);
 
-  /// Pick a member profile photo (images only). Returns local copy path.
+  /// Pick a member profile photo. Returns a display path / web marker.
   Future<String?> pickMemberPhoto({required String memberId}) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
-      withData: false,
+      withData: true,
       type: FileType.image,
-      initialDirectory: await _documentsDirectory(),
     );
     if (result == null || result.files.isEmpty) return null;
 
     final picked = result.files.single;
+    final bytes = picked.bytes;
     final path = picked.path;
-    if (path == null) {
-      throw Exception('Could not read selected image path.');
-    }
 
-    final appDocs = await getApplicationDocumentsDirectory();
-    final photoDir = Directory(p.join(appDocs.path, 'member_photos', memberId));
-    if (!photoDir.existsSync()) {
-      await photoDir.create(recursive: true);
+    if (bytes == null && path == null) {
+      throw Exception('Could not read selected image.');
     }
 
     final ext = p.extension(picked.name).isEmpty
         ? '.jpg'
         : p.extension(picked.name);
-    final localCopy = File(p.join(photoDir.path, 'profile$ext'));
-    await File(path).copy(localCopy.path);
+
+    if (kIsWeb || bytes != null) {
+      final data = bytes!;
+      if (data.length > 2 * 1024 * 1024) {
+        throw Exception('Photo too large (max 2 MB).');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      final dataUri = Uri.dataFromBytes(
+        data,
+        mimeType: _mimeForExt(ext),
+      ).toString();
+      await prefs.setString('$_webPhotoPrefix$memberId', dataUri);
+
+      var photoUrl = dataUri;
+      if (FirebaseBootstrap.ready) {
+        try {
+          final ref = FirebaseStorage.instance
+              .ref()
+              .child('member_photos')
+              .child(memberId)
+              .child('profile$ext');
+          await ref.putData(data);
+          photoUrl = await ref.getDownloadURL();
+        } catch (_) {
+          // Keep data URI for local display.
+        }
+      }
+
+      final marker = 'web-photo://$memberId';
+      await _db.updateMemberPhoto(
+        id: memberId,
+        photoLocalPath: marker,
+        photoUrl: photoUrl,
+      );
+      await _sync.pushPending();
+      return marker;
+    }
+
+    // Desktop path-based copy.
+    final localCopy = await io.copyPhotoToAppDocs(
+      sourcePath: path!,
+      memberId: memberId,
+      ext: ext,
+    );
 
     var photoUrl = '';
     if (FirebaseBootstrap.ready) {
       try {
-        final ref = FirebaseStorage.instance
-            .ref()
-            .child('member_photos')
-            .child(memberId)
-            .child('profile$ext');
-        await ref.putFile(localCopy);
-        photoUrl = await ref.getDownloadURL();
-      } catch (_) {
-        // Local path kept; SyncEngine retries cloud upload.
-      }
+        photoUrl = await io.uploadPhotoFile(
+          localPath: localCopy,
+          memberId: memberId,
+          ext: ext,
+        );
+      } catch (_) {}
     }
 
     await _db.updateMemberPhoto(
       id: memberId,
-      photoLocalPath: localCopy.path,
+      photoLocalPath: localCopy,
       photoUrl: photoUrl.isEmpty ? null : photoUrl,
     );
     await _sync.pushPending();
-    return localCopy.path;
+    return localCopy;
   }
 
-  /// Opens the system file explorer (Documents preferred) and uploads.
+  Future<Uint8List?> loadWebPhotoBytes(String memberId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('$_webPhotoPrefix$memberId');
+    if (raw == null) return null;
+    if (raw.startsWith('data:')) {
+      return Uri.parse(raw).data?.contentAsBytes();
+    }
+    try {
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<MemberFile?> pickAndUpload({
     required String memberId,
     required String uploadedBy,
@@ -79,58 +131,58 @@ class FileStorageService {
   }) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
-      withData: false,
+      withData: kIsWeb,
       type: FileType.any,
-      initialDirectory: await _documentsDirectory(),
     );
 
     if (result == null || result.files.isEmpty) return null;
     final picked = result.files.single;
+    final fileName = picked.name;
+
+    if (kIsWeb) {
+      final bytes = picked.bytes;
+      if (bytes == null) {
+        throw Exception('Could not read selected file.');
+      }
+      var memberFile = MemberFile.create(
+        memberId: memberId,
+        fileName: fileName,
+        description: description.trim(),
+        uploadedBy: uploadedBy,
+        localPath: null,
+        contentType: _guessContentType(fileName),
+        sizeBytes: bytes.length,
+      );
+      if (FirebaseBootstrap.ready) {
+        try {
+          final ref = FirebaseStorage.instance
+              .ref()
+              .child('member_files')
+              .child(memberId)
+              .child('${memberFile.id}_$fileName');
+          await ref.putData(bytes);
+          final url = await ref.getDownloadURL();
+          memberFile = memberFile.copyWith(storageUrl: url);
+        } catch (_) {}
+      }
+      await _db.upsertMemberFile(memberFile);
+      await _sync.pushPending();
+      return memberFile;
+    }
+
     final path = picked.path;
     if (path == null) {
       throw Exception('Could not read selected file path.');
     }
-
-    final appDocs = await getApplicationDocumentsDirectory();
-    final memberDir = Directory(
-      p.join(appDocs.path, 'member_files', memberId),
-    );
-    if (!memberDir.existsSync()) {
-      await memberDir.create(recursive: true);
-    }
-
-    final fileName = picked.name;
-    final localCopy = File(p.join(memberDir.path, fileName));
-    await File(path).copy(localCopy.path);
-
-    var memberFile = MemberFile.create(
+    return io.pickAndUploadDesktop(
+      db: _db,
+      sync: _sync,
       memberId: memberId,
-      fileName: fileName,
-      description: description.trim(),
       uploadedBy: uploadedBy,
-      localPath: localCopy.path,
-      contentType: _guessContentType(fileName),
-      sizeBytes: await localCopy.length(),
+      description: description,
+      sourcePath: path,
+      fileName: fileName,
     );
-
-    if (FirebaseBootstrap.ready) {
-      try {
-        final ref = FirebaseStorage.instance
-            .ref()
-            .child('member_files')
-            .child(memberId)
-            .child('${memberFile.id}_$fileName');
-        await ref.putFile(localCopy);
-        final url = await ref.getDownloadURL();
-        memberFile = memberFile.copyWith(storageUrl: url);
-      } catch (_) {
-        // Keep local copy; SyncEngine will retry upload.
-      }
-    }
-
-    await _db.upsertMemberFile(memberFile);
-    await _sync.pushPending();
-    return memberFile;
   }
 
   Future<void> updateDescription(MemberFile file, String description) async {
@@ -147,26 +199,16 @@ class FileStorageService {
     await _sync.pushPending();
   }
 
-  Future<String?> _documentsDirectory() async {
-    try {
-      if (Platform.isWindows) {
-        final userProfile = Platform.environment['USERPROFILE'];
-        if (userProfile != null) {
-          return p.join(userProfile, 'Documents');
-        }
-      }
-      if (Platform.isLinux || Platform.isMacOS) {
-        final home = Platform.environment['HOME'];
-        if (home != null) {
-          final docs = p.join(home, 'Documents');
-          if (Directory(docs).existsSync()) return docs;
-          return home;
-        }
-      }
-      final dir = await getApplicationDocumentsDirectory();
-      return dir.path;
-    } catch (_) {
-      return null;
+  String _mimeForExt(String ext) {
+    switch (ext.toLowerCase()) {
+      case '.png':
+        return 'image/png';
+      case '.gif':
+        return 'image/gif';
+      case '.webp':
+        return 'image/webp';
+      default:
+        return 'image/jpeg';
     }
   }
 

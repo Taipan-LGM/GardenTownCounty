@@ -125,6 +125,8 @@ class _AppShellState extends ConsumerState<AppShell>
       drawer: const AppDrawer(),
       body: Stack(
         children: [
+          // Corner logo behind UI so form buttons stay clickable.
+          if (landingComplete) const CornerLogoOverlay(),
           LayoutBuilder(
             builder: (context, constraints) {
               return RefreshIndicator(
@@ -168,7 +170,6 @@ class _AppShellState extends ConsumerState<AppShell>
                         : Stack(
                             fit: StackFit.expand,
                             children: [
-                              // First logo stays visible behind other screens.
                               if (landingComplete)
                                 const IgnorePointer(
                                   child: FixedFirstLogoBackground(),
@@ -176,7 +177,9 @@ class _AppShellState extends ConsumerState<AppShell>
                               ColoredBox(
                                 color: Theme.of(context)
                                     .scaffoldBackgroundColor
-                                    .withValues(alpha: landingComplete ? 0.92 : 1),
+                                    .withValues(
+                                      alpha: landingComplete ? 0.92 : 1,
+                                    ),
                                 child: KeyedSubtree(
                                   key: ValueKey(
                                     'section-$effectiveSection-$refreshTick',
@@ -191,7 +194,6 @@ class _AppShellState extends ConsumerState<AppShell>
               );
             },
           ),
-          if (landingComplete) const CornerLogoOverlay(),
           const Positioned(
             right: 16,
             bottom: 16,

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +10,8 @@ import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
+import '../../widgets/file_image_stub.dart'
+    if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
 
@@ -38,6 +40,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   String? _currentId;
   String? _photoLocalPath;
   String? _photoUrl;
+  Uint8List? _photoBytes;
   /// Stable id for new (unsaved) members so a photo can be staged.
   String? _draftId;
   List<Member> _members = const [];
@@ -108,8 +111,29 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _comment.text = member.comment;
       _photoLocalPath = member.photoLocalPath;
       _photoUrl = member.photoUrl;
+      _photoBytes = null;
     });
     ref.read(selectedMemberIdProvider.notifier).state = member.id;
+    _loadPhotoBytes(member.id, member.photoLocalPath, member.photoUrl);
+  }
+
+  Future<void> _loadPhotoBytes(
+    String memberId,
+    String? localPath,
+    String? photoUrl,
+  ) async {
+    Uint8List? bytes;
+    if (localPath != null && localPath.startsWith('web-photo://')) {
+      bytes = await ref
+          .read(fileStorageServiceProvider)
+          .loadWebPhotoBytes(memberId);
+    } else if (photoUrl != null && photoUrl.startsWith('data:')) {
+      bytes = Uri.parse(photoUrl).data?.contentAsBytes();
+    }
+    if (!mounted) return;
+    if (bytes != null) {
+      setState(() => _photoBytes = bytes);
+    }
   }
 
   void _clearForm({required bool newMember}) {
@@ -131,6 +155,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _comment.clear();
       _photoLocalPath = null;
       _photoUrl = null;
+      _photoBytes = null;
     });
     ref.read(selectedMemberIdProvider.notifier).state = null;
   }
@@ -172,6 +197,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         _photoLocalPath = updated?.photoLocalPath ?? path;
         _photoUrl = updated?.photoUrl;
       });
+      await _loadPhotoBytes(
+        memberId,
+        updated?.photoLocalPath ?? path,
+        updated?.photoUrl,
+      );
       await _bootstrap();
       final index = _members.indexWhere((m) => m.id == memberId);
       if (index >= 0) _loadMember(_members[index], index);
@@ -191,6 +221,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       setState(() {
         _photoLocalPath = null;
         _photoUrl = null;
+        _photoBytes = null;
       });
       return;
     }
@@ -202,17 +233,26 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     setState(() {
       _photoLocalPath = null;
       _photoUrl = null;
+      _photoBytes = null;
     });
     await ref.read(syncEngineProvider).pushPending();
   }
 
   Widget _memberPhotoPanel() {
     ImageProvider? image;
-    if (_photoLocalPath != null && File(_photoLocalPath!).existsSync()) {
-      image = FileImage(File(_photoLocalPath!));
-    } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+    if (_photoBytes != null) {
+      image = MemoryImage(_photoBytes!);
+    } else if (_photoUrl != null &&
+        _photoUrl!.isNotEmpty &&
+        !_photoUrl!.startsWith('data:')) {
       image = NetworkImage(_photoUrl!);
+    } else if (_photoLocalPath != null &&
+        !_photoLocalPath!.startsWith('web-photo://') &&
+        file_img.localFileExists(_photoLocalPath!)) {
+      image = file_img.localFileImage(_photoLocalPath!);
     }
+
+    const photoSize = 200.0; // 2 sizes larger than 140
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -221,8 +261,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           onTap: _photoBusy ? null : _pickMemberPhoto,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            width: 140,
-            height: 140,
+            width: photoSize,
+            height: photoSize,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -240,7 +280,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       else ...[
                         const Icon(
                           Icons.add_a_photo_outlined,
-                          size: 36,
+                          size: 44,
                           color: AppTheme.forestGreen,
                         ),
                         const SizedBox(height: 8),
@@ -531,6 +571,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
+                        flex: 3,
                         child: Column(
                           children: [
                             Row(
@@ -538,8 +579,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 Expanded(
                                   child: TextFormField(
                                     controller: _saId,
+                                    style: const TextStyle(fontSize: 13),
                                     decoration: const InputDecoration(
                                       labelText: 'SA ID (max 13)',
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
                                     ),
                                     maxLength: AppConstants.saIdMaxLength,
                                     inputFormatters: [
@@ -557,12 +604,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     },
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: TextFormField(
                                     controller: _globalRecordNo,
+                                    style: const TextStyle(fontSize: 13),
                                     decoration: const InputDecoration(
                                       labelText: 'Global Record No (max 14)',
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
                                     ),
                                     maxLength:
                                         AppConstants.globalRecordNoMaxLength,
@@ -586,8 +639,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 Expanded(
                                   child: TextFormField(
                                     controller: _memberName,
+                                    style: const TextStyle(fontSize: 13),
                                     decoration: const InputDecoration(
                                       labelText: 'Member Name',
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
@@ -595,12 +654,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                             : null,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: TextFormField(
                                     controller: _surname,
+                                    style: const TextStyle(fontSize: 13),
                                     decoration: const InputDecoration(
                                       labelText: 'Surname',
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
@@ -613,7 +678,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       _memberPhotoPanel(),
                     ],
                   ),

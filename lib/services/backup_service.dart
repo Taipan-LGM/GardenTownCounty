@@ -1,15 +1,17 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import 'backup_auth_service.dart';
 import 'backup_crypto.dart';
+import 'backup_service_io_stub.dart'
+    if (dart.library.io) 'backup_service_io.dart' as io;
 import 'database_service.dart';
+import 'web_download_stub.dart'
+    if (dart.library.html) 'web_download_web.dart' as web_dl;
 
 class BackupResult {
   final String filePath;
@@ -18,7 +20,7 @@ class BackupResult {
   const BackupResult({required this.filePath, required this.createdAt});
 }
 
-/// Creates and restores encrypted .gtb backups (SQLite + cached files).
+/// Creates and restores encrypted .gtb backups.
 class BackupService {
   BackupService(this._db, this._auth);
 
@@ -27,98 +29,37 @@ class BackupService {
 
   Future<BackupResult> createBackup({
     bool auto = false,
-    /// When set (manual backup), save the .gtb into this folder.
-    /// When null, uses Documents/GardenTown/Backups (or AutoBackups).
     String? targetDirectoryPath,
     void Function(double progress)? onProgress,
   }) async {
-    if (kIsWeb) {
-      throw Exception('Backups are only supported on desktop/mobile.');
-    }
-
     onProgress?.call(0.05);
-    final archive = Archive();
-
-    if (_db.isMemoryMode || _db.databasePath == null) {
-      final snapshot = _db.exportMemorySnapshot();
-      final bytes = utf8.encode(jsonEncode(snapshot));
-      archive.addFile(
-        ArchiveFile('memory_snapshot.json', bytes.length, bytes),
-      );
-    } else {
-      // Ensure WAL is flushed by briefly checkpointing via close/reopen.
-      final dbPath = _db.databasePath!;
-      await _db.close();
-      try {
-        final dbFile = File(dbPath);
-        if (!dbFile.existsSync()) {
-          throw Exception('Local database file not found.');
-        }
-        final dbBytes = await dbFile.readAsBytes();
-        archive.addFile(
-          ArchiveFile('garden_town_county.db', dbBytes.length, dbBytes),
-        );
-
-        // Also include sidecar files if present.
-        for (final suffix in ['-wal', '-shm']) {
-          final side = File('$dbPath$suffix');
-          if (side.existsSync()) {
-            final sideBytes = await side.readAsBytes();
-            archive.addFile(
-              ArchiveFile(
-                'garden_town_county.db$suffix',
-                sideBytes.length,
-                sideBytes,
-              ),
-            );
-          }
-        }
-      } finally {
-        await _db.reopenAfterRestore();
-      }
-    }
-
-    onProgress?.call(0.35);
-    await _addCachedFolder(archive, 'member_files');
-    onProgress?.call(0.55);
-    await _addCachedFolder(archive, 'member_photos');
-
-    final manifest = utf8.encode(
-      jsonEncode({
-        'app': 'Garden Town County',
-        'version': 1,
-        'createdAt': DateTime.now().toUtc().toIso8601String(),
-      }),
-    );
-    archive.addFile(ArchiveFile('manifest.json', manifest.length, manifest));
-
+    final archive = await _buildArchive(onProgress);
     onProgress?.call(0.7);
+
     final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
     final encrypted = BackupCrypto.encrypt(zipBytes);
-
     onProgress?.call(0.85);
+
     final stamp = DateFormat('yyyy_MM_dd_HHmm').format(DateTime.now());
     final prefix = auto ? 'AutoBackup' : 'Backup';
+    final fileName = '${prefix}_$stamp.gtb';
 
-    final Directory dir;
-    if (targetDirectoryPath != null && targetDirectoryPath.trim().isNotEmpty) {
-      dir = Directory(targetDirectoryPath.trim());
-      if (!dir.existsSync()) {
-        await dir.create(recursive: true);
-      }
+    late final String outPath;
+    if (kIsWeb) {
+      web_dl.downloadBytes(encrypted, fileName);
+      outPath = 'download://$fileName';
     } else {
-      dir = await _auth.backupsDirectory(auto: auto);
+      outPath = await io.writeBackupFile(
+        encrypted: encrypted,
+        fileName: fileName,
+        targetDirectoryPath: targetDirectoryPath,
+        auth: _auth,
+        auto: auto,
+      );
     }
-
-    final outPath = p.join(dir.path, '${prefix}_$stamp.gtb');
-    await File(outPath).writeAsBytes(encrypted, flush: true);
 
     final now = DateTime.now();
     await _auth.markBackupCompleted(now);
-    if (auto) {
-      await _pruneAutoBackups(dir);
-    }
-
     onProgress?.call(1.0);
     return BackupResult(filePath: outPath, createdAt: now);
   }
@@ -128,16 +69,21 @@ class BackupService {
     void Function(double progress)? onProgress,
   }) async {
     if (kIsWeb) {
-      throw Exception('Restore is only supported on desktop/mobile.');
+      throw Exception('Use restoreFromBytes on web.');
     }
-
     onProgress?.call(0.05);
-    final encrypted = await File(gtbPath).readAsBytes();
-    final zipBytes = BackupCrypto.decrypt(Uint8List.fromList(encrypted));
-    onProgress?.call(0.25);
+    final encrypted = await io.readFileBytes(gtbPath);
+    await restoreFromBytes(encrypted, onProgress: onProgress);
+  }
 
+  Future<void> restoreFromBytes(
+    Uint8List encrypted, {
+    void Function(double progress)? onProgress,
+  }) async {
+    onProgress?.call(0.1);
+    final zipBytes = BackupCrypto.decrypt(encrypted);
+    onProgress?.call(0.25);
     final archive = ZipDecoder().decodeBytes(zipBytes);
-    final appDocs = await getApplicationDocumentsDirectory();
 
     final memoryEntry = archive.findFile('memory_snapshot.json');
     if (memoryEntry != null) {
@@ -151,82 +97,45 @@ class BackupService {
       return;
     }
 
-    final dbEntry = archive.findFile('garden_town_county.db');
-    if (dbEntry == null) {
-      throw Exception('Backup does not contain a database.');
-    }
-
-    final targetPath =
-        _db.databasePath ?? p.join(appDocs.path, 'garden_town_county.db');
-    await _db.close();
-    try {
-      onProgress?.call(0.4);
-      await File(targetPath).writeAsBytes(
-        dbEntry.content as List<int>,
-        flush: true,
+    if (kIsWeb) {
+      throw Exception(
+        'This backup was made on desktop and cannot be restored in the browser. '
+        'Use the desktop app, or restore a web-made backup.',
       );
-
-      // Remove stale WAL/SHM then restore if present in archive.
-      for (final suffix in ['-wal', '-shm']) {
-        final side = File('$targetPath$suffix');
-        if (side.existsSync()) await side.delete();
-        final sideEntry = archive.findFile('garden_town_county.db$suffix');
-        if (sideEntry != null) {
-          await side.writeAsBytes(sideEntry.content as List<int>, flush: true);
-        }
-      }
-
-      onProgress?.call(0.6);
-      await _restoreCachedFolder(archive, appDocs.path, 'member_files');
-      await _restoreCachedFolder(archive, appDocs.path, 'member_photos');
-    } finally {
-      await _db.reopenAfterRestore();
     }
 
-    onProgress?.call(0.85);
-    await _db.markAllPendingSync();
-    onProgress?.call(1.0);
+    await io.restoreSqliteArchive(archive, _db, onProgress);
   }
 
-  Future<void> _addCachedFolder(Archive archive, String folderName) async {
-    final appDocs = await getApplicationDocumentsDirectory();
-    final root = Directory(p.join(appDocs.path, folderName));
-    if (!root.existsSync()) return;
+  Future<Archive> _buildArchive(void Function(double progress)? onProgress) async {
+    final archive = Archive();
 
-    await for (final entity in root.list(recursive: true, followLinks: false)) {
-      if (entity is! File) continue;
-      final relative = p.relative(entity.path, from: appDocs.path);
-      final bytes = await entity.readAsBytes();
-      archive.addFile(ArchiveFile(relative, bytes.length, bytes));
+    if (_db.isMemoryMode || _db.databasePath == null || kIsWeb) {
+      final snapshot = _db.exportMemorySnapshot();
+      final bytes = utf8.encode(jsonEncode(snapshot));
+      archive.addFile(
+        ArchiveFile('memory_snapshot.json', bytes.length, bytes),
+      );
+    } else {
+      await io.addSqliteToArchive(archive, _db);
     }
-  }
 
-  Future<void> _restoreCachedFolder(
-    Archive archive,
-    String appDocsPath,
-    String folderName,
-  ) async {
-    for (final file in archive.files) {
-      if (!file.isFile) continue;
-      if (!file.name.startsWith('$folderName/')) continue;
-      final out = File(p.join(appDocsPath, file.name));
-      await out.parent.create(recursive: true);
-      await out.writeAsBytes(file.content as List<int>, flush: true);
+    onProgress?.call(0.35);
+    if (!kIsWeb) {
+      await io.addCachedFolder(archive, 'member_files');
+      onProgress?.call(0.55);
+      await io.addCachedFolder(archive, 'member_photos');
     }
-  }
 
-  Future<void> _pruneAutoBackups(Directory dir) async {
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.gtb'))
-        .toList()
-      ..sort((a, b) => b.path.compareTo(a.path));
-    if (files.length <= 7) return;
-    for (final old in files.skip(7)) {
-      try {
-        await old.delete();
-      } catch (_) {}
-    }
+    final manifest = utf8.encode(
+      jsonEncode({
+        'app': 'Garden Town County',
+        'version': 1,
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+        'platform': kIsWeb ? 'web' : 'desktop',
+      }),
+    );
+    archive.addFile(ArchiveFile('manifest.json', manifest.length, manifest));
+    return archive;
   }
 }

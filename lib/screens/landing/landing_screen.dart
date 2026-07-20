@@ -24,7 +24,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     with SingleTickerProviderStateMixin {
   static const _holdDuration = Duration(milliseconds: 2500);
   static const _animDuration = Duration(milliseconds: 1500);
-  static const _finalSize = 60.0;
+  static const _finalSize = 100.0;
 
   late final AnimationController _controller;
   late final Animation<double> _t;

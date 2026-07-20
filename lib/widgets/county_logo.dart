@@ -111,24 +111,28 @@ class FixedFirstLogoBackground extends StatelessWidget {
 }
 
 /// Persistent top-right corner logo after landing animation.
+/// Drawn behind form UI (IgnorePointer) so it never blocks buttons.
 class CornerLogoOverlay extends StatelessWidget {
   const CornerLogoOverlay({super.key});
 
-  static const double size = 60;
-  static const double top = 20;
-  static const double right = 20;
+  /// Two Material size steps larger than the original 60.
+  static const double size = 100;
+  static const double top = 12;
+  static const double right = 12;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
       top: top + MediaQuery.paddingOf(context).top,
       right: right,
-      child: Material(
-        elevation: 4,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        color: Colors.transparent,
-        child: RoundCountyLogo(secondary: true, size: size),
+      child: IgnorePointer(
+        child: Material(
+          elevation: 2,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          color: Colors.transparent,
+          child: RoundCountyLogo(secondary: true, size: size),
+        ),
       ),
     );
   }

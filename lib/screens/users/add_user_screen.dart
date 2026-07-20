@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_user.dart';
 import '../../providers/providers.dart';
+import '../../services/auth_service.dart';
 import 'role_manager_dialog.dart';
 
 class AddUserScreen extends ConsumerStatefulWidget {
@@ -90,6 +91,17 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           role: _role!,
           newPassword: _password.text.trim().isEmpty ? null : _password.text,
         );
+        // Refresh session chip if SysAdmin updated own display name.
+        final loggedIn = ref.read(authUserProvider);
+        if (loggedIn != null && loggedIn.id == updated.id) {
+          ref.read(authUserProvider.notifier).state = AuthUser(
+            id: updated.id,
+            displayName: updated.displayName,
+            email: loggedIn.email,
+            username: updated.username,
+            role: updated.role,
+          );
+        }
         if (admin != null) {
           await ref.read(activityServiceProvider).record(
                 userName: admin.displayName,
@@ -130,6 +142,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       return const Center(child: Text('Admin access required.'));
     }
 
+    final editingSysAdmin = _editingUser?.isSystemAdministrator == true;
+    final canEditSysAdminSecrets = current.isSystemAdministrator;
+    final lockRole = editingSysAdmin;
+    final lockPassword = editingSysAdmin && !canEditSysAdminSecrets;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -144,8 +161,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Username = login ID. Display Name = name shown in the app.',
+          Text(
+            editingSysAdmin
+                ? 'System Administrator: Display Name can be set. '
+                    'Role is locked. Password only by System Administrator.'
+                : 'Username = login ID. Display Name = name shown in the app.',
           ),
           const Divider(height: 24),
           Card(
@@ -176,11 +196,22 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _displayName,
-                            decoration: const InputDecoration(
-                              labelText: 'Display Name',
-                              helperText: 'Friendly name shown in the app',
-                              prefixIcon: Icon(Icons.badge_outlined),
+                            decoration: InputDecoration(
+                              labelText: editingSysAdmin
+                                  ? 'Display Name (your name)'
+                                  : 'Display Name',
+                              helperText: editingSysAdmin
+                                  ? 'Enter the System Administrator full name'
+                                  : 'Friendly name shown in the app',
+                              prefixIcon: const Icon(Icons.badge_outlined),
                             ),
+                            validator: (v) {
+                              if (editingSysAdmin &&
+                                  (v == null || v.trim().isEmpty)) {
+                                return 'Name required';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                       ],
@@ -192,11 +223,14 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _password,
+                            enabled: !lockPassword,
                             obscureText: _obscure,
                             decoration: InputDecoration(
                               labelText: _editingUser == null
                                   ? 'Password'
-                                  : 'New Password (optional)',
+                                  : lockPassword
+                                      ? 'Password (locked)'
+                                      : 'New Password (optional)',
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
@@ -204,11 +238,14 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                                       ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
-                                onPressed: () =>
-                                    setState(() => _obscure = !_obscure),
+                                onPressed: lockPassword
+                                    ? null
+                                    : () =>
+                                        setState(() => _obscure = !_obscure),
                               ),
                             ),
                             validator: (v) {
+                              if (lockPassword) return null;
                               if (_editingUser != null) {
                                 if (v != null &&
                                     v.isNotEmpty &&
@@ -238,11 +275,13 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
                                       key: ValueKey(
-                                        'role-${_editingUser?.id ?? 'new'}-$effective',
+                                        'role-${_editingUser?.id ?? 'new'}-$effective-$lockRole',
                                       ),
                                       initialValue: effective,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Rights / Role',
+                                      decoration: InputDecoration(
+                                        labelText: lockRole
+                                            ? 'Rights / Role (locked)'
+                                            : 'Rights / Role',
                                       ),
                                       items: names
                                           .map(
@@ -252,8 +291,10 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                                             ),
                                           )
                                           .toList(),
-                                      onChanged: (value) =>
-                                          setState(() => _role = value),
+                                      onChanged: lockRole
+                                          ? null
+                                          : (value) =>
+                                              setState(() => _role = value),
                                       validator: (v) =>
                                           (v == null || v.isEmpty)
                                               ? 'Required'
@@ -263,13 +304,15 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                                   IconButton(
                                     tooltip: 'Add / Edit / Delete roles',
                                     icon: const Icon(Icons.edit_note),
-                                    onPressed: () async {
-                                      await showRoleManagerDialog(
-                                        context,
-                                        ref,
-                                      );
-                                      ref.invalidate(rolesProvider);
-                                    },
+                                    onPressed: lockRole
+                                        ? null
+                                        : () async {
+                                            await showRoleManagerDialog(
+                                              context,
+                                              ref,
+                                            );
+                                            ref.invalidate(rolesProvider);
+                                          },
                                   ),
                                 ],
                               );

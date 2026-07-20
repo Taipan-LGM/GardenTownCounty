@@ -178,34 +178,77 @@ class AuthService {
       throw Exception('User not found.');
     }
 
-    final roleName = role.trim();
+    final actor = _currentUser;
+    final editingSysAdmin = user.isSystemAdministrator;
+    final actorIsSysAdmin = actor?.isSystemAdministrator == true;
+
+    // Other users may not change System Administrator role or password.
+    if (editingSysAdmin && !actorIsSysAdmin) {
+      if (newPassword != null && newPassword.trim().isNotEmpty) {
+        throw Exception(
+          'Only the System Administrator can change that password.',
+        );
+      }
+      if (role.trim().toLowerCase() != 'admin') {
+        throw Exception(
+          'System Administrator role cannot be changed by other users.',
+        );
+      }
+    }
+
+    var roleName = role.trim();
     if (roleName.isEmpty) {
       throw Exception('Rights / Role is required.');
     }
 
     // System Administrator must remain Admin.
-    if (user.isSystemAdministrator && roleName.toLowerCase() != 'admin') {
-      throw Exception(
-        'System Administrator must keep the Admin rights / role.',
-      );
+    if (editingSysAdmin) {
+      roleName = 'Admin';
     }
 
+    // Password change on System Administrator: only the SysAdmin themselves.
+    String? passwordHash;
+    if (newPassword != null && newPassword.trim().isNotEmpty) {
+      if (editingSysAdmin &&
+          (actor == null || !actor.isSystemAdministrator)) {
+        throw Exception(
+          'Only the System Administrator can change that password.',
+        );
+      }
+      if (newPassword.trim().length < 6) {
+        throw Exception('Password must be at least 6 characters.');
+      }
+      passwordHash = PasswordHasher.hash(newPassword.trim());
+    }
+
+    final resolvedName = displayName.trim().isEmpty
+        ? user.displayName
+        : displayName.trim();
+
     var updated = user.copyWith(
-      displayName:
-          displayName.trim().isEmpty ? user.username : displayName.trim(),
+      displayName: resolvedName.isEmpty ? user.username : resolvedName,
       role: roleName,
       pendingSync: true,
       updatedAt: DateTime.now().toUtc(),
     );
-    if (newPassword != null && newPassword.trim().isNotEmpty) {
-      if (newPassword.trim().length < 6) {
-        throw Exception('Password must be at least 6 characters.');
-      }
-      updated = updated.copyWith(
-        passwordHash: PasswordHasher.hash(newPassword.trim()),
-      );
+    if (passwordHash != null) {
+      updated = updated.copyWith(passwordHash: passwordHash);
     }
     await _db.upsertAppUser(updated);
+
+    // Keep live session name in sync when editing self.
+    if (actor != null && actor.id == updated.id) {
+      await _persist(
+        AuthUser(
+          id: updated.id,
+          displayName: updated.displayName,
+          email: actor.email,
+          username: updated.username,
+          role: updated.role,
+        ),
+      );
+    }
+
     return updated;
   }
 
