@@ -144,7 +144,6 @@ class BackupService {
       onProgress?.call(0.55);
       await io.addCachedFolder(archive, 'member_photos');
       onProgress?.call(0.7);
-      await io.addCachedFolder(archive, 'lro_files');
     }
 
     final manifest = utf8.encode(

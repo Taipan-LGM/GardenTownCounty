@@ -5,7 +5,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../models/lro_document.dart';
 import '../models/member_file.dart';
 import 'database_service.dart';
 import 'firebase_bootstrap.dart';
@@ -90,58 +89,6 @@ Future<MemberFile?> pickAndUploadDesktop({
   await db.upsertMemberFile(memberFile);
   await sync.pushPending();
   return memberFile;
-}
-
-Future<LroDocument?> pickAndUploadLroDocumentDesktop({
-  required DatabaseService db,
-  required SyncEngine sync,
-  required String parentType,
-  required String parentId,
-  required String uploadedBy,
-  required String docType,
-  required String description,
-  required String sourcePath,
-  required String fileName,
-}) async {
-  final appDocs = await getApplicationDocumentsDirectory();
-  final parentDir = Directory(
-    p.join(appDocs.path, 'lro_files', parentId),
-  );
-  if (!parentDir.existsSync()) {
-    await parentDir.create(recursive: true);
-  }
-
-  final localCopy = File(p.join(parentDir.path, fileName));
-  await File(sourcePath).copy(localCopy.path);
-
-  var document = LroDocument.create(
-    parentType: parentType,
-    parentId: parentId,
-    fileName: fileName,
-    uploadedBy: uploadedBy,
-    docType: docType,
-    description: description.trim(),
-    localPath: localCopy.path,
-    contentType: _guessContentType(fileName),
-    sizeBytes: await localCopy.length(),
-  );
-
-  if (FirebaseBootstrap.ready) {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('lro_files')
-          .child(parentId)
-          .child('${document.id}_$fileName');
-      await ref.putFile(localCopy);
-      final url = await ref.getDownloadURL();
-      document = document.copyWith(storageUrl: url);
-    } catch (_) {}
-  }
-
-  await db.upsertLroDocument(document);
-  await sync.pushPending();
-  return document;
 }
 
 String _guessContentType(String fileName) {

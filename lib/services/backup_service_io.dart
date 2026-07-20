@@ -110,7 +110,6 @@ Future<void> restoreSqliteArchive(
     onProgress?.call(0.6);
     await _restoreCachedFolder(archive, appDocs.path, 'member_files');
     await _restoreCachedFolder(archive, appDocs.path, 'member_photos');
-    await _restoreCachedFolder(archive, appDocs.path, 'lro_files');
   } finally {
     await db.reopenAfterRestore();
   }

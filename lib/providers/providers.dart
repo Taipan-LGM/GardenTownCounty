@@ -5,8 +5,6 @@ import '../models/activity_log.dart';
 import '../models/app_user.dart';
 import '../models/county_profile.dart';
 import '../models/lookup_item.dart';
-import '../models/lro_case.dart';
-import '../models/lro_notice.dart';
 import '../models/member.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
@@ -20,7 +18,6 @@ import '../services/connectivity_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
-import '../services/lro_repository.dart';
 import '../services/member_repository.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
@@ -109,13 +106,6 @@ final memberRepositoryProvider = Provider<MemberRepository>((ref) {
   );
 });
 
-final lroRepositoryProvider = Provider<LroRepository>((ref) {
-  return LroRepository(
-    ref.watch(databaseServiceProvider),
-    ref.watch(syncEngineProvider),
-  );
-});
-
 final fileStorageServiceProvider = Provider<FileStorageService>((ref) {
   return FileStorageService(
     ref.watch(databaseServiceProvider),
@@ -166,34 +156,6 @@ final rolesProvider =
   return ref.watch(authServiceProvider).listRoles();
 });
 
-final lroCases528Provider =
-    FutureProvider.autoDispose<List<LroCase>>((ref) async {
-  return ref
-      .watch(lroRepositoryProvider)
-      .listCases(type: LroCaseType.status528);
-});
-
-final lroCases928Provider =
-    FutureProvider.autoDispose<List<LroCase>>((ref) async {
-  return ref
-      .watch(lroRepositoryProvider)
-      .listCases(type: LroCaseType.emancipation928);
-});
-
-final lroNoticesProvider =
-    FutureProvider.autoDispose<List<LroNotice>>((ref) async {
-  return ref.watch(lroRepositoryProvider).listNotices();
-});
-
-final lroNoticeFeedProvider =
-    FutureProvider.autoDispose<List<LroNotice>>((ref) async {
-  return ref.watch(lroRepositoryProvider).getPublishedFeed();
-});
-
-final lroStatsProvider = FutureProvider.autoDispose<LroStats>((ref) async {
-  return ref.watch(lroRepositoryProvider).stats();
-});
-
 /// Navigation target shown inside the shell after login.
 enum AppSection {
   home,
@@ -223,11 +185,6 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);
   ref.invalidate(rolesProvider);
-  ref.invalidate(lroCases528Provider);
-  ref.invalidate(lroCases928Provider);
-  ref.invalidate(lroNoticesProvider);
-  ref.invalidate(lroNoticeFeedProvider);
-  ref.invalidate(lroStatsProvider);
   ref.invalidate(backupAuthProvider);
   ref.invalidate(lastBackupAtProvider);
   ref.invalidate(countyProfileProvider);
