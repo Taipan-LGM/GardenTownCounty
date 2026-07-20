@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -26,13 +28,13 @@ class ActivityService {
       try {
         final permission = await _ensurePermission();
         if (permission) {
-          final position = await _readAccuratePosition();
+          final position = await _readBestPosition();
           if (position != null) {
             lat = position.latitude;
             lng = position.longitude;
             final accuracyM = position.accuracy;
             label =
-                '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)} (±${accuracyM.toStringAsFixed(0)}m)';
+                '${lat.toStringAsFixed(7)}, ${lng.toStringAsFixed(7)} (±${accuracyM.toStringAsFixed(1)}m)';
           } else {
             label = 'GPS unavailable';
           }
@@ -56,29 +58,58 @@ class ActivityService {
     return activity;
   }
 
-  /// Prefer a fresh high-accuracy fix; fall back to last known.
-  Future<Position?> _readAccuratePosition() async {
-    final settings = _platformSettings();
+  /// Sample the GPS stream and keep the reading with the best (lowest) accuracy.
+  Future<Position?> _readBestPosition() async {
+    final settings = _platformSettings(timeLimit: const Duration(seconds: 25));
 
+    Position? best;
+
+    // 1) Quick first fix.
     try {
-      return await Geolocator.getCurrentPosition(
-        locationSettings: settings,
+      best = await Geolocator.getCurrentPosition(locationSettings: settings);
+    } catch (_) {}
+
+    // 2) Sample stream for up to ~12s; keep improving accuracy.
+    try {
+      final stream = Geolocator.getPositionStream(
+        locationSettings: _platformSettings(
+          timeLimit: null,
+          distanceFilter: 0,
+        ),
       );
-    } catch (_) {
-      try {
-        return await Geolocator.getLastKnownPosition();
-      } catch (_) {
-        return null;
+
+      await for (final pos in stream.timeout(
+        const Duration(seconds: 12),
+        onTimeout: (sink) => sink.close(),
+      )) {
+        if (best == null || pos.accuracy < best.accuracy) {
+          best = pos;
+        }
+        // Good enough for county desk map pinning.
+        if (best.accuracy > 0 && best.accuracy <= 12) break;
       }
+    } catch (_) {}
+
+    // 3) Last-known fallback.
+    if (best == null) {
+      try {
+        best = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
     }
+
+    return best;
   }
 
-  LocationSettings _platformSettings() {
+  LocationSettings _platformSettings({
+    Duration? timeLimit = const Duration(seconds: 25),
+    int distanceFilter = 0,
+  }) {
     if (kIsWeb) {
-      return const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 0,
-        timeLimit: Duration(seconds: 20),
+      return LocationSettings(
+        // Web maps this to navigator.geolocation enableHighAccuracy=true.
+        accuracy: LocationAccuracy.best,
+        distanceFilter: distanceFilter,
+        timeLimit: timeLimit,
       );
     }
 
@@ -86,24 +117,27 @@ class ActivityService {
       case TargetPlatform.android:
         return AndroidSettings(
           accuracy: LocationAccuracy.best,
-          distanceFilter: 0,
+          distanceFilter: distanceFilter,
           forceLocationManager: true,
-          timeLimit: const Duration(seconds: 20),
+          intervalDuration: const Duration(seconds: 1),
+          timeLimit: timeLimit,
         );
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
         return AppleSettings(
           accuracy: LocationAccuracy.bestForNavigation,
-          activityType: ActivityType.other,
-          distanceFilter: 0,
+          activityType: ActivityType.otherNavigation,
+          distanceFilter: distanceFilter,
           pauseLocationUpdatesAutomatically: false,
-          timeLimit: const Duration(seconds: 20),
+          allowBackgroundLocationUpdates: false,
+          showBackgroundLocationIndicator: false,
+          timeLimit: timeLimit,
         );
       default:
-        return const LocationSettings(
+        return LocationSettings(
           accuracy: LocationAccuracy.best,
-          distanceFilter: 0,
-          timeLimit: Duration(seconds: 20),
+          distanceFilter: distanceFilter,
+          timeLimit: timeLimit,
         );
     }
   }

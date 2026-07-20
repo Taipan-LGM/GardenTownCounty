@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
@@ -16,6 +15,8 @@ import 'file_storage_io_stub.dart'
     if (dart.library.io) 'file_storage_io.dart' as io;
 import 'firebase_bootstrap.dart';
 import 'sync_engine.dart';
+import 'web_image_pick_stub.dart'
+    if (dart.library.html) 'web_image_pick_web.dart' as web_pick;
 
 class MemberPhotoPickResult {
   const MemberPhotoPickResult({
@@ -47,56 +48,64 @@ class FileStorageService {
   Future<MemberPhotoPickResult?> pickMemberPhoto({
     required String memberId,
   }) async {
-    final picked = await _pickImageFile();
-    if (picked == null) return null;
+    Uint8List? bytes;
+    String fileName = 'photo.jpg';
 
-    var bytes = picked.bytes;
-    final path = picked.path;
-    final ext = _extOf(picked.name);
+    // Web: native <input type=file> — FilePicker often returns empty bytes.
+    if (kIsWeb) {
+      final picked = await web_pick.pickImageBytesWeb();
+      if (picked == null) return null;
+      bytes = picked.bytes;
+      fileName = picked.name;
+    } else {
+      final picked = await _pickImageFileDesktop();
+      if (picked == null) return null;
+      bytes = picked.bytes;
+      fileName = picked.name;
+      final path = picked.path;
 
-    // Desktop path-only.
-    if (bytes == null && path != null && !kIsWeb) {
-      final localCopy = await io.copyPhotoToAppDocs(
-        sourcePath: path,
-        memberId: memberId,
-        ext: ext,
-      );
-      String? photoUrl;
-      if (FirebaseBootstrap.ready) {
+      if ((bytes == null || bytes.isEmpty) && path != null) {
+        final localCopy = await io.copyPhotoToAppDocs(
+          sourcePath: path,
+          memberId: memberId,
+          ext: _extOf(fileName),
+        );
+        String? photoUrl;
+        if (FirebaseBootstrap.ready) {
+          try {
+            photoUrl = await io.uploadPhotoFile(
+              localPath: localCopy,
+              memberId: memberId,
+              ext: _extOf(fileName),
+            );
+          } catch (_) {}
+        }
+        Uint8List preview;
         try {
-          photoUrl = await io.uploadPhotoFile(
-            localPath: localCopy,
-            memberId: memberId,
-            ext: ext,
-          );
-        } catch (_) {}
+          preview = await io.readFileBytes(localCopy);
+        } catch (_) {
+          preview = Uint8List(0);
+        }
+        if (preview.isNotEmpty) {
+          _photoMemory[memberId] = preview;
+        }
+        await _persistPhotoMeta(
+          memberId: memberId,
+          localPath: localCopy,
+          photoUrl: photoUrl,
+        );
+        await _safePush();
+        return MemberPhotoPickResult(
+          path: localCopy,
+          bytes: preview.isNotEmpty ? preview : Uint8List(0),
+          photoUrl: photoUrl,
+        );
       }
-      // Read back for UI preview.
-      Uint8List preview;
-      try {
-        preview = await io.readFileBytes(localCopy);
-      } catch (_) {
-        preview = Uint8List(0);
-      }
-      if (preview.isNotEmpty) {
-        _photoMemory[memberId] = preview;
-      }
-      await _persistPhotoMeta(
-        memberId: memberId,
-        localPath: localCopy,
-        photoUrl: photoUrl,
-      );
-      await _safePush();
-      return MemberPhotoPickResult(
-        path: localCopy,
-        bytes: preview.isNotEmpty ? preview : Uint8List(0),
-        photoUrl: photoUrl,
-      );
     }
 
     if (bytes == null || bytes.isEmpty) {
       throw Exception(
-        'Browser did not return image bytes. Try JPG/PNG, or another browser.',
+        'Could not read image bytes. Please choose a JPG or PNG file.',
       );
     }
 
@@ -109,9 +118,12 @@ class FileStorageService {
       imageBytes = await _downscaleImage(imageBytes, maxSide: 720);
     } catch (_) {}
 
+    // Cache for this session first — UI must show photo even if prefs fail.
     _photoMemory[memberId] = imageBytes;
+
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Store raw base64 only (never data-URI in Firestore).
       await prefs.setString(
         '$_webPhotoPrefix$memberId',
         base64Encode(imageBytes),
@@ -140,7 +152,8 @@ class FileStorageService {
       localPath: marker,
       photoUrl: photoUrl,
     );
-    await _safePush();
+    // Do not block UI on sync.
+    unawaited(_safePush());
 
     return MemberPhotoPickResult(
       path: marker,
@@ -149,27 +162,18 @@ class FileStorageService {
     );
   }
 
-  Future<PlatformFile?> _pickImageFile() async {
+  Future<PlatformFile?> _pickImageFileDesktop() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         withData: true,
         type: FileType.custom,
-        allowedExtensions: const [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'gif',
-          'bmp',
-        ],
+        allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
       );
       if (result != null && result.files.isNotEmpty) {
         return result.files.single;
       }
-    } catch (_) {
-      // Fall through to FileType.any.
-    }
+    } catch (_) {}
 
     final fallback = await FilePicker.platform.pickFiles(
       allowMultiple: false,
@@ -187,11 +191,12 @@ class FileStorageService {
   }) async {
     final existing = await _db.getMemberById(memberId);
     if (existing == null) {
-      // Ensure a row exists so photo metadata is never silently dropped.
+      final short = memberId.replaceAll('-', '');
+      final saId = short.length >= 13 ? short.substring(0, 13) : short;
       await _db.upsertMember(
         Member(
           id: memberId,
-          saId: memberId.replaceAll('-', '').substring(0, 13),
+          saId: saId,
           globalRecordNo: 'P-${memberId.substring(0, 8)}',
           memberName: 'Photo',
           surname: 'Pending',
@@ -214,6 +219,10 @@ class FileStorageService {
     try {
       await _sync.pushPending();
     } catch (_) {}
+  }
+
+  void unawaited(Future<void> future) {
+    future.then((_) {}, onError: (_) {});
   }
 
   Future<Uint8List> _downscaleImage(
@@ -242,7 +251,7 @@ class FileStorageService {
 
   Future<Uint8List?> loadWebPhotoBytes(String memberId) async {
     final cached = _photoMemory[memberId];
-    if (cached != null) return cached;
+    if (cached != null && cached.isNotEmpty) return cached;
 
     try {
       final prefs = await SharedPreferences.getInstance();

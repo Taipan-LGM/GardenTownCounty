@@ -19,6 +19,8 @@ class AppDrawer extends ConsumerWidget {
     final strings = AppStrings(ref.watch(appLanguageProvider));
     final profile = ref.watch(countyProfileProvider).valueOrNull;
     final countyName = profile?.countyName ?? 'Garden Town County';
+    final countyAddress = profile?.countyAddress.trim() ?? '';
+    final countyRegNo = profile?.countyRegNo.trim() ?? '';
 
     return Drawer(
       child: SafeArea(
@@ -57,101 +59,153 @@ class AppDrawer extends ConsumerWidget {
                 ],
               ),
             ),
-            _item(
-              context,
-              ref,
-              icon: Icons.home,
-              label: strings.home,
-              selected: section == AppSection.home,
-              onTap: () => _go(context, ref, AppSection.home),
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.search,
-              label: strings.search,
-              selected: false,
-              onTap: () async {
-                Navigator.of(context).pop();
-                await showGlobalSearchDialog(context, ref);
-              },
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.settings,
-              label: strings.settings,
-              selected: section == AppSection.settings,
-              onTap: () => _go(context, ref, AppSection.settings),
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.badge_outlined,
-              label: strings.memberInfo,
-              selected: section == AppSection.memberInfo,
-              onTap: () => _go(context, ref, AppSection.memberInfo),
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.sos_outlined,
-              label: strings.sos,
-              selected: section == AppSection.sos,
-              onTap: () => _go(context, ref, AppSection.sos),
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.public,
-              label: strings.global528,
-              selected: section == AppSection.global528,
-              onTap: () => _go(context, ref, AppSection.global528),
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.public_outlined,
-              label: strings.global928,
-              selected: section == AppSection.global928,
-              onTap: () => _go(context, ref, AppSection.global928),
-            ),
-            _item(
-              context,
-              ref,
-              icon: Icons.account_balance,
-              label: strings.lro,
-              selected: section == AppSection.lro,
-              onTap: () => _go(context, ref, AppSection.lro),
-            ),
-            if (isAdmin)
-              _item(
-                context,
-                ref,
-                icon: Icons.backup,
-                label: strings.backupRestore,
-                selected: section == AppSection.backupRestore,
-                onTap: () => _go(context, ref, AppSection.backupRestore),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.home,
+                    label: strings.home,
+                    selected: section == AppSection.home,
+                    onTap: () => _go(context, ref, AppSection.home),
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.search,
+                    label: strings.search,
+                    selected: false,
+                    onTap: () async {
+                      Navigator.of(context).pop();
+                      await showGlobalSearchDialog(context, ref);
+                    },
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.settings,
+                    label: strings.settings,
+                    selected: section == AppSection.settings,
+                    onTap: () => _go(context, ref, AppSection.settings),
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.badge_outlined,
+                    label: strings.memberInfo,
+                    selected: section == AppSection.memberInfo,
+                    onTap: () => _go(context, ref, AppSection.memberInfo),
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.sos_outlined,
+                    label: strings.sos,
+                    selected: section == AppSection.sos,
+                    onTap: () => _go(context, ref, AppSection.sos),
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.public,
+                    label: strings.global528,
+                    selected: section == AppSection.global528,
+                    onTap: () => _go(context, ref, AppSection.global528),
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.public_outlined,
+                    label: strings.global928,
+                    selected: section == AppSection.global928,
+                    onTap: () => _go(context, ref, AppSection.global928),
+                  ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.account_balance,
+                    label: strings.lro,
+                    selected: section == AppSection.lro,
+                    onTap: () => _go(context, ref, AppSection.lro),
+                  ),
+                  if (isAdmin)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.backup,
+                      label: strings.backupRestore,
+                      selected: section == AppSection.backupRestore,
+                      onTap: () =>
+                          _go(context, ref, AppSection.backupRestore),
+                    ),
+                  if (isAdmin) ...[
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.person_add_alt_1,
+                      label: strings.addUser,
+                      selected: section == AppSection.addUser,
+                      onTap: () => _go(context, ref, AppSection.addUser),
+                    ),
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.timeline,
+                      label: strings.activities,
+                      selected: section == AppSection.activities,
+                      onTap: () => _go(context, ref, AppSection.activities),
+                    ),
+                  ],
+                ],
               ),
-            if (isAdmin) ...[
-              _item(
-                context,
-                ref,
-                icon: Icons.person_add_alt_1,
-                label: strings.addUser,
-                selected: section == AppSection.addUser,
-                onTap: () => _go(context, ref, AppSection.addUser),
+            ),
+            // County Information — above Sign out, centered, white band.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  border: Border.all(color: Colors.white, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'County Information',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.gold,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _countyField(
+                      label: 'County Name',
+                      value: countyName,
+                    ),
+                    const SizedBox(height: 6),
+                    _countyField(
+                      label: 'County Address',
+                      value: countyAddress.isEmpty ? '—' : countyAddress,
+                    ),
+                    const SizedBox(height: 6),
+                    _countyField(
+                      label: 'County reg. no.',
+                      value: countyRegNo.isEmpty ? '—' : countyRegNo,
+                    ),
+                  ],
+                ),
               ),
-              _item(
-                context,
-                ref,
-                icon: Icons.timeline,
-                label: strings.activities,
-                selected: section == AppSection.activities,
-                onTap: () => _go(context, ref, AppSection.activities),
-              ),
-            ],
-            const Spacer(),
+            ),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.white70),
               title: Text(
@@ -180,6 +234,31 @@ class AppDrawer extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _countyField({required String label, required String value}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+          ),
+        ),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
