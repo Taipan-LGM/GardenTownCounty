@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Neon cyan used by the one-time menu onboarding arrow.
 const Color kMenuGuideNeonBlue = Color(0xFF00D4FF);
 
-const String kMenuGuideShownPrefsKey = 'menu_guide_shown';
+/// Bumped key so devices that "saw" the invisible v1 guide get one real showing.
+const String kMenuGuideShownPrefsKey = 'menu_guide_shown_v2';
 
 /// Returns true if the MENU guide has already been shown on this device.
 Future<bool> isMenuGuideShown() async {
@@ -95,8 +96,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
     );
 
     _pulseController.addStatusListener(_onPulseStatus);
-    // Mark as shown immediately so it never replays if app is killed mid-guide.
-    markMenuGuideShown();
     _pulseController.forward();
   }
 
@@ -128,6 +127,8 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   void _complete() {
     if (_finished) return;
     _finished = true;
+    // Only mark after a real show/dismiss so a broken layout cannot burn the flag.
+    markMenuGuideShown();
     widget.onFinished();
   }
 
@@ -142,60 +143,64 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
-    // Offset below/right of the menu icon so the tip aims at ~top:20,left:20.
-    final top = padding.top + 60;
-    const left = 60.0;
+    // Offset below/right of the menu icon so the tip aims at the hamburger.
+    final top = padding.top + 56;
+    const left = 56.0;
 
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: Listenable.merge([_pulseController, _fadeController]),
-        builder: (context, _) {
-          return Opacity(
-            opacity: _opacity.value,
-            child: Stack(
-              children: [
-                Positioned(
-                  top: top,
-                  left: left,
-                  child: Transform.rotate(
-                    angle: _tilt.value * math.pi / 180,
-                    child: Transform.scale(
-                      scale: _scale.value,
-                      alignment: Alignment.topLeft,
-                      child: const _NeonArrowGraphic(),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: top - 5,
-                  left: left + 48,
-                  child: Transform.scale(
-                    scale: _scale.value,
-                    child: Text(
-                      'MENU',
-                      style: TextStyle(
-                        color: kMenuGuideNeonBlue,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                        shadows: const [
-                          Shadow(
-                            blurRadius: 12,
-                            color: kMenuGuideNeonBlue,
-                          ),
-                          Shadow(
-                            blurRadius: 24,
-                            color: Color(0x8800D4FF),
-                          ),
-                        ],
+    // Must expand — a Stack of only Positioned children otherwise sizes to 0×0.
+    return SizedBox.expand(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_pulseController, _fadeController]),
+          builder: (context, _) {
+            return Opacity(
+              opacity: _opacity.value,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned(
+                    top: top,
+                    left: left,
+                    child: Transform.rotate(
+                      angle: _tilt.value * math.pi / 180,
+                      child: Transform.scale(
+                        scale: _scale.value,
+                        alignment: Alignment.topLeft,
+                        child: const _NeonArrowGraphic(),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                  Positioned(
+                    top: top + 8,
+                    left: left + 58,
+                    child: Transform.scale(
+                      scale: _scale.value,
+                      child: Text(
+                        'MENU',
+                        style: TextStyle(
+                          color: kMenuGuideNeonBlue,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.4,
+                          shadows: const [
+                            Shadow(
+                              blurRadius: 14,
+                              color: kMenuGuideNeonBlue,
+                            ),
+                            Shadow(
+                              blurRadius: 28,
+                              color: Color(0xAA00D4FF),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -208,7 +213,7 @@ class _NeonArrowGraphic extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(44, 44),
+      size: const Size(64, 64),
       painter: _MenuArrowPainter(),
     );
   }
@@ -218,17 +223,17 @@ class _MenuArrowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final glow = Paint()
-      ..color = kMenuGuideNeonBlue.withValues(alpha: 0.45)
+      ..color = kMenuGuideNeonBlue.withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = 10
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
     final stroke = Paint()
       ..color = kMenuGuideNeonBlue
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -237,21 +242,25 @@ class _MenuArrowPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Shaft from bottom-right toward top-left.
-    final start = Offset(size.width * 0.85, size.height * 0.85);
-    final tip = Offset(size.width * 0.12, size.height * 0.12);
+    final start = Offset(size.width * 0.88, size.height * 0.88);
+    final tip = Offset(size.width * 0.08, size.height * 0.08);
 
-    for (final paint in [glow, stroke]) {
-      canvas.drawLine(start, tip, paint);
-    }
+    canvas.drawLine(start, tip, glow);
+    canvas.drawLine(start, tip, stroke);
 
     // Arrowhead at tip (pointing up-left).
     final head = Path()
       ..moveTo(tip.dx, tip.dy)
-      ..lineTo(tip.dx + size.width * 0.32, tip.dy + size.height * 0.06)
-      ..lineTo(tip.dx + size.width * 0.06, tip.dy + size.height * 0.32)
+      ..lineTo(tip.dx + size.width * 0.38, tip.dy + size.height * 0.05)
+      ..lineTo(tip.dx + size.width * 0.05, tip.dy + size.height * 0.38)
       ..close();
 
-    canvas.drawPath(head, glow..style = PaintingStyle.fill);
+    canvas.drawPath(
+      head,
+      Paint()
+        ..color = kMenuGuideNeonBlue.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
     canvas.drawPath(head, fill);
   }
 

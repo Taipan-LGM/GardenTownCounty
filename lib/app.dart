@@ -181,9 +181,11 @@ class _AppShellState extends ConsumerState<AppShell>
                                   ),
                                 ),
                               if (_showMenuGuide)
-                                MenuGuideArrow(
-                                  key: _menuGuideKey,
-                                  onFinished: _onMenuGuideFinished,
+                                Positioned.fill(
+                                  child: MenuGuideArrow(
+                                    key: _menuGuideKey,
+                                    onFinished: _onMenuGuideFinished,
+                                  ),
                                 ),
                               // Menu button stays on top so it remains tappable.
                               SafeArea(
