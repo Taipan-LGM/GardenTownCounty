@@ -74,8 +74,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   Future<void> _maybeStartMenuGuide() async {
     if (_showMenuGuide) return;
-    final already = await isMenuGuideShown();
-    if (!mounted || already) return;
+    if (!mounted) return;
+    // Always show after each landing animation (refresh / restart / login).
     setState(() => _showMenuGuide = true);
   }
 

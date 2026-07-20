@@ -1,28 +1,13 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Neon cyan used by the one-time menu onboarding arrow.
-const Color kMenuGuideNeonBlue = Color(0xFF00D4FF);
+/// White fill / black outline for the always-on MENU guide.
+const Color kMenuGuideFill = Colors.white;
+const Color kMenuGuideOutline = Colors.black;
 
-/// Bumped key so devices that "saw" the invisible v1 guide get one real showing.
-const String kMenuGuideShownPrefsKey = 'menu_guide_shown_v2';
-
-/// Returns true if the MENU guide has already been shown on this device.
-Future<bool> isMenuGuideShown() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(kMenuGuideShownPrefsKey) ?? false;
-}
-
-Future<void> markMenuGuideShown() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(kMenuGuideShownPrefsKey, true);
-}
-
-/// Neon blue arrow + "MENU" that pulses 5 times toward the hamburger, then fades.
+/// Horizontal arrow + "MENU" in one row, pointing left toward the hamburger.
 ///
-/// Shown once after the landing logo animation completes.
+/// Shown every time the landing logo animation completes (refresh / restart /
+/// new login) — no SharedPreferences gate.
 class MenuGuideArrow extends StatefulWidget {
   const MenuGuideArrow({
     super.key,
@@ -46,7 +31,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   late final AnimationController _pulseController;
   late final AnimationController _fadeController;
   late final Animation<double> _scale;
-  late final Animation<double> _tilt;
   late final Animation<double> _opacity;
 
   int _pulseCount = 0;
@@ -60,7 +44,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
       vsync: this,
       duration: _pulseDuration,
     );
-    // Scale 1.0 → 1.2 → 1.0 over one pulse cycle.
     _scale = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween(begin: 1.0, end: 1.2)
@@ -69,19 +52,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
       ),
       TweenSequenceItem(
         tween: Tween(begin: 1.2, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 50,
-      ),
-    ]).animate(_pulseController);
-
-    _tilt = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: -5.0, end: 5.0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 50,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 5.0, end: -5.0)
             .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 50,
       ),
@@ -127,8 +97,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   void _complete() {
     if (_finished) return;
     _finished = true;
-    // Only mark after a real show/dismiss so a broken layout cannot burn the flag.
-    markMenuGuideShown();
     widget.onFinished();
   }
 
@@ -143,11 +111,10 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
-    // Offset below/right of the menu icon so the tip aims at the hamburger.
-    final top = padding.top + 56;
-    const left = 56.0;
+    // Sit just below/right of the hamburger; arrow points left toward it.
+    final top = padding.top + 52;
+    const left = 52.0;
 
-    // Must expand — a Stack of only Positioned children otherwise sizes to 0×0.
     return SizedBox.expand(
       child: IgnorePointer(
         child: AnimatedBuilder(
@@ -161,38 +128,17 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
                   Positioned(
                     top: top,
                     left: left,
-                    child: Transform.rotate(
-                      angle: _tilt.value * math.pi / 180,
-                      child: Transform.scale(
-                        scale: _scale.value,
-                        alignment: Alignment.topLeft,
-                        child: const _NeonArrowGraphic(),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: top + 8,
-                    left: left + 58,
                     child: Transform.scale(
                       scale: _scale.value,
-                      child: Text(
-                        'MENU',
-                        style: TextStyle(
-                          color: kMenuGuideNeonBlue,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.4,
-                          shadows: const [
-                            Shadow(
-                              blurRadius: 14,
-                              color: kMenuGuideNeonBlue,
-                            ),
-                            Shadow(
-                              blurRadius: 28,
-                              color: Color(0xAA00D4FF),
-                            ),
-                          ],
-                        ),
+                      alignment: Alignment.centerLeft,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _HorizontalArrowGraphic(),
+                          SizedBox(width: 10),
+                          _OutlinedMenuLabel(),
+                        ],
                       ),
                     ),
                   ),
@@ -206,62 +152,103 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   }
 }
 
-/// Classic arrow pointing diagonally up-left (toward the hamburger).
-class _NeonArrowGraphic extends StatelessWidget {
-  const _NeonArrowGraphic();
+class _OutlinedMenuLabel extends StatelessWidget {
+  const _OutlinedMenuLabel();
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(64, 64),
-      painter: _MenuArrowPainter(),
+    // White fill with black outline via stacked text strokes.
+    const style = TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.4,
+      height: 1,
+    );
+    return Stack(
+      alignment: Alignment.centerLeft,
+      children: [
+        Text(
+          'MENU',
+          style: style.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 4
+              ..color = kMenuGuideOutline,
+          ),
+        ),
+        const Text(
+          'MENU',
+          style: TextStyle(
+            color: kMenuGuideFill,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.4,
+            height: 1,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _MenuArrowPainter extends CustomPainter {
+/// Horizontal arrow pointing left (←) toward the hamburger.
+class _HorizontalArrowGraphic extends StatelessWidget {
+  const _HorizontalArrowGraphic();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(72, 28),
+      painter: _HorizontalArrowPainter(),
+    );
+  }
+}
+
+class _HorizontalArrowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final glow = Paint()
-      ..color = kMenuGuideNeonBlue.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-
-    final stroke = Paint()
-      ..color = kMenuGuideNeonBlue
+    final outline = Paint()
+      ..color = kMenuGuideOutline
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
+    final fillStroke = Paint()
+      ..color = kMenuGuideFill
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
     final fill = Paint()
-      ..color = kMenuGuideNeonBlue
+      ..color = kMenuGuideFill
       ..style = PaintingStyle.fill;
 
-    // Shaft from bottom-right toward top-left.
-    final start = Offset(size.width * 0.88, size.height * 0.88);
-    final tip = Offset(size.width * 0.08, size.height * 0.08);
+    final outlineFill = Paint()
+      ..color = kMenuGuideOutline
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeJoin = StrokeJoin.round;
 
-    canvas.drawLine(start, tip, glow);
-    canvas.drawLine(start, tip, stroke);
+    final cy = size.height / 2;
+    // Tip on the left (toward hamburger), shaft to the right.
+    final tip = Offset(2, cy);
+    final shaftEnd = Offset(size.width - 2, cy);
 
-    // Arrowhead at tip (pointing up-left).
+    // Shaft outline then white.
+    canvas.drawLine(shaftEnd, tip, outline);
+    canvas.drawLine(shaftEnd, tip, fillStroke);
+
+    // Arrowhead pointing left.
     final head = Path()
       ..moveTo(tip.dx, tip.dy)
-      ..lineTo(tip.dx + size.width * 0.38, tip.dy + size.height * 0.05)
-      ..lineTo(tip.dx + size.width * 0.05, tip.dy + size.height * 0.38)
+      ..lineTo(tip.dx + size.width * 0.38, tip.dy - size.height * 0.42)
+      ..lineTo(tip.dx + size.width * 0.38, tip.dy + size.height * 0.42)
       ..close();
 
-    canvas.drawPath(
-      head,
-      Paint()
-        ..color = kMenuGuideNeonBlue.withValues(alpha: 0.45)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-    );
     canvas.drawPath(head, fill);
+    canvas.drawPath(head, outlineFill);
   }
 
   @override
