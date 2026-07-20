@@ -88,7 +88,19 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
     final asyncItems = ref.watch(lookupsProvider(widget.type));
 
     return AlertDialog(
-      title: Text('Manage ${widget.type.label}'),
+      titlePadding: const EdgeInsets.fromLTRB(24, 12, 8, 0),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text('Manage ${widget.type.label}'),
+          ),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
       content: SizedBox(
         width: 420,
         height: 420,

@@ -2,7 +2,7 @@ class AppConstants {
   static const String appName = 'Garden Town County';
   /// Keep in sync with pubspec.yaml `version:`.
   /// Scheme: v1.1.8 → v1.1.9 … v1.1.99 → v1.2.0
-  static const String appVersion = '1.2.8';
+  static const String appVersion = '1.2.9';
   static String get versionLabel => 'v$appVersion';
 
   static const String logoAsset = 'assets/images/county_logo.png';
