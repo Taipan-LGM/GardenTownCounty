@@ -3,13 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'models/lro_case.dart';
 import 'providers/providers.dart';
 import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
+import 'screens/lro/lro_case_list_screen.dart';
+import 'screens/lro/lro_dashboard_screen.dart';
 import 'screens/member/member_form_screen.dart';
-import 'screens/placeholders/placeholder_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
@@ -223,9 +225,9 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.backupRestore:
         return 'Backup & Restore';
       case AppSection.global528:
-        return 'Global 528';
+        return '528 Status Correction';
       case AppSection.global928:
-        return 'Global 928';
+        return '928 Emancipation';
       case AppSection.lro:
         return 'LRO';
     }
@@ -248,11 +250,11 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.backupRestore:
         return const BackupRestoreScreen();
       case AppSection.global528:
-        return const PlaceholderScreen(title: 'Global 528');
+        return const LroCaseListScreen(caseType: LroCaseType.status528);
       case AppSection.global928:
-        return const PlaceholderScreen(title: 'Global 928');
+        return const LroCaseListScreen(caseType: LroCaseType.emancipation928);
       case AppSection.lro:
-        return const PlaceholderScreen(title: 'LRO');
+        return const LroDashboardScreen();
     }
   }
 }

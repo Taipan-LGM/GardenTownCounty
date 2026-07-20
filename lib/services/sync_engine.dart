@@ -9,6 +9,10 @@ import '../core/constants/app_constants.dart';
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
 import '../models/lookup_item.dart';
+import '../models/lro_case.dart';
+import '../models/lro_document.dart';
+import '../models/lro_history.dart';
+import '../models/lro_notice.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
 import '../models/role_definition.dart';
@@ -54,6 +58,10 @@ class SyncEngine {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _presetsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _usersSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _rolesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _lroCasesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _lroNoticesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _lroDocumentsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _lroHistorySub;
   Timer? _pushTimer;
   bool _pushing = false;
 
@@ -101,6 +109,10 @@ class SyncEngine {
     await _presetsSub?.cancel();
     await _usersSub?.cancel();
     await _rolesSub?.cancel();
+    await _lroCasesSub?.cancel();
+    await _lroNoticesSub?.cancel();
+    await _lroDocumentsSub?.cancel();
+    await _lroHistorySub?.cancel();
     _pushTimer?.cancel();
   }
 
@@ -156,6 +168,26 @@ class SyncEngine {
         .collection(AppConstants.rolesCollection)
         .snapshots()
         .listen(_onRolesSnapshot, onError: _logError);
+
+    _lroCasesSub = _fs
+        .collection(AppConstants.lroCasesCollection)
+        .snapshots()
+        .listen(_onLroCasesSnapshot, onError: _logError);
+
+    _lroNoticesSub = _fs
+        .collection(AppConstants.lroNoticesCollection)
+        .snapshots()
+        .listen(_onLroNoticesSnapshot, onError: _logError);
+
+    _lroDocumentsSub = _fs
+        .collection(AppConstants.lroDocumentsCollection)
+        .snapshots()
+        .listen(_onLroDocumentsSnapshot, onError: _logError);
+
+    _lroHistorySub = _fs
+        .collection(AppConstants.lroHistoryCollection)
+        .snapshots()
+        .listen(_onLroHistorySnapshot, onError: _logError);
   }
 
   Future<void> _onRolesSnapshot(
@@ -246,6 +278,57 @@ class SyncEngine {
     }
   }
 
+  Future<void> _onLroCasesSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = LroCase.fromFirestore({...data, 'id': change.doc.id});
+      final local = await _db.getLroCaseById(remote.id);
+      if (local == null || remote.updatedAt.isAfter(local.updatedAt)) {
+        await _db.upsertLroCase(remote.copyWith(pendingSync: false));
+      }
+    }
+  }
+
+  Future<void> _onLroNoticesSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = LroNotice.fromFirestore({...data, 'id': change.doc.id});
+      final local = await _db.getLroNoticeById(remote.id);
+      if (local == null || remote.updatedAt.isAfter(local.updatedAt)) {
+        await _db.upsertLroNotice(remote.copyWith(pendingSync: false));
+      }
+    }
+  }
+
+  Future<void> _onLroDocumentsSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote =
+          LroDocument.fromFirestore({...data, 'id': change.doc.id});
+      await _db.upsertLroDocument(remote.copyWith(pendingSync: false));
+    }
+  }
+
+  Future<void> _onLroHistorySnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = LroHistory.fromFirestore({...data, 'id': change.doc.id});
+      await _db.insertLroHistory(remote.copyWith(pendingSync: false));
+    }
+  }
+
   /// Push pending rows with exponential backoff on network errors.
   Future<void> pushPending() async {
     if (!isCloudEnabled || _pushing) return;
@@ -263,6 +346,10 @@ class SyncEngine {
         await _pushPresetsBatched();
         await _pushAppUsersBatched();
         await _pushRolesBatched();
+        await _pushLroCasesBatched();
+        await _pushLroNoticesBatched();
+        await _pushLroDocuments();
+        await _pushLroHistoryBatched();
         _emit(SyncState(
           status: SyncUiStatus.synced,
           lastSyncedAt: DateTime.now(),
@@ -418,6 +505,66 @@ class SyncEngine {
     );
     for (final role in pending) {
       await _db.markRoleSynced(role.id);
+    }
+  }
+
+  Future<void> _pushLroCasesBatched() async {
+    final pending = await _db.getPendingLroCases();
+    await _commitBatches(
+      AppConstants.lroCasesCollection,
+      pending.map((c) => (id: c.id, data: c.toFirestore())).toList(),
+    );
+    for (final lroCase in pending) {
+      await _db.markLroCaseSynced(lroCase.id);
+    }
+  }
+
+  Future<void> _pushLroNoticesBatched() async {
+    final pending = await _db.getPendingLroNotices();
+    await _commitBatches(
+      AppConstants.lroNoticesCollection,
+      pending.map((n) => (id: n.id, data: n.toFirestore())).toList(),
+    );
+    for (final notice in pending) {
+      await _db.markLroNoticeSynced(notice.id);
+    }
+  }
+
+  /// Documents mirror member files: upload the local copy to Storage (if
+  /// present and not yet uploaded), then push metadata to Firestore.
+  Future<void> _pushLroDocuments() async {
+    final pending = await _db.getPendingLroDocuments();
+    for (final document in pending) {
+      var storageUrl = document.storageUrl;
+      if ((storageUrl == null || storageUrl.isEmpty) &&
+          document.localPath != null &&
+          File(document.localPath!).existsSync()) {
+        final ref = _storage
+            .ref()
+            .child('lro_files')
+            .child(document.parentId)
+            .child('${document.id}_${document.fileName}');
+        await ref.putFile(File(document.localPath!));
+        storageUrl = await ref.getDownloadURL();
+      }
+
+      final synced = document.copyWith(storageUrl: storageUrl);
+      await _fs
+          .collection(AppConstants.lroDocumentsCollection)
+          .doc(document.id)
+          .set(synced.toFirestore(), SetOptions(merge: true));
+      await _db.markLroDocumentSynced(document.id, storageUrl: storageUrl);
+    }
+  }
+
+  Future<void> _pushLroHistoryBatched() async {
+    final pending = await _db.getPendingLroHistory();
+    await _commitBatches(
+      AppConstants.lroHistoryCollection,
+      pending.map((h) => (id: h.id, data: h.toFirestore())).toList(),
+    );
+    for (final entry in pending) {
+      await _db.markLroHistorySynced(entry.id);
     }
   }
 

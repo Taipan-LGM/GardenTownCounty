@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/lro_document.dart';
 import '../models/member_file.dart';
 import 'database_service.dart';
 import 'file_storage_io_stub.dart'
@@ -216,6 +217,73 @@ class FileStorageService {
       sync: _sync,
       memberId: memberId,
       uploadedBy: uploadedBy,
+      description: description,
+      sourcePath: path,
+      fileName: fileName,
+    );
+  }
+
+  /// Pick a file and attach it as an [LroDocument] to a case or notice.
+  Future<LroDocument?> pickAndUploadLroDocument({
+    required String parentType,
+    required String parentId,
+    required String uploadedBy,
+    String description = '',
+    String docType = 'other',
+  }) async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      withData: kIsWeb,
+      type: FileType.any,
+    );
+
+    if (result == null || result.files.isEmpty) return null;
+    final picked = result.files.single;
+    final fileName = picked.name;
+
+    if (kIsWeb) {
+      final bytes = picked.bytes;
+      if (bytes == null) {
+        throw Exception('Could not read selected file.');
+      }
+      var document = LroDocument.create(
+        parentType: parentType,
+        parentId: parentId,
+        fileName: fileName,
+        uploadedBy: uploadedBy,
+        docType: docType,
+        description: description.trim(),
+        contentType: _guessContentType(fileName),
+        sizeBytes: bytes.length,
+      );
+      if (FirebaseBootstrap.ready) {
+        try {
+          final ref = FirebaseStorage.instance
+              .ref()
+              .child('lro_files')
+              .child(parentId)
+              .child('${document.id}_$fileName');
+          await ref.putData(bytes);
+          final url = await ref.getDownloadURL();
+          document = document.copyWith(storageUrl: url);
+        } catch (_) {}
+      }
+      await _db.upsertLroDocument(document);
+      await _safePush();
+      return document;
+    }
+
+    final path = picked.path;
+    if (path == null) {
+      throw Exception('Could not read selected file path.');
+    }
+    return io.pickAndUploadLroDocumentDesktop(
+      db: _db,
+      sync: _sync,
+      parentType: parentType,
+      parentId: parentId,
+      uploadedBy: uploadedBy,
+      docType: docType,
       description: description,
       sourcePath: path,
       fileName: fileName,

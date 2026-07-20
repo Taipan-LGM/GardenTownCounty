@@ -2,7 +2,7 @@ class AppConstants {
   static const String appName = 'Garden Town County';
   /// Keep in sync with pubspec.yaml `version:`.
   /// Scheme: v1.1.8 → v1.1.9 … v1.1.99 → v1.2.0
-  static const String appVersion = '1.1.9';
+  static const String appVersion = '1.2.0';
   static String get versionLabel => 'v$appVersion';
 
   static const String logoAsset = 'assets/images/county_logo.png';
@@ -16,6 +16,11 @@ class AppConstants {
   static const String sosPresetsCollection = 'sos_presets';
   static const String appUsersCollection = 'app_users';
   static const String rolesCollection = 'roles';
+
+  static const String lroCasesCollection = 'lro_cases';
+  static const String lroNoticesCollection = 'lro_notices';
+  static const String lroDocumentsCollection = 'lro_documents';
+  static const String lroHistoryCollection = 'lro_history';
 
   /// Local backup authorization marker (Documents/GardenTown/.gardentown_auth).
   static const String backupAuthKeyLine = 'AUTH_KEY=GT528-GLOBAL';

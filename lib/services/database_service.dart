@@ -7,6 +7,10 @@ import '../core/constants/app_constants.dart';
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
 import '../models/lookup_item.dart';
+import '../models/lro_case.dart';
+import '../models/lro_document.dart';
+import '../models/lro_history.dart';
+import '../models/lro_notice.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
 import '../models/role_definition.dart';
@@ -34,6 +38,10 @@ class DatabaseService {
   final Map<String, SosPreset> _presets = {};
   final Map<String, AppUser> _appUsers = {};
   final Map<String, RoleDefinition> _roles = {};
+  final Map<String, LroCase> _lroCases = {};
+  final Map<String, LroNotice> _lroNotices = {};
+  final Map<String, LroDocument> _lroDocuments = {};
+  final Map<String, LroHistory> _lroHistory = {};
 
   Database get db {
     final database = _db;
@@ -66,7 +74,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 4,
+      version: 5,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -95,6 +103,9 @@ class DatabaseService {
     }
     if (oldVersion < 4) {
       await _createRolesTable(database);
+    }
+    if (oldVersion < 5) {
+      await _createLroTables(database);
     }
   }
 
@@ -126,6 +137,106 @@ class DatabaseService {
         deleted INTEGER NOT NULL DEFAULT 0
       )
     ''');
+  }
+
+  Future<void> _createLroTables(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS lro_cases (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        memberId TEXT NOT NULL,
+        caseType TEXT NOT NULL,
+        caseNumber TEXT NOT NULL,
+        recordingNumber TEXT,
+        subjectName TEXT NOT NULL DEFAULT '',
+        propertyAddress TEXT NOT NULL DEFAULT '',
+        propertySize TEXT NOT NULL DEFAULT '',
+        zoningType TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'draft',
+        submissionDate TEXT,
+        approvalDate TEXT,
+        publishedDate TEXT,
+        assignedOfficer TEXT NOT NULL DEFAULT '',
+        feeAmount REAL,
+        notes TEXT NOT NULL DEFAULT '',
+        rejectionReason TEXT NOT NULL DEFAULT '',
+        createdBy TEXT NOT NULL DEFAULT '',
+        updatedBy TEXT NOT NULL DEFAULT '',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS lro_notices (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        publicationDate TEXT,
+        expiryDate TEXT,
+        status TEXT NOT NULL DEFAULT 'draft',
+        memberId TEXT,
+        relatedCaseId TEXT,
+        createdBy TEXT NOT NULL DEFAULT '',
+        updatedBy TEXT NOT NULL DEFAULT '',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS lro_documents (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        parentType TEXT NOT NULL,
+        parentId TEXT NOT NULL,
+        docType TEXT NOT NULL DEFAULT 'other',
+        fileName TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        uploadedBy TEXT NOT NULL,
+        uploadedAt TEXT NOT NULL,
+        storageUrl TEXT,
+        localPath TEXT,
+        contentType TEXT NOT NULL DEFAULT 'application/octet-stream',
+        sizeBytes INTEGER NOT NULL DEFAULT 0,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS lro_history (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        entityType TEXT NOT NULL,
+        entityId TEXT NOT NULL,
+        action TEXT NOT NULL,
+        fromStatus TEXT,
+        toStatus TEXT,
+        changedBy TEXT NOT NULL DEFAULT '',
+        detail TEXT NOT NULL DEFAULT '',
+        changedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
+
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lro_cases_type ON lro_cases(caseType)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lro_notices_status ON lro_notices(status)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lro_documents_parent ON lro_documents(parentType, parentId)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lro_history_entity ON lro_history(entityType, entityId)',
+    );
   }
 
   Future<void> _onCreate(Database database, int version) async {
@@ -214,6 +325,7 @@ class DatabaseService {
     );
     await _createAppUsersTable(database);
     await _createRolesTable(database);
+    await _createLroTables(database);
   }
 
   Future<void> ensureSeedAdmin() async {
@@ -948,6 +1060,373 @@ class DatabaseService {
     );
   }
 
+  // ── LRO cases ──────────────────────────────────────────────────────────
+
+  Future<void> upsertLroCase(LroCase lroCase) async {
+    if (_memoryMode) {
+      _lroCases[lroCase.id] = lroCase;
+      return;
+    }
+    await db.insert(
+      'lro_cases',
+      lroCase.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<LroCase>> getLroCases({String? caseType}) async {
+    if (_memoryMode) {
+      final list = _lroCases.values
+          .where((c) => !c.deleted && (caseType == null || c.caseType == caseType))
+          .toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return list;
+    }
+    final where = StringBuffer('deleted = 0');
+    final args = <Object?>[];
+    if (caseType != null) {
+      where.write(' AND caseType = ?');
+      args.add(caseType);
+    }
+    final rows = await db.query(
+      'lro_cases',
+      where: where.toString(),
+      whereArgs: args,
+      orderBy: 'updatedAt DESC',
+    );
+    return rows.map(LroCase.fromMap).toList();
+  }
+
+  Future<LroCase?> getLroCaseById(String id) async {
+    if (_memoryMode) {
+      final c = _lroCases[id];
+      if (c == null || c.deleted) return null;
+      return c;
+    }
+    final rows = await db.query(
+      'lro_cases',
+      where: 'id = ? AND deleted = 0',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return LroCase.fromMap(rows.first);
+  }
+
+  Future<void> softDeleteLroCase(String id) async {
+    if (_memoryMode) {
+      final c = _lroCases[id];
+      if (c != null) {
+        _lroCases[id] = c.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
+    await db.update(
+      'lro_cases',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<LroCase>> getPendingLroCases() async {
+    if (_memoryMode) {
+      return _lroCases.values.where((c) => c.pendingSync).toList();
+    }
+    final rows = await db.query('lro_cases', where: 'pendingSync = 1');
+    return rows.map(LroCase.fromMap).toList();
+  }
+
+  Future<void> markLroCaseSynced(String id) async {
+    if (_memoryMode) {
+      final c = _lroCases[id];
+      if (c != null) _lroCases[id] = c.copyWith(pendingSync: false);
+      return;
+    }
+    await db.update(
+      'lro_cases',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ── LRO notices ────────────────────────────────────────────────────────
+
+  Future<void> upsertLroNotice(LroNotice notice) async {
+    if (_memoryMode) {
+      _lroNotices[notice.id] = notice;
+      return;
+    }
+    await db.insert(
+      'lro_notices',
+      notice.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<LroNotice>> getLroNotices({String? status}) async {
+    if (_memoryMode) {
+      final list = _lroNotices.values
+          .where((n) => !n.deleted && (status == null || n.status == status))
+          .toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return list;
+    }
+    final where = StringBuffer('deleted = 0');
+    final args = <Object?>[];
+    if (status != null) {
+      where.write(' AND status = ?');
+      args.add(status);
+    }
+    final rows = await db.query(
+      'lro_notices',
+      where: where.toString(),
+      whereArgs: args,
+      orderBy: 'updatedAt DESC',
+    );
+    return rows.map(LroNotice.fromMap).toList();
+  }
+
+  Future<List<LroNotice>> getPublishedNoticesForFeed() async {
+    if (_memoryMode) {
+      final list = _lroNotices.values
+          .where((n) => !n.deleted && n.status == 'published')
+          .toList()
+        ..sort((a, b) {
+          final aKey = a.publicationDate ?? a.updatedAt;
+          final bKey = b.publicationDate ?? b.updatedAt;
+          return bKey.compareTo(aKey);
+        });
+      return list;
+    }
+    final rows = await db.query(
+      'lro_notices',
+      where: "deleted = 0 AND status = 'published'",
+      orderBy: 'COALESCE(publicationDate, updatedAt) DESC',
+    );
+    return rows.map(LroNotice.fromMap).toList();
+  }
+
+  Future<LroNotice?> getLroNoticeById(String id) async {
+    if (_memoryMode) {
+      final n = _lroNotices[id];
+      if (n == null || n.deleted) return null;
+      return n;
+    }
+    final rows = await db.query(
+      'lro_notices',
+      where: 'id = ? AND deleted = 0',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return LroNotice.fromMap(rows.first);
+  }
+
+  Future<void> softDeleteLroNotice(String id) async {
+    if (_memoryMode) {
+      final n = _lroNotices[id];
+      if (n != null) {
+        _lroNotices[id] = n.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
+    await db.update(
+      'lro_notices',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<LroNotice>> getPendingLroNotices() async {
+    if (_memoryMode) {
+      return _lroNotices.values.where((n) => n.pendingSync).toList();
+    }
+    final rows = await db.query('lro_notices', where: 'pendingSync = 1');
+    return rows.map(LroNotice.fromMap).toList();
+  }
+
+  Future<void> markLroNoticeSynced(String id) async {
+    if (_memoryMode) {
+      final n = _lroNotices[id];
+      if (n != null) _lroNotices[id] = n.copyWith(pendingSync: false);
+      return;
+    }
+    await db.update(
+      'lro_notices',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ── LRO documents ──────────────────────────────────────────────────────
+
+  Future<void> upsertLroDocument(LroDocument document) async {
+    if (_memoryMode) {
+      _lroDocuments[document.id] = document;
+      return;
+    }
+    await db.insert(
+      'lro_documents',
+      document.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<LroDocument>> getLroDocumentsForParent(
+    String parentType,
+    String parentId,
+  ) async {
+    if (_memoryMode) {
+      final list = _lroDocuments.values
+          .where((d) =>
+              !d.deleted && d.parentType == parentType && d.parentId == parentId)
+          .toList()
+        ..sort(
+          (a, b) =>
+              a.fileName.toLowerCase().compareTo(b.fileName.toLowerCase()),
+        );
+      return list;
+    }
+    final rows = await db.query(
+      'lro_documents',
+      where: 'parentType = ? AND parentId = ? AND deleted = 0',
+      whereArgs: [parentType, parentId],
+      orderBy: 'fileName COLLATE NOCASE ASC',
+    );
+    return rows.map(LroDocument.fromMap).toList();
+  }
+
+  Future<void> softDeleteLroDocument(String id) async {
+    if (_memoryMode) {
+      final d = _lroDocuments[id];
+      if (d != null) {
+        _lroDocuments[id] = d.copyWith(deleted: true, pendingSync: true);
+      }
+      return;
+    }
+    await db.update(
+      'lro_documents',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<LroDocument>> getPendingLroDocuments() async {
+    if (_memoryMode) {
+      return _lroDocuments.values
+          .where((d) => d.pendingSync && !d.deleted)
+          .toList();
+    }
+    final rows = await db.query(
+      'lro_documents',
+      where: 'pendingSync = 1 AND deleted = 0',
+    );
+    return rows.map(LroDocument.fromMap).toList();
+  }
+
+  Future<void> markLroDocumentSynced(String id, {String? storageUrl}) async {
+    if (_memoryMode) {
+      final d = _lroDocuments[id];
+      if (d != null) {
+        _lroDocuments[id] = d.copyWith(
+          pendingSync: false,
+          storageUrl: storageUrl,
+        );
+      }
+      return;
+    }
+    final values = <String, Object?>{'pendingSync': 0};
+    if (storageUrl != null) {
+      values['storageUrl'] = storageUrl;
+    }
+    await db.update(
+      'lro_documents',
+      values,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ── LRO history ────────────────────────────────────────────────────────
+
+  Future<void> insertLroHistory(LroHistory history) async {
+    if (_memoryMode) {
+      _lroHistory[history.id] = history;
+      return;
+    }
+    await db.insert(
+      'lro_history',
+      history.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<LroHistory>> getLroHistoryForEntity(
+    String entityType,
+    String entityId,
+  ) async {
+    if (_memoryMode) {
+      final list = _lroHistory.values
+          .where((h) => h.entityType == entityType && h.entityId == entityId)
+          .toList()
+        ..sort((a, b) => b.changedAt.compareTo(a.changedAt));
+      return list;
+    }
+    final rows = await db.query(
+      'lro_history',
+      where: 'entityType = ? AND entityId = ?',
+      whereArgs: [entityType, entityId],
+      orderBy: 'changedAt DESC',
+    );
+    return rows.map(LroHistory.fromMap).toList();
+  }
+
+  Future<List<LroHistory>> getPendingLroHistory() async {
+    if (_memoryMode) {
+      return _lroHistory.values.where((h) => h.pendingSync).toList();
+    }
+    final rows = await db.query('lro_history', where: 'pendingSync = 1');
+    return rows.map(LroHistory.fromMap).toList();
+  }
+
+  Future<void> markLroHistorySynced(String id) async {
+    if (_memoryMode) {
+      final h = _lroHistory[id];
+      if (h != null) _lroHistory[id] = h.copyWith(pendingSync: false);
+      return;
+    }
+    await db.update(
+      'lro_history',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> close() async {
     if (_memoryMode) return;
     await _db?.close();
@@ -980,6 +1459,10 @@ class DatabaseService {
       'sos_presets': _presets.values.map((p) => p.toMap()).toList(),
       'app_users': _appUsers.values.map((u) => u.toMap()).toList(),
       'roles': _roles.values.map((r) => r.toMap()).toList(),
+      'lro_cases': _lroCases.values.map((c) => c.toMap()).toList(),
+      'lro_notices': _lroNotices.values.map((n) => n.toMap()).toList(),
+      'lro_documents': _lroDocuments.values.map((d) => d.toMap()).toList(),
+      'lro_history': _lroHistory.values.map((h) => h.toMap()).toList(),
     };
   }
 
@@ -1033,6 +1516,34 @@ class DatabaseService {
             .cast<Map<String, dynamic>>()
             .map((m) => MapEntry(m['id'] as String, RoleDefinition.fromMap(m))),
       );
+    _lroCases
+      ..clear()
+      ..addEntries(
+        ((snapshot['lro_cases'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, LroCase.fromMap(m))),
+      );
+    _lroNotices
+      ..clear()
+      ..addEntries(
+        ((snapshot['lro_notices'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, LroNotice.fromMap(m))),
+      );
+    _lroDocuments
+      ..clear()
+      ..addEntries(
+        ((snapshot['lro_documents'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, LroDocument.fromMap(m))),
+      );
+    _lroHistory
+      ..clear()
+      ..addEntries(
+        ((snapshot['lro_history'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, LroHistory.fromMap(m))),
+      );
   }
 
   /// Mark all non-deleted rows pending so restore can push to cloud.
@@ -1062,6 +1573,22 @@ class DatabaseService {
         final r = _roles[id];
         if (r != null) _roles[id] = r.copyWith(pendingSync: true);
       }
+      for (final id in _lroCases.keys.toList()) {
+        final c = _lroCases[id];
+        if (c != null) _lroCases[id] = c.copyWith(pendingSync: true);
+      }
+      for (final id in _lroNotices.keys.toList()) {
+        final n = _lroNotices[id];
+        if (n != null) _lroNotices[id] = n.copyWith(pendingSync: true);
+      }
+      for (final id in _lroDocuments.keys.toList()) {
+        final d = _lroDocuments[id];
+        if (d != null) _lroDocuments[id] = d.copyWith(pendingSync: true);
+      }
+      for (final id in _lroHistory.keys.toList()) {
+        final h = _lroHistory[id];
+        if (h != null) _lroHistory[id] = h.copyWith(pendingSync: true);
+      }
       return;
     }
     await db.update('members', {'pendingSync': 1});
@@ -1071,5 +1598,9 @@ class DatabaseService {
     await db.update('sos_presets', {'pendingSync': 1});
     await db.update('app_users', {'pendingSync': 1});
     await db.update('roles', {'pendingSync': 1});
+    await db.update('lro_cases', {'pendingSync': 1});
+    await db.update('lro_notices', {'pendingSync': 1});
+    await db.update('lro_documents', {'pendingSync': 1});
+    await db.update('lro_history', {'pendingSync': 1});
   }
 }
