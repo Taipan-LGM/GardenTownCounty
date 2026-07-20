@@ -15,6 +15,7 @@ import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
 import 'widgets/app_drawer.dart';
 import 'widgets/county_logo.dart';
+import 'widgets/menu_guide_arrow.dart';
 import 'widgets/sync_status_indicator.dart';
 
 class GardenTownCountyApp extends ConsumerWidget {
@@ -46,6 +47,9 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _backupReminderShown = false;
+  bool _showMenuGuide = false;
+  final GlobalKey<MenuGuideArrowState> _menuGuideKey =
+      GlobalKey<MenuGuideArrowState>();
 
   @override
   void initState() {
@@ -66,6 +70,22 @@ class _AppShellState extends ConsumerState<AppShell>
         state == AppLifecycleState.detached) {
       _maybeRemindBackup();
     }
+  }
+
+  Future<void> _maybeStartMenuGuide() async {
+    if (_showMenuGuide) return;
+    final already = await isMenuGuideShown();
+    if (!mounted || already) return;
+    setState(() => _showMenuGuide = true);
+  }
+
+  void _dismissMenuGuide() {
+    _menuGuideKey.currentState?.dismiss();
+  }
+
+  void _onMenuGuideFinished() {
+    if (!_showMenuGuide) return;
+    setState(() => _showMenuGuide = false);
   }
 
   Future<void> _maybeRemindBackup() async {
@@ -92,6 +112,10 @@ class _AppShellState extends ConsumerState<AppShell>
     ref.read(landingCompleteProvider.notifier).state = true;
     // Stay on Home — first logo remains fixed as background.
     ref.read(appSectionProvider.notifier).state = AppSection.home;
+    // After logo shrink+slide finishes, show one-time MENU arrow guide.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeStartMenuGuide();
+    });
   }
 
   @override
@@ -123,6 +147,9 @@ class _AppShellState extends ConsumerState<AppShell>
               title: Text(_titleFor(effectiveSection)),
             ),
       drawer: const AppDrawer(),
+      onDrawerChanged: (opened) {
+        if (opened) _dismissMenuGuide();
+      },
       body: Stack(
         children: [
           LayoutBuilder(
@@ -144,6 +171,21 @@ class _AppShellState extends ConsumerState<AppShell>
                             fit: StackFit.expand,
                             children: [
                               LandingScreen(onFinished: _onLandingFinished),
+                              // Tap anywhere (except menu button above) to dismiss.
+                              if (_showMenuGuide)
+                                Positioned.fill(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: _dismissMenuGuide,
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                              if (_showMenuGuide)
+                                MenuGuideArrow(
+                                  key: _menuGuideKey,
+                                  onFinished: _onMenuGuideFinished,
+                                ),
+                              // Menu button stays on top so it remains tappable.
                               SafeArea(
                                 child: Align(
                                   alignment: Alignment.topLeft,
@@ -156,8 +198,10 @@ class _AppShellState extends ConsumerState<AppShell>
                                           size: 32,
                                         ),
                                         tooltip: 'Open menu',
-                                        onPressed: () =>
-                                            Scaffold.of(context).openDrawer(),
+                                        onPressed: () {
+                                          _dismissMenuGuide();
+                                          Scaffold.of(context).openDrawer();
+                                        },
                                       );
                                     },
                                   ),
