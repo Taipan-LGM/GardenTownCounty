@@ -42,9 +42,9 @@ class AppStrings {
   String get countyContactNo =>
       isAf ? 'County kontaknr.' : 'County Contact no.';
   String get uploadLogo =>
-      isAf ? 'Laai logo op' : 'Upload logo';
+      isAf ? 'Laai eerste logo op' : 'Upload first (background) logo';
   String get uploadSecondaryLogo =>
-      isAf ? 'Laai tweede logo op' : 'Upload second logo';
+      isAf ? 'Laai tweede logo op' : 'Upload second (corner) logo';
   String get save => isAf ? 'Stoor' : 'Save';
   String get continueLabel => isAf ? 'Gaan voort' : 'Continue';
 

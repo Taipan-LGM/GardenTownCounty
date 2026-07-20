@@ -22,13 +22,13 @@ class CountyLogoImage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(countyProfileProvider).valueOrNull;
     final path = secondary
-        ? (profile?.secondaryLogoPath ?? profile?.logoPath)
+        ? profile?.secondaryLogoPath
         : profile?.logoPath;
 
     if (path != null && path.startsWith('web://')) {
       return FutureBuilder<Uint8List?>(
         future: ref.read(countySettingsServiceProvider).loadWebLogoBytes(
-              secondary: secondary || path == 'web://logo2',
+              secondary: secondary,
             ),
         builder: (context, snap) {
           if (snap.data != null) {
@@ -52,13 +52,17 @@ class CountyLogoImage extends ConsumerWidget {
 
   Widget _asset(BoxFit fit) {
     return Image.asset(
-      AppConstants.logoAsset,
+      secondary ? AppConstants.logoAltAsset : AppConstants.logoAsset,
       fit: fit,
       filterQuality: FilterQuality.high,
-      errorBuilder: (_, _, _) => const ColoredBox(
-        color: Colors.black26,
-        child: Center(
-          child: Icon(Icons.account_balance, color: Colors.white54, size: 64),
+      errorBuilder: (_, _, _) => Image.asset(
+        AppConstants.logoAsset,
+        fit: fit,
+        errorBuilder: (_, _, _) => const ColoredBox(
+          color: Colors.black26,
+          child: Center(
+            child: Icon(Icons.account_balance, color: Colors.white54, size: 64),
+          ),
         ),
       ),
     );
@@ -83,6 +87,26 @@ class RoundCountyLogo extends StatelessWidget {
     );
     if (size == null) return child;
     return SizedBox(width: size, height: size, child: child);
+  }
+}
+
+/// Fixed full-viewport first (primary) logo — stays after splash.
+class FixedFirstLogoBackground extends StatelessWidget {
+  const FixedFirstLogoBackground({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final diameter = MediaQuery.sizeOf(context).shortestSide;
+    return ColoredBox(
+      color: const Color(0xFF1B4D3E),
+      child: Center(
+        child: SizedBox(
+          width: diameter,
+          height: diameter,
+          child: const RoundCountyLogo(),
+        ),
+      ),
+    );
   }
 }
 

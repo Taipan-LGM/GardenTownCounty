@@ -90,7 +90,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _onLandingFinished() {
     ref.read(landingCompleteProvider.notifier).state = true;
-    ref.read(appSectionProvider.notifier).state = AppSection.memberInfo;
+    // Stay on Home — first logo remains fixed as background.
+    ref.read(appSectionProvider.notifier).state = AppSection.home;
   }
 
   @override
@@ -99,7 +100,6 @@ class _AppShellState extends ConsumerState<AppShell>
     final refreshTick = ref.watch(appRefreshTickProvider);
     final isAdmin = ref.watch(isAdminProvider);
     final landingComplete = ref.watch(landingCompleteProvider);
-    final isHomeSplash = section == AppSection.home && !landingComplete;
 
     final effectiveSection = (!isAdmin &&
             (section == AppSection.activities ||
@@ -114,8 +114,10 @@ class _AppShellState extends ConsumerState<AppShell>
       });
     }
 
+    final showLandingChrome = effectiveSection == AppSection.home;
+
     return Scaffold(
-      appBar: isHomeSplash
+      appBar: showLandingChrome
           ? null
           : AppBar(
               title: Text(_titleFor(effectiveSection)),
@@ -137,7 +139,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   child: SizedBox(
                     height: constraints.maxHeight,
                     width: constraints.maxWidth,
-                    child: isHomeSplash
+                    child: showLandingChrome
                         ? Stack(
                             fit: StackFit.expand,
                             children: [
@@ -163,16 +165,26 @@ class _AppShellState extends ConsumerState<AppShell>
                               ),
                             ],
                           )
-                        : KeyedSubtree(
-                            key: ValueKey(
-                              'section-$effectiveSection-$refreshTick',
-                            ),
-                            child: _bodyFor(
-                              landingComplete &&
-                                      effectiveSection == AppSection.home
-                                  ? AppSection.memberInfo
-                                  : effectiveSection,
-                            ),
+                        : Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              // First logo stays visible behind other screens.
+                              if (landingComplete)
+                                const IgnorePointer(
+                                  child: FixedFirstLogoBackground(),
+                                ),
+                              ColoredBox(
+                                color: Theme.of(context)
+                                    .scaffoldBackgroundColor
+                                    .withValues(alpha: landingComplete ? 0.92 : 1),
+                                child: KeyedSubtree(
+                                  key: ValueKey(
+                                    'section-$effectiveSection-$refreshTick',
+                                  ),
+                                  child: _bodyFor(effectiveSection),
+                                ),
+                              ),
+                            ],
                           ),
                   ),
                 ),

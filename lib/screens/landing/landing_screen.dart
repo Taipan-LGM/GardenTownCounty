@@ -7,6 +7,7 @@ import '../../providers/providers.dart';
 import '../../widgets/county_logo.dart';
 
 /// Splash / landing with shrink+slide second-logo animation.
+/// First (primary) logo stays fixed as background — never fades away.
 class LandingScreen extends ConsumerStatefulWidget {
   const LandingScreen({
     super.key,
@@ -41,6 +42,15 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         widget.onFinished();
       }
     });
+
+    // If splash already finished this session, skip hold/animation.
+    if (ref.read(landingCompleteProvider)) {
+      _started = true;
+      _finished = true;
+      _controller.value = 1.0;
+      return;
+    }
+
     Future<void>.delayed(_holdDuration, () {
       if (mounted && !_started) _beginTransition();
     });
@@ -63,15 +73,12 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     final strings = AppStrings(ref.watch(appLanguageProvider));
     final size = MediaQuery.sizeOf(context);
     final padding = MediaQuery.paddingOf(context);
+    final landingDone = ref.watch(landingCompleteProvider);
 
-    // Final top-right center of the small logo.
     final endCx = size.width - CornerLogoOverlay.right - _finalSize / 2;
-    final endCy =
-        padding.top + CornerLogoOverlay.top + _finalSize / 2;
+    final endCy = padding.top + CornerLogoOverlay.top + _finalSize / 2;
     final startCx = size.width / 2;
     final startCy = size.height / 2;
-
-    // Full-screen diameter for the round logos.
     final fullDiameter = size.shortestSide;
 
     return ColoredBox(
@@ -79,26 +86,17 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // First (background) logo — fades out during animation.
-          AnimatedBuilder(
-            animation: _t,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _started ? (1.0 - _t.value) : 1.0,
-                child: child,
-              );
-            },
-            child: Center(
-              child: SizedBox(
-                width: fullDiameter,
-                height: fullDiameter,
-                child: const RoundCountyLogo(),
-              ),
+          // First logo — FIXED background (never fades).
+          Center(
+            child: SizedBox(
+              width: fullDiameter,
+              height: fullDiameter,
+              child: const RoundCountyLogo(),
             ),
           ),
 
-          // Second logo — shrink + slide.
-          if (_started)
+          // Second logo — shrink + slide (hidden once overlay owns the corner).
+          if (_started && !landingDone)
             AnimatedBuilder(
               animation: _t,
               builder: (context, _) {
@@ -117,8 +115,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
               },
             ),
 
-          // Continue control during hold phase.
-          if (!_started)
+          if (!_started && !landingDone)
             SafeArea(
               child: Align(
                 alignment: Alignment.bottomCenter,

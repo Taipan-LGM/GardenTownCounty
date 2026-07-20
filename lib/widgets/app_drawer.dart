@@ -184,13 +184,7 @@ class AppDrawer extends ConsumerWidget {
   }
 
   void _go(BuildContext context, WidgetRef ref, AppSection section) {
-    // Replaying splash only when explicitly choosing Home before complete.
-    if (section == AppSection.home &&
-        ref.read(landingCompleteProvider)) {
-      ref.read(appSectionProvider.notifier).state = AppSection.memberInfo;
-    } else {
-      ref.read(appSectionProvider.notifier).state = section;
-    }
+    ref.read(appSectionProvider.notifier).state = section;
     Navigator.of(context).pop();
   }
 

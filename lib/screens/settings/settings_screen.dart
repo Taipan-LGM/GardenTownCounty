@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,9 +47,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final pick = await FilePicker.platform.pickFiles(
       type: FileType.image,
       withData: true,
+      allowMultiple: false,
     );
     if (pick == null || pick.files.isEmpty) return;
-    final bytes = pick.files.single.bytes;
+
+    var bytes = pick.files.single.bytes;
+    if (bytes == null && !kIsWeb && pick.files.single.path != null) {
+      // Desktop may return path without bytes — read via store after pick.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please re-select the image (bytes required).'),
+        ),
+      );
+      return;
+    }
     if (bytes == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -57,6 +69,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
       return;
     }
+
     try {
       final path = await ref
           .read(countySettingsServiceProvider)
@@ -71,7 +84,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(secondary ? 'Second logo saved' : 'Logo saved'),
+            content: Text(
+              secondary
+                  ? 'Second (corner) logo saved'
+                  : 'First (background) logo saved',
+            ),
           ),
         );
       }
@@ -119,7 +136,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     profileAsync.whenData(_hydrate);
 
+    // Shrink-wrap so parent AppShell RefreshIndicator can scroll the full page
+    // (nested ListView was clipping Admin logo upload below the fold).
     return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         Text(
@@ -201,6 +222,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (isAdmin) ...[
           const SizedBox(height: 16),
           Card(
+            color: AppTheme.cream,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Logos (Admin)',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppTheme.forestGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'First logo = fixed Home background. '
+                    'Second logo = corner emblem after animation.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Column(
+                        children: [
+                          const RoundCountyLogo(size: 96),
+                          const SizedBox(height: 8),
+                          Text(
+                            'First logo',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          const RoundCountyLogo(secondary: true, size: 72),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Second logo',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () => _pickLogo(secondary: false),
+                    icon: const Icon(Icons.upload),
+                    label: Text(strings.uploadLogo),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _pickLogo(secondary: true),
+                    icon: const Icon(Icons.upload_file),
+                    label: Text(strings.uploadSecondaryLogo),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -209,15 +299,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Text(
                     strings.countyInfo,
                     style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const RoundCountyLogo(size: 88),
-                      const SizedBox(width: 16),
-                      const RoundCountyLogo(secondary: true, size: 56),
-                      const Spacer(),
-                    ],
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -243,40 +324,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         InputDecoration(labelText: strings.countyContactNo),
                   ),
                   const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _pickLogo(secondary: false),
-                        icon: const Icon(Icons.upload),
-                        label: Text(strings.uploadLogo),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _pickLogo(secondary: true),
-                        icon: const Icon(Icons.upload_file),
-                        label: Text(strings.uploadSecondaryLogo),
-                      ),
-                      FilledButton.icon(
-                        onPressed: _saving ? null : _saveCounty,
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.save),
-                        label: Text(strings.save),
-                      ),
-                    ],
+                  FilledButton.icon(
+                    onPressed: _saving ? null : _saveCounty,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: Text(strings.save),
                   ),
                 ],
               ),
             ),
           ),
-        ],
+        ] else
+          const Padding(
+            padding: EdgeInsets.only(top: 24),
+            child: Text(
+              'Sign in as Admin to upload logos and edit County information.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        const SizedBox(height: 48),
       ],
     );
   }
