@@ -252,7 +252,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       image = file_img.localFileImage(_photoLocalPath!);
     }
 
-    const photoSize = 200.0; // 2 sizes larger than 140
+    const photoSize = 280.0; // 2 sizes larger than 200
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -575,8 +575,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           children: [
                             TextFormField(
                               controller: _saId,
+                              style: const TextStyle(fontSize: 13),
                               decoration: const InputDecoration(
                                 labelText: 'SA ID (max 13)',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                               maxLength: AppConstants.saIdMaxLength,
                               inputFormatters: [
@@ -592,11 +598,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             TextFormField(
                               controller: _globalRecordNo,
+                              style: const TextStyle(fontSize: 13),
                               decoration: const InputDecoration(
                                 labelText: 'Global Record No (max 14)',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                               maxLength:
                                   AppConstants.globalRecordNoMaxLength,
@@ -611,22 +623,34 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             TextFormField(
                               controller: _memberName,
+                              style: const TextStyle(fontSize: 13),
                               decoration: const InputDecoration(
                                 labelText: 'Member Name',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                               validator: (v) =>
                                   (v == null || v.trim().isEmpty)
                                       ? 'Required'
                                       : null,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             TextFormField(
                               controller: _surname,
+                              style: const TextStyle(fontSize: 13),
                               decoration: const InputDecoration(
                                 labelText: 'Surname',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                               validator: (v) =>
                                   (v == null || v.trim().isEmpty)

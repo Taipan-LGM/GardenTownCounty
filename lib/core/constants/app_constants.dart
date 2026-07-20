@@ -1,9 +1,9 @@
 class AppConstants {
   static const String appName = 'Garden Town County';
-  /// Keep in sync with pubspec.yaml `version:` (shown under Sign out).
-  static const String appVersion = '1.1.3';
-  static const String buildNumber = '5';
-  static String get versionLabel => 'v$appVersion+$buildNumber';
+  /// Keep in sync with pubspec.yaml `version:`.
+  /// Scheme: v1.1.8 → v1.1.9 … v1.1.99 → v1.2.0
+  static const String appVersion = '1.1.8';
+  static String get versionLabel => 'v$appVersion';
 
   static const String logoAsset = 'assets/images/county_logo.png';
   /// Default second / corner logo (blue Assembly seal).

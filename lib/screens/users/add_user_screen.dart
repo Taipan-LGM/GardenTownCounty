@@ -87,6 +87,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       } else {
         final updated = await auth.updateOperator(
           id: _editingUser!.id,
+          username: _username.text,
           displayName: _displayName.text,
           role: _role!,
           newPassword: _password.text.trim().isEmpty ? null : _password.text,
@@ -146,6 +147,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     final canEditSysAdminSecrets = current.isSystemAdministrator;
     final lockRole = editingSysAdmin;
     final lockPassword = editingSysAdmin && !canEditSysAdminSecrets;
+    // SysAdmin may set their own login username; others may not.
+    final lockUsername = _editingUser != null &&
+        !(editingSysAdmin && canEditSysAdminSecrets);
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -163,7 +167,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           const SizedBox(height: 4),
           Text(
             editingSysAdmin
-                ? 'System Administrator: Display Name can be set. '
+                ? 'System Administrator: set Username and Display Name. '
                     'Role is locked. Password only by System Administrator.'
                 : 'Username = login ID. Display Name = name shown in the app.',
           ),
@@ -180,11 +184,15 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _username,
-                            enabled: _editingUser == null,
-                            decoration: const InputDecoration(
-                              labelText: 'Username',
-                              helperText: 'Login ID used to sign in',
-                              prefixIcon: Icon(Icons.person_outline),
+                            enabled: !lockUsername,
+                            decoration: InputDecoration(
+                              labelText: editingSysAdmin
+                                  ? 'Username (login ID)'
+                                  : 'Username',
+                              helperText: editingSysAdmin
+                                  ? 'System Administrator login name'
+                                  : 'Login ID used to sign in',
+                              prefixIcon: const Icon(Icons.person_outline),
                             ),
                             validator: (v) =>
                                 (v == null || v.trim().isEmpty)
@@ -201,7 +209,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                                   ? 'Display Name (your name)'
                                   : 'Display Name',
                               helperText: editingSysAdmin
-                                  ? 'Enter the System Administrator full name'
+                                  ? 'Name shown in the app'
                                   : 'Friendly name shown in the app',
                               prefixIcon: const Icon(Icons.badge_outlined),
                             ),

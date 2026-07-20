@@ -358,23 +358,17 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                           foregroundColor: AppTheme.forestGreen,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                      ),
-                    if (auth.authorized || kIsWeb) ...[
-                      if (!auth.authorized) const SizedBox(height: 8),
+                      )
+                    else if (!kIsWeb)
                       FilledButton.icon(
                         onPressed: _busy
                             ? null
                             : () => _createBackup(external: false),
-                        icon: Icon(
-                          kIsWeb ? Icons.download : Icons.folder_special,
-                        ),
-                        label: Text(
-                          kIsWeb
-                              ? 'Download Backup (.gtb)'
-                              : 'Backup to Local GardenTown folder',
+                        icon: const Icon(Icons.folder_special),
+                        label: const Text(
+                          'Backup to Local GardenTown folder',
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -386,7 +380,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                   children: [
                     Text(
                       kIsWeb
-                          ? 'Same as Download on web (save .gtb to your device).'
+                          ? 'Download an encrypted .gtb backup to your device.'
                           : 'Save an encrypted .gtb to USB / network / external disk.',
                     ),
                     const SizedBox(height: 12),

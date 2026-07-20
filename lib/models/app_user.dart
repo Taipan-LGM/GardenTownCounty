@@ -28,9 +28,8 @@ class AppUser {
 
   bool get isAdmin => role.trim().toLowerCase() == 'admin';
 
-  bool get isSystemAdministrator =>
-      id == 'demo-admin' ||
-      username.toLowerCase() == AppConstants.demoUsername;
+  /// Stable System Administrator account (id demo-admin). Username may change.
+  bool get isSystemAdministrator => id == 'demo-admin';
 
   factory AppUser.create({
     required String username,

@@ -111,13 +111,14 @@ class FixedFirstLogoBackground extends StatelessWidget {
 }
 
 /// Persistent top-right corner logo after landing animation.
-/// Stays visible (static) on all screens; IgnorePointer so taps pass through.
+/// Same back layer as the first logo (never above form buttons).
 class CornerLogoOverlay extends StatelessWidget {
   const CornerLogoOverlay({super.key});
 
-  static const double size = 100;
-  static const double top = 12;
-  static const double right = 12;
+  /// 3 size steps larger than 100 → 160.
+  static const double size = 160;
+  static const double top = 8;
+  static const double right = 8;
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +127,7 @@ class CornerLogoOverlay extends StatelessWidget {
       right: right,
       child: IgnorePointer(
         child: Material(
-          elevation: 6,
+          elevation: 0,
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           color: Colors.transparent,

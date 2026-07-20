@@ -168,10 +168,14 @@ class _AppShellState extends ConsumerState<AppShell>
                         : Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (landingComplete)
+                              // First + second logos share the same back layer.
+                              if (landingComplete) ...[
                                 const IgnorePointer(
                                   child: FixedFirstLogoBackground(),
                                 ),
+                                // Must be a direct Stack child (Positioned).
+                                const CornerLogoOverlay(),
+                              ],
                               ColoredBox(
                                 color: Theme.of(context)
                                     .scaffoldBackgroundColor
@@ -192,8 +196,6 @@ class _AppShellState extends ConsumerState<AppShell>
               );
             },
           ),
-          // Second logo stays on top (static) after animation; ignores taps.
-          if (landingComplete) const CornerLogoOverlay(),
           const Positioned(
             right: 16,
             bottom: 16,

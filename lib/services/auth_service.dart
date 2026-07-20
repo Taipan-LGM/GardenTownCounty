@@ -26,9 +26,7 @@ class AuthUser {
 
   bool get isAdmin => role.trim().toLowerCase() == 'admin';
 
-  bool get isSystemAdministrator =>
-      id == 'demo-admin' ||
-      username.toLowerCase() == AppConstants.demoUsername;
+  bool get isSystemAdministrator => id == 'demo-admin';
 }
 
 class AuthService {
@@ -171,6 +169,7 @@ class AuthService {
     required String displayName,
     required String role,
     String? newPassword,
+    String? username,
   }) async {
     _requireAdmin();
     final user = await _db.getAppUserById(id);
@@ -194,6 +193,12 @@ class AuthService {
           'System Administrator role cannot be changed by other users.',
         );
       }
+      if (username != null &&
+          username.trim().toLowerCase() != user.username) {
+        throw Exception(
+          'Only the System Administrator can change that username.',
+        );
+      }
     }
 
     var roleName = role.trim();
@@ -209,8 +214,7 @@ class AuthService {
     // Password change on System Administrator: only the SysAdmin themselves.
     String? passwordHash;
     if (newPassword != null && newPassword.trim().isNotEmpty) {
-      if (editingSysAdmin &&
-          (actor == null || !actor.isSystemAdministrator)) {
+      if (editingSysAdmin && !actorIsSysAdmin) {
         throw Exception(
           'Only the System Administrator can change that password.',
         );
@@ -221,12 +225,30 @@ class AuthService {
       passwordHash = PasswordHasher.hash(newPassword.trim());
     }
 
+    var nextUsername = user.username;
+    if (username != null && username.trim().isNotEmpty) {
+      final normalized = username.trim().toLowerCase();
+      if (normalized != user.username) {
+        if (editingSysAdmin && !actorIsSysAdmin) {
+          throw Exception(
+            'Only the System Administrator can change that username.',
+          );
+        }
+        final clash = await _db.getAppUserByUsername(normalized);
+        if (clash != null && clash.id != id && !clash.deleted) {
+          throw Exception('Username "$normalized" already exists.');
+        }
+        nextUsername = normalized;
+      }
+    }
+
     final resolvedName = displayName.trim().isEmpty
-        ? user.displayName
+        ? (user.displayName.isEmpty ? nextUsername : user.displayName)
         : displayName.trim();
 
     var updated = user.copyWith(
-      displayName: resolvedName.isEmpty ? user.username : resolvedName,
+      username: nextUsername,
+      displayName: resolvedName.isEmpty ? nextUsername : resolvedName,
       role: roleName,
       pendingSync: true,
       updatedAt: DateTime.now().toUtc(),
@@ -236,7 +258,7 @@ class AuthService {
     }
     await _db.upsertAppUser(updated);
 
-    // Keep live session name in sync when editing self.
+    // Keep live session in sync when editing self.
     if (actor != null && actor.id == updated.id) {
       await _persist(
         AuthUser(
