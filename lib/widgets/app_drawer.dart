@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../l10n/app_strings.dart';
 import '../providers/providers.dart';
@@ -165,7 +166,17 @@ class AppDrawer extends ConsumerWidget {
                 if (context.mounted) Navigator.of(context).pop();
               },
             ),
-            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(
+                AppConstants.versionLabel,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -25,7 +25,8 @@ jobs:
           cache: true
       - run: flutter config --enable-web
       - run: flutter pub get
-      - run: flutter build web --release --base-href "/GardenTownCounty/"
+      # --pwa-strategy=none avoids stale service-worker caches after deploys.
+      - run: flutter build web --release --base-href "/GardenTownCounty/" --pwa-strategy=none
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
