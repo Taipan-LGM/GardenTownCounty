@@ -35,6 +35,13 @@ jobs:
           flutter config --no-analytics --enable-web
           flutter pub get
           flutter build web --release --base-href "/GardenTownCounty/" --pwa-strategy=none
+          # Stamp build id into index.html so browsers bust cached bootstrap/JS.
+          BUILD_ID="$(grep '^version:' pubspec.yaml | awk '{print $2}' | tr -d '"')"
+          sed -i "s/__APP_BUILD__/${BUILD_ID}/g" build/web/index.html
+          # Also rewrite any plain flutter_bootstrap.js references with ?v=
+          sed -i "s|flutter_bootstrap.js\"|flutter_bootstrap.js?v=${BUILD_ID}\"|g" build/web/index.html || true
+          echo "Stamped web build as ${BUILD_ID}"
+          grep -n "GTC_BUILD\|flutter_bootstrap" build/web/index.html | head -20
 
       - uses: actions/upload-pages-artifact@v3
         with:

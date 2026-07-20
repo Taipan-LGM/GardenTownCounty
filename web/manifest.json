@@ -1,11 +1,11 @@
 {
-    "name": "garden_town_county",
-    "short_name": "garden_town_county",
+    "name": "Garden Town County",
+    "short_name": "GTC",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1B4D3E",
+    "theme_color": "#1B4D3E",
+    "description": "Garden Town County Assembly",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
