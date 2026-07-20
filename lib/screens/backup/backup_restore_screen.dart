@@ -88,6 +88,14 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
   }
 
   Future<void> _createBackup() async {
+    // Let Admin pick any folder (local, USB, network share, etc.).
+    final selectedDir = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select folder to save Garden Town Backup',
+    );
+    if (selectedDir == null) {
+      return; // cancelled
+    }
+
     setState(() {
       _busy = true;
       _progress = 0;
@@ -95,6 +103,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     });
     try {
       final result = await ref.read(backupServiceProvider).createBackup(
+            targetDirectoryPath: selectedDir,
             onProgress: (p) {
               if (mounted) setState(() => _progress = p);
             },
@@ -289,6 +298,11 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                           onPressed: _busy ? null : _createBackup,
                           icon: const Icon(Icons.save_alt),
                           label: const Text('Create Backup Now'),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'You will choose any folder (local, USB, or network drive).',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(

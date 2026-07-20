@@ -27,6 +27,9 @@ class BackupService {
 
   Future<BackupResult> createBackup({
     bool auto = false,
+    /// When set (manual backup), save the .gtb into this folder.
+    /// When null, uses Documents/GardenTown/Backups (or AutoBackups).
+    String? targetDirectoryPath,
     void Function(double progress)? onProgress,
   }) async {
     if (kIsWeb) {
@@ -96,7 +99,17 @@ class BackupService {
     onProgress?.call(0.85);
     final stamp = DateFormat('yyyy_MM_dd_HHmm').format(DateTime.now());
     final prefix = auto ? 'AutoBackup' : 'Backup';
-    final dir = await _auth.backupsDirectory(auto: auto);
+
+    final Directory dir;
+    if (targetDirectoryPath != null && targetDirectoryPath.trim().isNotEmpty) {
+      dir = Directory(targetDirectoryPath.trim());
+      if (!dir.existsSync()) {
+        await dir.create(recursive: true);
+      }
+    } else {
+      dir = await _auth.backupsDirectory(auto: auto);
+    }
+
     final outPath = p.join(dir.path, '${prefix}_$stamp.gtb');
     await File(outPath).writeAsBytes(encrypted, flush: true);
 
