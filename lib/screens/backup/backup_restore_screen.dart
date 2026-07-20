@@ -1,9 +1,11 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_strings.dart';
 import '../../providers/providers.dart';
 
 class BackupRestoreScreen extends ConsumerStatefulWidget {
@@ -68,8 +70,8 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Authorized'),
           content: const Text(
-            '✅ This PC is now authorized for Local Backups. '
-            'Please restart the app for changes to take effect.',
+            'This PC is now authorized for Local Backups. '
+            'You can also back up to USB or network drives below.',
           ),
           actions: [
             FilledButton(
@@ -87,13 +89,13 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     }
   }
 
-  Future<void> _createBackup() async {
-    // Let Admin pick any folder (local, USB, network share, etc.).
-    final selectedDir = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Select folder to save Garden Town Backup',
-    );
-    if (selectedDir == null) {
-      return; // cancelled
+  Future<void> _createBackup({required bool external}) async {
+    String? selectedDir;
+    if (external) {
+      selectedDir = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select USB / network / external folder for backup',
+      );
+      if (selectedDir == null) return;
     }
 
     setState(() {
@@ -163,7 +165,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Overwrite cloud?'),
         content: const Text(
-          '⚠️ This will overwrite ALL cloud data with this backup. Continue?',
+          'This will overwrite ALL cloud data with this backup. Continue?',
         ),
         actions: [
           TextButton(
@@ -238,6 +240,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     final authAsync = ref.watch(backupAuthProvider);
     final lastAsync = ref.watch(lastBackupAtProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    final strings = AppStrings(ref.watch(appLanguageProvider));
 
     if (!isAdmin) {
       return const Center(child: Text('Admin access required.'));
@@ -255,75 +258,179 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 : DateFormat('yyyy-MM-dd HH:mm').format(dt.toLocal()),
             orElse: () => '…',
           );
+          final canRun = auth.authorized && !kIsWeb;
+          final webHint = kIsWeb
+              ? 'Full backup / restore needs the desktop app (not web).'
+              : null;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return ListView(
             children: [
-              const Text(
-                'Backup & Restore Center',
-                style: TextStyle(
+              Text(
+                strings.backupCenter,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.forestGreen,
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                auth.authorized
-                    ? 'Authorized device: ${auth.deviceName ?? 'This PC'}'
-                    : 'This PC is not authorized for local backups yet.',
-              ),
-              const SizedBox(height: 16),
-              if (!auth.authorized)
-                FilledButton.icon(
-                  onPressed: _busy ? null : _enableLocalBackup,
-                  icon: const Icon(Icons.key),
-                  label: const Text('Enable Local Backup on this PC'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.forestGreen,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              if (auth.authorized) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('Last Backup: $lastLabel'),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _busy ? null : _createBackup,
-                          icon: const Icon(Icons.save_alt),
-                          label: const Text('Create Backup Now'),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'You will choose any folder (local, USB, or network drive).',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _busy ? null : _restore,
-                          icon: const Icon(Icons.restore),
-                          label: const Text('Restore from Backup'),
-                        ),
-                      ],
-                    ),
-                  ),
+              Text('Last Backup: $lastLabel'),
+              if (webHint != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  webHint,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ],
+              const SizedBox(height: 16),
+
+              // 1) Local authorization
+              _sectionCard(
+                icon: Icons.computer,
+                title: strings.localBackup,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      auth.authorized
+                          ? 'Authorized device: ${auth.deviceName ?? 'This PC'}'
+                          : 'Authorize this PC once. Then Local, USB, and network backups unlock.',
+                    ),
+                    const SizedBox(height: 12),
+                    if (!auth.authorized)
+                      FilledButton.icon(
+                        onPressed: _busy || kIsWeb ? null : _enableLocalBackup,
+                        icon: const Icon(Icons.key),
+                        label: Text(strings.enableLocalBackup),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.gold,
+                          foregroundColor: AppTheme.forestGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: _busy || !canRun
+                            ? null
+                            : () => _createBackup(external: false),
+                        icon: const Icon(Icons.folder_special),
+                        label: const Text('Backup to Local GardenTown folder'),
+                      ),
+                  ],
+                ),
+              ),
+
+              // 2) External / network
+              _sectionCard(
+                icon: Icons.usb,
+                title: strings.externalBackup,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Save an encrypted .gtb backup to a USB stick, '
+                      'external disk, or mapped network drive. '
+                      'You choose the folder when you tap the button.',
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _busy || !canRun
+                          ? null
+                          : () => _createBackup(external: true),
+                      icon: const Icon(Icons.save_alt),
+                      label: Text(strings.createBackup),
+                    ),
+                    if (!auth.authorized && !kIsWeb)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Enable Local Backup above first to unlock this action.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // 3) Restore — always visible
+              _sectionCard(
+                icon: Icons.restore,
+                title: strings.restore,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Pick a .gtb backup file from any drive (local, USB, or network) '
+                      'and restore it. Type CONFIRM when prompted.',
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _busy || !canRun ? null : _restore,
+                      icon: const Icon(Icons.restore),
+                      label: Text(strings.restoreFromBackup),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.brick,
+                        side: const BorderSide(color: AppTheme.brick),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                    if (!auth.authorized && !kIsWeb)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Enable Local Backup above first to unlock Restore.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
               if (_busy) ...[
                 const SizedBox(height: 24),
-                LinearProgressIndicator(value: _progress == 0 ? null : _progress),
+                LinearProgressIndicator(
+                  value: _progress == 0 ? null : _progress,
+                ),
                 const SizedBox(height: 8),
                 Text(_statusMessage ?? 'Working…'),
               ],
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: AppTheme.forestGreen),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.forestGreen,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -349,7 +456,7 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
   Widget build(BuildContext context) {
     final ok = _controller.text.trim() == 'CONFIRM';
     return AlertDialog(
-      title: const Text('⚠️ WARNING'),
+      title: const Text('WARNING'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -363,7 +470,7 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
             controller: _controller,
             autofocus: true,
             decoration: const InputDecoration(
-              labelText: "Type CONFIRM",
+              labelText: 'Type CONFIRM',
             ),
             onChanged: (_) => setState(() {}),
           ),

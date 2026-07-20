@@ -1,16 +1,21 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
+import '../models/county_profile.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
+import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
 import '../services/activity_service.dart';
+import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
 import '../services/auto_backup_scheduler.dart';
 import '../services/backup_auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/member_repository.dart';
@@ -34,6 +39,27 @@ final authUserProvider = StateProvider<AuthUser?>((ref) => null);
 final isAdminProvider = Provider<bool>((ref) {
   return ref.watch(authUserProvider)?.isAdmin ?? false;
 });
+
+final appPreferencesServiceProvider = Provider<AppPreferencesService>((ref) {
+  return AppPreferencesService();
+});
+
+final countySettingsServiceProvider = Provider<CountySettingsService>((ref) {
+  return CountySettingsService();
+});
+
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
+
+final appLanguageProvider =
+    StateProvider<AppLanguage>((ref) => AppLanguage.english);
+
+final countyProfileProvider =
+    FutureProvider.autoDispose<CountyProfile>((ref) async {
+  return ref.watch(countySettingsServiceProvider).load();
+});
+
+/// True after splash logo animation finishes (session).
+final landingCompleteProvider = StateProvider<bool>((ref) => false);
 
 final backupAuthServiceProvider = Provider<BackupAuthService>((ref) {
   return BackupAuthService();
@@ -125,9 +151,15 @@ final appUsersProvider =
   return ref.watch(authServiceProvider).listOperators();
 });
 
+final rolesProvider =
+    FutureProvider.autoDispose<List<RoleDefinition>>((ref) async {
+  return ref.watch(authServiceProvider).listRoles();
+});
+
 /// Navigation target shown inside the shell after login.
 enum AppSection {
   home,
+  settings,
   memberInfo,
   sos,
   activities,
@@ -152,8 +184,10 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(activitiesProvider);
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);
+  ref.invalidate(rolesProvider);
   ref.invalidate(backupAuthProvider);
   ref.invalidate(lastBackupAtProvider);
+  ref.invalidate(countyProfileProvider);
   for (final type in LookupType.values) {
     ref.invalidate(lookupsProvider(type));
   }

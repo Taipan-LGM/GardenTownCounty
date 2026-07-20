@@ -9,6 +9,7 @@ import '../models/app_user.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
+import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
 import 'password_hasher.dart';
 
@@ -32,6 +33,7 @@ class DatabaseService {
   final Map<String, ActivityLog> _activities = {};
   final Map<String, SosPreset> _presets = {};
   final Map<String, AppUser> _appUsers = {};
+  final Map<String, RoleDefinition> _roles = {};
 
   Database get db {
     final database = _db;
@@ -64,7 +66,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -91,6 +93,9 @@ class DatabaseService {
     if (oldVersion < 3) {
       await _createAppUsersTable(database);
     }
+    if (oldVersion < 4) {
+      await _createRolesTable(database);
+    }
   }
 
   Future<void> _createAppUsersTable(Database database) async {
@@ -105,6 +110,20 @@ class DatabaseService {
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0,
         active INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
+  }
+
+  Future<void> _createRolesTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS roles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        isSystem INTEGER NOT NULL DEFAULT 0,
+        grantsAdmin INTEGER NOT NULL DEFAULT 0,
+        updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
       )
     ''');
   }
@@ -194,9 +213,11 @@ class DatabaseService {
       'CREATE INDEX idx_member_files_member ON member_files(memberId)',
     );
     await _createAppUsersTable(database);
+    await _createRolesTable(database);
   }
 
   Future<void> ensureSeedAdmin() async {
+    await ensureSeedRoles();
     final existing =
         await getAppUserByUsername(AppConstants.demoUsername);
     if (existing != null) return;
@@ -206,11 +227,142 @@ class DatabaseService {
       username: AppConstants.demoUsername,
       displayName: AppConstants.demoDisplayName,
       passwordHash: PasswordHasher.hash(AppConstants.demoPassword),
-      role: UserRole.admin,
+      role: 'Admin',
       updatedAt: DateTime.now().toUtc(),
       pendingSync: true,
     );
     await upsertAppUser(admin);
+  }
+
+  Future<void> ensureSeedRoles() async {
+    const seeds = <({String name, bool admin, bool system})>[
+      (name: 'Admin', admin: true, system: true),
+      (name: 'Manager', admin: false, system: true),
+      (name: 'Supervisor', admin: false, system: true),
+      (name: 'User', admin: false, system: true),
+    ];
+    for (final seed in seeds) {
+      final existing = await getRoleByName(seed.name);
+      if (existing != null) continue;
+      await upsertRole(
+        RoleDefinition(
+          id: 'role-${seed.name.toLowerCase()}',
+          name: seed.name,
+          isSystem: seed.system,
+          grantsAdmin: seed.admin,
+          updatedAt: DateTime.now().toUtc(),
+          pendingSync: true,
+        ),
+      );
+    }
+  }
+
+  // ── Roles ──────────────────────────────────────────────────────────────
+
+  Future<List<RoleDefinition>> getRoles() async {
+    if (_memoryMode) {
+      final list = _roles.values.where((r) => !r.deleted).toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      return list;
+    }
+    final rows = await db.query(
+      'roles',
+      where: 'deleted = 0',
+      orderBy: 'name COLLATE NOCASE ASC',
+    );
+    return rows.map(RoleDefinition.fromMap).toList();
+  }
+
+  Future<RoleDefinition?> getRoleById(String id) async {
+    if (_memoryMode) {
+      final role = _roles[id];
+      if (role == null || role.deleted) return null;
+      return role;
+    }
+    final rows = await db.query(
+      'roles',
+      where: 'id = ? AND deleted = 0',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return RoleDefinition.fromMap(rows.first);
+  }
+
+  Future<RoleDefinition?> getRoleByName(String name) async {
+    final key = name.trim().toLowerCase();
+    if (_memoryMode) {
+      for (final role in _roles.values) {
+        if (!role.deleted && role.name.toLowerCase() == key) return role;
+      }
+      return null;
+    }
+    final rows = await db.query(
+      'roles',
+      where: 'LOWER(name) = ? AND deleted = 0',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return RoleDefinition.fromMap(rows.first);
+  }
+
+  Future<void> upsertRole(RoleDefinition role) async {
+    if (_memoryMode) {
+      _roles[role.id] = role;
+      return;
+    }
+    await db.insert(
+      'roles',
+      role.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> softDeleteRole(String id) async {
+    if (_memoryMode) {
+      final role = _roles[id];
+      if (role != null) {
+        _roles[id] = role.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
+    await db.update(
+      'roles',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<RoleDefinition>> getPendingRoles() async {
+    if (_memoryMode) {
+      return _roles.values.where((r) => r.pendingSync).toList();
+    }
+    final rows = await db.query('roles', where: 'pendingSync = 1');
+    return rows.map(RoleDefinition.fromMap).toList();
+  }
+
+  Future<void> markRoleSynced(String id) async {
+    if (_memoryMode) {
+      final role = _roles[id];
+      if (role != null) _roles[id] = role.copyWith(pendingSync: false);
+      return;
+    }
+    await db.update(
+      'roles',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ── App users (operators) ──────────────────────────────────────────────
@@ -827,6 +979,7 @@ class DatabaseService {
       'activities': _activities.values.map((a) => a.toMap()).toList(),
       'sos_presets': _presets.values.map((p) => p.toMap()).toList(),
       'app_users': _appUsers.values.map((u) => u.toMap()).toList(),
+      'roles': _roles.values.map((r) => r.toMap()).toList(),
     };
   }
 
@@ -873,6 +1026,13 @@ class DatabaseService {
             .cast<Map<String, dynamic>>()
             .map((m) => MapEntry(m['id'] as String, AppUser.fromMap(m))),
       );
+    _roles
+      ..clear()
+      ..addEntries(
+        ((snapshot['roles'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, RoleDefinition.fromMap(m))),
+      );
   }
 
   /// Mark all non-deleted rows pending so restore can push to cloud.
@@ -898,6 +1058,10 @@ class DatabaseService {
         final u = _appUsers[id];
         if (u != null) _appUsers[id] = u.copyWith(pendingSync: true);
       }
+      for (final id in _roles.keys.toList()) {
+        final r = _roles[id];
+        if (r != null) _roles[id] = r.copyWith(pendingSync: true);
+      }
       return;
     }
     await db.update('members', {'pendingSync': 1});
@@ -906,5 +1070,6 @@ class DatabaseService {
     await db.update('activities', {'pendingSync': 1});
     await db.update('sos_presets', {'pendingSync': 1});
     await db.update('app_users', {'pendingSync': 1});
+    await db.update('roles', {'pendingSync': 1});
   }
 }

@@ -25,6 +25,12 @@ Future<void> main() async {
     container.read(authUserProvider.notifier).state = auth.currentUser;
   }
 
+  final prefs = container.read(appPreferencesServiceProvider);
+  container.read(themeModeProvider.notifier).state =
+      await prefs.loadThemeMode();
+  container.read(appLanguageProvider.notifier).state =
+      await prefs.loadLanguage();
+
   final sync = container.read(syncEngineProvider);
   await sync.start();
 

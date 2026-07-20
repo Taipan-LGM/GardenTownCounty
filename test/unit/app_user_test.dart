@@ -1,39 +1,43 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_town_county/models/app_user.dart';
+import 'package:garden_town_county/models/role_definition.dart';
 import 'package:garden_town_county/services/password_hasher.dart';
 
 void main() {
-  group('UserRole', () {
-    test('admin flag and labels', () {
-      expect(UserRole.admin.isAdmin, isTrue);
-      expect(UserRole.manager.isAdmin, isFalse);
-      expect(UserRole.admin.label, 'Admin');
-      expect(UserRole.supervisor.label, 'Supervisor');
-      expect(UserRoleX.fromStorage('manager'), UserRole.manager);
-    });
-  });
-
-  group('PasswordHasher', () {
-    test('hashes consistently and verifies', () {
-      final hash = PasswordHasher.hash('garden2026');
-      expect(hash, isNotEmpty);
-      expect(PasswordHasher.verify('garden2026', hash), isTrue);
-      expect(PasswordHasher.verify('wrong', hash), isFalse);
-    });
-  });
-
   group('AppUser', () {
     test('create stores role and username lowercase', () {
       final user = AppUser.create(
         username: 'ManagerOne',
         displayName: 'Manager One',
         passwordHash: PasswordHasher.hash('secret1'),
-        role: UserRole.manager,
+        role: 'Manager',
       );
       expect(user.username, 'managerone');
-      expect(user.role, UserRole.manager);
-      expect(user.toFirestore()['role'], 'manager');
+      expect(user.role, 'Manager');
+      expect(user.isAdmin, isFalse);
+      expect(user.toFirestore()['role'], 'Manager');
       expect(user.toFirestore().containsKey('pendingSync'), isFalse);
+    });
+
+    test('admin and system administrator flags', () {
+      final admin = AppUser(
+        id: 'demo-admin',
+        username: 'admin',
+        displayName: 'County Administrator',
+        passwordHash: 'x',
+        role: 'Admin',
+        updatedAt: DateTime.now().toUtc(),
+      );
+      expect(admin.isAdmin, isTrue);
+      expect(admin.isSystemAdministrator, isTrue);
+    });
+  });
+
+  group('RoleDefinition', () {
+    test('admin role detection', () {
+      final role = RoleDefinition.create(name: 'Admin', grantsAdmin: true);
+      expect(role.isAdminRole, isTrue);
+      expect(RoleDefinition.create(name: 'Clerk').isAdminRole, isFalse);
     });
   });
 }

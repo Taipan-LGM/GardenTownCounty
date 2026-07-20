@@ -1,61 +1,14 @@
 import 'package:uuid/uuid.dart';
 
-enum UserRole {
-  admin,
-  manager,
-  supervisor,
-  user,
-}
-
-extension UserRoleX on UserRole {
-  String get storageKey {
-    switch (this) {
-      case UserRole.admin:
-        return 'admin';
-      case UserRole.manager:
-        return 'manager';
-      case UserRole.supervisor:
-        return 'supervisor';
-      case UserRole.user:
-        return 'user';
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case UserRole.admin:
-        return 'Admin';
-      case UserRole.manager:
-        return 'Manager';
-      case UserRole.supervisor:
-        return 'Supervisor';
-      case UserRole.user:
-        return 'User';
-    }
-  }
-
-  bool get isAdmin => this == UserRole.admin;
-
-  static UserRole fromStorage(String? value) {
-    switch ((value ?? '').toLowerCase()) {
-      case 'admin':
-        return UserRole.admin;
-      case 'manager':
-        return UserRole.manager;
-      case 'supervisor':
-        return UserRole.supervisor;
-      default:
-        return UserRole.user;
-    }
-  }
-}
+import '../core/constants/app_constants.dart';
 
 class AppUser {
   final String id;
   final String username;
   final String displayName;
   final String passwordHash;
-  final UserRole role;
+  /// Rights / Role name (e.g. Admin, Manager, Supervisor, User, or custom).
+  final String role;
   final DateTime updatedAt;
   final bool pendingSync;
   final bool deleted;
@@ -73,18 +26,24 @@ class AppUser {
     this.active = true,
   });
 
+  bool get isAdmin => role.trim().toLowerCase() == 'admin';
+
+  bool get isSystemAdministrator =>
+      id == 'demo-admin' ||
+      username.toLowerCase() == AppConstants.demoUsername;
+
   factory AppUser.create({
     required String username,
     required String displayName,
     required String passwordHash,
-    required UserRole role,
+    required String role,
   }) {
     return AppUser(
       id: const Uuid().v4(),
       username: username.trim().toLowerCase(),
       displayName: displayName.trim(),
       passwordHash: passwordHash,
-      role: role,
+      role: role.trim(),
       updatedAt: DateTime.now().toUtc(),
     );
   }
@@ -94,7 +53,7 @@ class AppUser {
     String? username,
     String? displayName,
     String? passwordHash,
-    UserRole? role,
+    String? role,
     DateTime? updatedAt,
     bool? pendingSync,
     bool? deleted,
@@ -119,7 +78,7 @@ class AppUser {
       'username': username,
       'displayName': displayName,
       'passwordHash': passwordHash,
-      'role': role.storageKey,
+      'role': role,
       'updatedAt': updatedAt.toIso8601String(),
       'pendingSync': pendingSync ? 1 : 0,
       'deleted': deleted ? 1 : 0,
@@ -133,7 +92,7 @@ class AppUser {
       'username': username,
       'displayName': displayName,
       'passwordHash': passwordHash,
-      'role': role.storageKey,
+      'role': role,
       'updatedAt': updatedAt.toIso8601String(),
       'deleted': deleted,
       'active': active,
@@ -146,7 +105,7 @@ class AppUser {
       username: map['username'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
       passwordHash: map['passwordHash'] as String? ?? '',
-      role: UserRoleX.fromStorage(map['role'] as String?),
+      role: map['role'] as String? ?? 'User',
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: (map['pendingSync'] as int? ?? 0) == 1,
@@ -161,7 +120,7 @@ class AppUser {
       username: map['username'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
       passwordHash: map['passwordHash'] as String? ?? '',
-      role: UserRoleX.fromStorage(map['role'] as String?),
+      role: map['role'] as String? ?? 'User',
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: false,

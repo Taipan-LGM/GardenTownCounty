@@ -50,4 +50,48 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get dark {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: forestGreen,
+        primary: forestGreen,
+        secondary: gold,
+        brightness: Brightness.dark,
+      ),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: const Color(0xFF102018),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF0B1A14),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      drawerTheme: const DrawerThemeData(backgroundColor: Color(0xFF0B1A14)),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: gold,
+        foregroundColor: forestGreen,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: forestGreen,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF1A2E24),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: gold, width: 2),
+        ),
+      ),
+    );
+  }
 }

@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
-import '../models/app_user.dart';
+import '../l10n/app_strings.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
+import 'county_logo.dart';
 
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
@@ -14,6 +15,9 @@ class AppDrawer extends ConsumerWidget {
     final section = ref.watch(appSectionProvider);
     final user = ref.watch(authUserProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    final strings = AppStrings(ref.watch(appLanguageProvider));
+    final profile = ref.watch(countyProfileProvider).valueOrNull;
+    final countyName = profile?.countyName ?? 'Garden Town County';
 
     return Drawer(
       child: SafeArea(
@@ -26,11 +30,13 @@ class AppDrawer extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Text(
-                    'Garden Town County',
-                    style: TextStyle(
+                  const RoundCountyLogo(size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    countyName,
+                    style: const TextStyle(
                       color: AppTheme.gold,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -41,7 +47,7 @@ class AppDrawer extends ConsumerWidget {
                   ),
                   if (user != null)
                     Text(
-                      user.role.label,
+                      user.role,
                       style: const TextStyle(
                         color: AppTheme.gold,
                         fontSize: 12,
@@ -54,7 +60,7 @@ class AppDrawer extends ConsumerWidget {
               context,
               ref,
               icon: Icons.home,
-              label: 'Home',
+              label: strings.home,
               selected: section == AppSection.home,
               onTap: () => _go(context, ref, AppSection.home),
             ),
@@ -62,7 +68,7 @@ class AppDrawer extends ConsumerWidget {
               context,
               ref,
               icon: Icons.search,
-              label: 'Search',
+              label: strings.search,
               selected: false,
               onTap: () async {
                 Navigator.of(context).pop();
@@ -72,8 +78,16 @@ class AppDrawer extends ConsumerWidget {
             _item(
               context,
               ref,
+              icon: Icons.settings,
+              label: strings.settings,
+              selected: section == AppSection.settings,
+              onTap: () => _go(context, ref, AppSection.settings),
+            ),
+            _item(
+              context,
+              ref,
               icon: Icons.badge_outlined,
-              label: 'Member Info',
+              label: strings.memberInfo,
               selected: section == AppSection.memberInfo,
               onTap: () => _go(context, ref, AppSection.memberInfo),
             ),
@@ -81,7 +95,7 @@ class AppDrawer extends ConsumerWidget {
               context,
               ref,
               icon: Icons.sos_outlined,
-              label: 'SOS',
+              label: strings.sos,
               selected: section == AppSection.sos,
               onTap: () => _go(context, ref, AppSection.sos),
             ),
@@ -89,7 +103,7 @@ class AppDrawer extends ConsumerWidget {
               context,
               ref,
               icon: Icons.public,
-              label: 'Global 528',
+              label: strings.global528,
               selected: section == AppSection.global528,
               onTap: () => _go(context, ref, AppSection.global528),
             ),
@@ -97,7 +111,7 @@ class AppDrawer extends ConsumerWidget {
               context,
               ref,
               icon: Icons.public_outlined,
-              label: 'Global 928',
+              label: strings.global928,
               selected: section == AppSection.global928,
               onTap: () => _go(context, ref, AppSection.global928),
             ),
@@ -105,7 +119,7 @@ class AppDrawer extends ConsumerWidget {
               context,
               ref,
               icon: Icons.account_balance,
-              label: 'LRO',
+              label: strings.lro,
               selected: section == AppSection.lro,
               onTap: () => _go(context, ref, AppSection.lro),
             ),
@@ -114,7 +128,7 @@ class AppDrawer extends ConsumerWidget {
                 context,
                 ref,
                 icon: Icons.backup,
-                label: 'Backup & Restore',
+                label: strings.backupRestore,
                 selected: section == AppSection.backupRestore,
                 onTap: () => _go(context, ref, AppSection.backupRestore),
               ),
@@ -123,7 +137,7 @@ class AppDrawer extends ConsumerWidget {
                 context,
                 ref,
                 icon: Icons.person_add_alt_1,
-                label: 'Add User',
+                label: strings.addUser,
                 selected: section == AppSection.addUser,
                 onTap: () => _go(context, ref, AppSection.addUser),
               ),
@@ -131,7 +145,7 @@ class AppDrawer extends ConsumerWidget {
                 context,
                 ref,
                 icon: Icons.timeline,
-                label: 'Activities',
+                label: strings.activities,
                 selected: section == AppSection.activities,
                 onTap: () => _go(context, ref, AppSection.activities),
               ),
@@ -139,11 +153,15 @@ class AppDrawer extends ConsumerWidget {
             const Spacer(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.white70),
-              title: const Text('Sign out', style: TextStyle(color: Colors.white)),
+              title: Text(
+                strings.signOut,
+                style: const TextStyle(color: Colors.white),
+              ),
               onTap: () async {
                 await ref.read(authServiceProvider).signOut();
                 ref.read(authUserProvider.notifier).state = null;
                 ref.read(appSectionProvider.notifier).state = AppSection.home;
+                ref.read(landingCompleteProvider.notifier).state = false;
                 if (context.mounted) Navigator.of(context).pop();
               },
             ),
@@ -155,7 +173,13 @@ class AppDrawer extends ConsumerWidget {
   }
 
   void _go(BuildContext context, WidgetRef ref, AppSection section) {
-    ref.read(appSectionProvider.notifier).state = section;
+    // Replaying splash only when explicitly choosing Home before complete.
+    if (section == AppSection.home &&
+        ref.read(landingCompleteProvider)) {
+      ref.read(appSectionProvider.notifier).state = AppSection.memberInfo;
+    } else {
+      ref.read(appSectionProvider.notifier).state = section;
+    }
     Navigator.of(context).pop();
   }
 

@@ -10,9 +10,11 @@ import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
+import 'screens/settings/settings_screen.dart';
 import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
 import 'widgets/app_drawer.dart';
+import 'widgets/county_logo.dart';
 import 'widgets/sync_status_indicator.dart';
 
 class GardenTownCountyApp extends ConsumerWidget {
@@ -21,11 +23,14 @@ class GardenTownCountyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authUserProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
       home: user == null ? const LoginScreen() : const AppShell(),
     );
   }
@@ -76,11 +81,16 @@ class _AppShellState extends ConsumerState<AppShell>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          "📅 It's been 7 days since your last backup. Please backup your data.",
+          "It's been 7 days since your last backup. Please backup your data.",
         ),
         duration: Duration(seconds: 6),
       ),
     );
+  }
+
+  void _onLandingFinished() {
+    ref.read(landingCompleteProvider.notifier).state = true;
+    ref.read(appSectionProvider.notifier).state = AppSection.memberInfo;
   }
 
   @override
@@ -88,7 +98,8 @@ class _AppShellState extends ConsumerState<AppShell>
     final section = ref.watch(appSectionProvider);
     final refreshTick = ref.watch(appRefreshTickProvider);
     final isAdmin = ref.watch(isAdminProvider);
-    final isHome = section == AppSection.home;
+    final landingComplete = ref.watch(landingCompleteProvider);
+    final isHomeSplash = section == AppSection.home && !landingComplete;
 
     final effectiveSection = (!isAdmin &&
             (section == AppSection.activities ||
@@ -104,7 +115,7 @@ class _AppShellState extends ConsumerState<AppShell>
     }
 
     return Scaffold(
-      appBar: isHome
+      appBar: isHomeSplash
           ? null
           : AppBar(
               title: Text(_titleFor(effectiveSection)),
@@ -126,11 +137,11 @@ class _AppShellState extends ConsumerState<AppShell>
                   child: SizedBox(
                     height: constraints.maxHeight,
                     width: constraints.maxWidth,
-                    child: effectiveSection == AppSection.home
+                    child: isHomeSplash
                         ? Stack(
                             fit: StackFit.expand,
                             children: [
-                              const LandingScreen(),
+                              LandingScreen(onFinished: _onLandingFinished),
                               SafeArea(
                                 child: Align(
                                   alignment: Alignment.topLeft,
@@ -156,13 +167,19 @@ class _AppShellState extends ConsumerState<AppShell>
                             key: ValueKey(
                               'section-$effectiveSection-$refreshTick',
                             ),
-                            child: _bodyFor(effectiveSection),
+                            child: _bodyFor(
+                              landingComplete &&
+                                      effectiveSection == AppSection.home
+                                  ? AppSection.memberInfo
+                                  : effectiveSection,
+                            ),
                           ),
                   ),
                 ),
               );
             },
           ),
+          if (landingComplete) const CornerLogoOverlay(),
           const Positioned(
             right: 16,
             bottom: 16,
@@ -177,6 +194,8 @@ class _AppShellState extends ConsumerState<AppShell>
     switch (section) {
       case AppSection.home:
         return 'Home';
+      case AppSection.settings:
+        return 'Settings';
       case AppSection.memberInfo:
         return 'Member Info';
       case AppSection.sos:
@@ -199,7 +218,9 @@ class _AppShellState extends ConsumerState<AppShell>
   Widget _bodyFor(AppSection section) {
     switch (section) {
       case AppSection.home:
-        return const LandingScreen();
+        return LandingScreen(onFinished: _onLandingFinished);
+      case AppSection.settings:
+        return const SettingsScreen();
       case AppSection.memberInfo:
         return const MemberFormScreen();
       case AppSection.sos:

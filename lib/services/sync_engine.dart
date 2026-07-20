@@ -11,6 +11,7 @@ import '../models/app_user.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
+import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
 import 'database_service.dart';
 import 'firebase_bootstrap.dart';
@@ -52,6 +53,7 @@ class SyncEngine {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _activitiesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _presetsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _usersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _rolesSub;
   Timer? _pushTimer;
   bool _pushing = false;
 
@@ -98,6 +100,7 @@ class SyncEngine {
     await _activitiesSub?.cancel();
     await _presetsSub?.cancel();
     await _usersSub?.cancel();
+    await _rolesSub?.cancel();
     _pushTimer?.cancel();
   }
 
@@ -148,6 +151,22 @@ class SyncEngine {
         .collection(AppConstants.appUsersCollection)
         .snapshots()
         .listen(_onUsersSnapshot, onError: _logError);
+
+    _rolesSub = _fs
+        .collection(AppConstants.rolesCollection)
+        .snapshots()
+        .listen(_onRolesSnapshot, onError: _logError);
+  }
+
+  Future<void> _onRolesSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = RoleDefinition.fromFirestore({...data, 'id': change.doc.id});
+      await _db.upsertRole(remote.copyWith(pendingSync: false));
+    }
   }
 
   Future<void> _onUsersSnapshot(
@@ -243,6 +262,7 @@ class SyncEngine {
         await _pushActivitiesBatched();
         await _pushPresetsBatched();
         await _pushAppUsersBatched();
+        await _pushRolesBatched();
         _emit(SyncState(
           status: SyncUiStatus.synced,
           lastSyncedAt: DateTime.now(),
@@ -387,6 +407,17 @@ class SyncEngine {
     );
     for (final user in pending) {
       await _db.markAppUserSynced(user.id);
+    }
+  }
+
+  Future<void> _pushRolesBatched() async {
+    final pending = await _db.getPendingRoles();
+    await _commitBatches(
+      AppConstants.rolesCollection,
+      pending.map((r) => (id: r.id, data: r.toFirestore())).toList(),
+    );
+    for (final role in pending) {
+      await _db.markRoleSynced(role.id);
     }
   }
 

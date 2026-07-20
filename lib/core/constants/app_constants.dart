@@ -8,6 +8,7 @@ class AppConstants {
   static const String activitiesCollection = 'activities';
   static const String sosPresetsCollection = 'sos_presets';
   static const String appUsersCollection = 'app_users';
+  static const String rolesCollection = 'roles';
 
   /// Local backup authorization marker (Documents/GardenTown/.gardentown_auth).
   static const String backupAuthKeyLine = 'AUTH_KEY=GT528-GLOBAL';
