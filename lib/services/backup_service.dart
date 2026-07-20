@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
@@ -46,8 +47,21 @@ class BackupService {
 
     late final String outPath;
     if (kIsWeb) {
-      web_dl.downloadBytes(encrypted, fileName);
-      outPath = 'download://$fileName';
+      // Prefer FilePicker save dialog (reliable on Flutter web).
+      final saved = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Garden Town Backup',
+        fileName: fileName,
+        bytes: encrypted,
+        type: FileType.custom,
+        allowedExtensions: const ['gtb'],
+      );
+      if (saved == null) {
+        // Fallback: trigger browser download.
+        web_dl.downloadBytes(encrypted, fileName);
+        outPath = 'download://$fileName';
+      } else {
+        outPath = saved;
+      }
     } else {
       outPath = await io.writeBackupFile(
         encrypted: encrypted,

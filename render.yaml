@@ -1,13 +1,18 @@
-# Deploy Flutter web build as a static site on Render.
-# Desktop/mobile installs still ship from GitHub releases / local builds.
+# Deploy Flutter web as a static site on Render.
+# Uses a release tarball (faster than git clone of the full Flutter repo).
 services:
   - type: web
     name: garden-town-county
     runtime: static
     buildCommand: |
-      git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
+      set -e
+      FLUTTER_VERSION=3.44.6
+      ARCHIVE=flutter_linux_${FLUTTER_VERSION}-stable.tar.xz
+      curl -fsSL -o /tmp/$ARCHIVE \
+        "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$ARCHIVE"
+      tar -xJf /tmp/$ARCHIVE -C $HOME
       export PATH="$HOME/flutter/bin:$PATH"
-      flutter config --enable-web
+      flutter config --no-analytics --enable-web
       flutter pub get
       flutter build web --release --pwa-strategy=none
     staticPublishPath: build/web

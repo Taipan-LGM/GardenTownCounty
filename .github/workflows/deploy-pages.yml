@@ -15,28 +15,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter config --enable-web
-      - run: flutter pub get
-      # --pwa-strategy=none avoids stale service-worker caches after deploys.
-      - run: flutter build web --release --base-href "/GardenTownCounty/" --pwa-strategy=none
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-  deploy:
-    needs: build
+  build-and-deploy:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+
+      # Pin Flutter version + cache SDK/pub for faster deploys.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.6"
+          cache: true
+
+      - name: Build web
+        run: |
+          flutter config --no-analytics --enable-web
+          flutter pub get
+          flutter build web --release --base-href "/GardenTownCounty/" --pwa-strategy=none
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
       - id: deployment
         uses: actions/deploy-pages@v4

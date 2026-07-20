@@ -95,7 +95,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
             ),
           ),
 
-          // Second logo — shrink + slide (hidden once overlay owns the corner).
+          // Second logo — shrink + slide; after done, AppShell CornerLogoOverlay
+          // keeps it static in the corner (same as first logo stays fixed).
           if (_started && !landingDone)
             AnimatedBuilder(
               animation: _t,
@@ -113,6 +114,19 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                   child: const RoundCountyLogo(secondary: true),
                 );
               },
+            ),
+
+          // After animation, keep a static second logo on Home too
+          // (in case overlay hasn't painted yet).
+          if (landingDone)
+            Positioned(
+              top: padding.top + CornerLogoOverlay.top,
+              right: CornerLogoOverlay.right,
+              width: _finalSize,
+              height: _finalSize,
+              child: const IgnorePointer(
+                child: RoundCountyLogo(secondary: true),
+              ),
             ),
 
           if (!_started && !landingDone)

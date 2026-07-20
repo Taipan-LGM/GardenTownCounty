@@ -22,26 +22,28 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
   String? _statusMessage;
 
   Future<void> _enableLocalBackup() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: kIsWeb ? 'Web browser' : '',
+    );
     final name = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Authorize this PC'),
+          title: Text(kIsWeb ? 'Authorize this browser' : 'Authorize this PC'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Enter a name for this authorized device (e.g., Office-PC-01):',
+              Text(
+                kIsWeb
+                    ? 'Name this browser session for backups:'
+                    : 'Enter a name for this authorized device (e.g., Office-PC-01):',
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Device name',
-                ),
+                decoration: const InputDecoration(labelText: 'Device name'),
               ),
             ],
           ),
@@ -65,21 +67,8 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       await ref.read(backupAuthServiceProvider).enableLocalBackup(name);
       ref.invalidate(backupAuthProvider);
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Authorized'),
-          content: const Text(
-            'This PC is now authorized for Local Backups. '
-            'You can also back up to USB or network drives below.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Backup authorized.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -89,7 +78,35 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     }
   }
 
+  /// Web auto-authorizes; desktop prompts if needed.
+  Future<bool> _ensureAuthorized() async {
+    final auth = await ref.read(backupAuthServiceProvider).checkAuthorization();
+    if (auth.authorized) return true;
+
+    if (kIsWeb) {
+      await ref
+          .read(backupAuthServiceProvider)
+          .enableLocalBackup('Web browser');
+      ref.invalidate(backupAuthProvider);
+      return true;
+    }
+
+    await _enableLocalBackup();
+    final after = await ref.read(backupAuthServiceProvider).checkAuthorization();
+    return after.authorized;
+  }
+
   Future<void> _createBackup({required bool external}) async {
+    final ok = await _ensureAuthorized();
+    if (!ok) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup authorization required.')),
+        );
+      }
+      return;
+    }
+
     String? selectedDir;
     if (!kIsWeb && external) {
       selectedDir = await FilePicker.platform.getDirectoryPath(
@@ -119,7 +136,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
           title: const Text('Backup complete'),
           content: Text(
             kIsWeb
-                ? 'Encrypted backup downloaded as a .gtb file.'
+                ? 'Encrypted backup saved / downloaded as a .gtb file.'
                 : result.filePath,
           ),
           actions: [
@@ -147,13 +164,32 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
   }
 
   Future<void> _restore() async {
+    final ok = await _ensureAuthorized();
+    if (!ok) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup authorization required.')),
+        );
+      }
+      return;
+    }
+
     final pick = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['gtb'],
-      withData: kIsWeb,
+      type: FileType.any,
+      withData: true,
       dialogTitle: 'Select Garden Town Backup (.gtb)',
     );
     if (pick == null || pick.files.isEmpty) return;
+
+    final file = pick.files.single;
+    if (!file.name.toLowerCase().endsWith('.gtb')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a .gtb backup file.')),
+        );
+      }
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -189,30 +225,25 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       _statusMessage = 'Restoring…';
     });
     try {
-      final file = pick.files.single;
-      if (kIsWeb) {
-        final bytes = file.bytes;
-        if (bytes == null) {
-          throw Exception('Could not read backup file bytes.');
-        }
+      final bytes = file.bytes;
+      if (bytes != null) {
         await ref.read(backupServiceProvider).restoreFromBytes(
               bytes,
               onProgress: (p) {
                 if (mounted) setState(() => _progress = p);
               },
             );
-      } else {
-        final path = file.path;
-        if (path == null) {
-          throw Exception('Could not read backup file path.');
-        }
+      } else if (file.path != null && !kIsWeb) {
         await ref.read(backupServiceProvider).restoreFromFile(
-              path,
+              file.path!,
               onProgress: (p) {
                 if (mounted) setState(() => _progress = p);
               },
             );
+      } else {
+        throw Exception('Could not read backup file.');
       }
+
       setState(() => _statusMessage = 'Pushing restored data to cloud…');
       await ref.read(syncEngineProvider).forcePushAllAfterRestore();
       ref.invalidate(membersProvider);
@@ -225,8 +256,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Restore Complete'),
           content: const Text(
-            'Data restored and synced. The app will return to Home. '
-            'Restart the app if anything looks stale.',
+            'Data restored and synced. The app will return to Home.',
           ),
           actions: [
             FilledButton(
@@ -278,10 +308,6 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 : DateFormat('yyyy-MM-dd HH:mm').format(dt.toLocal()),
             orElse: () => '…',
           );
-          final canRun = auth.authorized;
-          final webHint = kIsWeb
-              ? 'Web: backups download as .gtb files; restore by picking a .gtb.'
-              : null;
 
           return ListView(
             shrinkWrap: true,
@@ -297,13 +323,13 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               ),
               const SizedBox(height: 8),
               Text('Last Backup: $lastLabel'),
-              if (webHint != null) ...[
+              if (kIsWeb) ...[
                 const SizedBox(height: 8),
-                Text(webHint),
+                const Text(
+                  'Web: Download saves a .gtb file; Restore opens a .gtb file.',
+                ),
               ],
               const SizedBox(height: 16),
-
-              // 1) Local authorization
               _sectionCard(
                 icon: Icons.computer,
                 title: strings.localBackup,
@@ -314,8 +340,8 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                       auth.authorized
                           ? 'Authorized: ${auth.deviceName ?? (kIsWeb ? 'This browser' : 'This PC')}'
                           : kIsWeb
-                              ? 'Authorize this browser once to unlock Backup & Restore.'
-                              : 'Authorize this PC once. Then Local, USB, and network backups unlock.',
+                              ? 'Optional: name this browser, or tap Download (auto-authorizes).'
+                              : 'Authorize this PC once, then backup / restore unlock.',
                     ),
                     const SizedBox(height: 12),
                     if (!auth.authorized)
@@ -332,8 +358,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                           foregroundColor: AppTheme.forestGreen,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                      )
-                    else
+                      ),
+                    if (auth.authorized || kIsWeb) ...[
+                      if (!auth.authorized) const SizedBox(height: 8),
                       FilledButton.icon(
                         onPressed: _busy
                             ? null
@@ -343,15 +370,14 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                         ),
                         label: Text(
                           kIsWeb
-                              ? 'Download Local Backup (.gtb)'
+                              ? 'Download Backup (.gtb)'
                               : 'Backup to Local GardenTown folder',
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
-
-              // 2) External / network
               _sectionCard(
                 icon: Icons.usb,
                 title: strings.externalBackup,
@@ -360,14 +386,12 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                   children: [
                     Text(
                       kIsWeb
-                          ? 'Download an encrypted .gtb backup (same as local on web).'
-                          : 'Save an encrypted .gtb backup to a USB stick, '
-                              'external disk, or mapped network drive. '
-                              'You choose the folder when you tap the button.',
+                          ? 'Same as Download on web (save .gtb to your device).'
+                          : 'Save an encrypted .gtb to USB / network / external disk.',
                     ),
                     const SizedBox(height: 12),
                     FilledButton.icon(
-                      onPressed: _busy || !canRun
+                      onPressed: _busy
                           ? null
                           : () => _createBackup(external: !kIsWeb),
                       icon: const Icon(Icons.save_alt),
@@ -377,19 +401,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                             : strings.createBackup,
                       ),
                     ),
-                    if (!auth.authorized)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Enable backup authorization above first.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
                   ],
                 ),
               ),
-
-              // 3) Restore
               _sectionCard(
                 icon: Icons.restore,
                 title: strings.restore,
@@ -398,11 +412,11 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                   children: [
                     const Text(
                       'Pick a .gtb backup file and restore it. '
-                      "Type 'CONFIRM' when prompted.",
+                      "Type CONFIRM when prompted.",
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: _busy || !canRun ? null : _restore,
+                      onPressed: _busy ? null : _restore,
                       icon: const Icon(Icons.restore),
                       label: Text(strings.restoreFromBackup),
                       style: OutlinedButton.styleFrom(
@@ -411,18 +425,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
-                    if (!auth.authorized)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Enable backup authorization above first.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
                   ],
                 ),
               ),
-
               if (_busy) ...[
                 const SizedBox(height: 24),
                 LinearProgressIndicator(
@@ -507,9 +512,7 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
           TextField(
             controller: _controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Type CONFIRM',
-            ),
+            decoration: const InputDecoration(labelText: 'Type CONFIRM'),
             onChanged: (_) => setState(() {}),
           ),
         ],

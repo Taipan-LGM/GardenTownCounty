@@ -125,8 +125,6 @@ class _AppShellState extends ConsumerState<AppShell>
       drawer: const AppDrawer(),
       body: Stack(
         children: [
-          // Corner logo behind UI so form buttons stay clickable.
-          if (landingComplete) const CornerLogoOverlay(),
           LayoutBuilder(
             builder: (context, constraints) {
               return RefreshIndicator(
@@ -194,6 +192,8 @@ class _AppShellState extends ConsumerState<AppShell>
               );
             },
           ),
+          // Second logo stays on top (static) after animation; ignores taps.
+          if (landingComplete) const CornerLogoOverlay(),
           const Positioned(
             right: 16,
             bottom: 16,
