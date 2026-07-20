@@ -90,11 +90,7 @@ class BackupService {
     archive.addFile(ArchiveFile('manifest.json', manifest.length, manifest));
 
     onProgress?.call(0.7);
-    final encoded = ZipEncoder().encode(archive);
-    if (encoded == null) {
-      throw Exception('Failed to compress backup archive.');
-    }
-    final zipBytes = Uint8List.fromList(encoded);
+    final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
     final encrypted = BackupCrypto.encrypt(zipBytes);
 
     onProgress?.call(0.85);

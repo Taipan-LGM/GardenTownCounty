@@ -63,6 +63,14 @@ Until that flag is true, the app runs **SQLite-only** (fully usable offline).
 
 Writes always go to SQLite first (`pendingSync = 1`), then sync when cloud is available.
 
+## Backup & Restore (Admin)
+
+1. Sign in as Admin (`admin` / `garden2026`).
+2. Open **Backup & Restore** (drawer, directly under **LRO**).
+3. Click **Enable Local Backup on this PC**, enter a device name (creates `Documents/GardenTown/.gardentown_auth`).
+4. Use **Create Backup Now** / **Restore from Backup** (type `CONFIRM` to restore).
+5. Encrypted `.gtb` files go to `Documents/GardenTown/Backups/`.
+
 ## Deploy
 
 ### GitHub Pages (automatic)
@@ -78,7 +86,7 @@ On every push to `main`, GitHub Actions builds Flutter web and publishes Pages.
 1. Render → New → Blueprint → select this repo  
 2. Or create a Static Site using the build command in `render.yaml`
 
-> Web uses an in-memory database (session-only). Desktop/mobile keep full SQLite offline storage.
+> Web uses an in-memory database (session-only). Desktop/mobile keep full SQLite offline storage. Local backups require desktop.
 
 ## Tests
 
