@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/providers.dart';
+import '../../widgets/menu_guide_arrow.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +44,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
       ref.read(authUserProvider.notifier).state = user;
+
+      // Arm MENU guide for first 3 logins only.
+      await registerMenuGuideLoginAttempt();
 
       // Record login with GPS in background — do not block sign-in on GPS wait.
       unawaited(

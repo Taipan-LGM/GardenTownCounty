@@ -1,20 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// White fill / black outline for the always-on MENU guide.
+/// White fill / black outline for the MENU guide.
 const Color kMenuGuideFill = Colors.white;
 const Color kMenuGuideOutline = Colors.black;
 
-/// Horizontal arrow + "MENU" in one row, pointing left toward the hamburger.
+const String kMenuGuideLoginCountKey = 'menu_guide_login_count';
+const String kMenuGuidePendingKey = 'menu_guide_pending';
+const int kMenuGuideMaxLogins = 3;
+
+/// Call after a successful sign-in. Counts toward the first 3 logins and
+/// arms the guide for this session's landing animation.
+Future<void> registerMenuGuideLoginAttempt() async {
+  final prefs = await SharedPreferences.getInstance();
+  final count = prefs.getInt(kMenuGuideLoginCountKey) ?? 0;
+  if (count >= kMenuGuideMaxLogins) {
+    await prefs.setBool(kMenuGuidePendingKey, false);
+    return;
+  }
+  await prefs.setInt(kMenuGuideLoginCountKey, count + 1);
+  await prefs.setBool(kMenuGuidePendingKey, true);
+}
+
+/// Returns true once if this login armed the guide; clears the pending flag.
+Future<bool> takeMenuGuidePending() async {
+  final prefs = await SharedPreferences.getInstance();
+  final pending = prefs.getBool(kMenuGuidePendingKey) ?? false;
+  if (pending) {
+    await prefs.setBool(kMenuGuidePendingKey, false);
+  }
+  return pending;
+}
+
+/// Horizontal bold arrow + "MENU" in one row, pointing left at the hamburger.
 ///
-/// Shown every time the landing logo animation completes (refresh / restart /
-/// new login) — no SharedPreferences gate.
+/// Shown only for the first [kMenuGuideMaxLogins] consecutive logins.
 class MenuGuideArrow extends StatefulWidget {
   const MenuGuideArrow({
     super.key,
     required this.onFinished,
   });
 
-  /// Called when the guide finishes (after fade) or is dismissed early.
   final VoidCallback onFinished;
 
   @override
@@ -88,7 +114,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
     _complete();
   }
 
-  /// Early dismiss (tap or drawer open).
   void dismiss() {
     if (_finished) return;
     _fadeOut();
@@ -111,7 +136,6 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
-    // Sit just right of the hamburger; arrow points left toward it.
     final top = padding.top + 32;
     const left = 52.0;
 
@@ -157,11 +181,10 @@ class _OutlinedMenuLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // White fill with black outline via stacked text strokes.
     const style = TextStyle(
-      fontSize: 22,
+      fontSize: 26,
       fontWeight: FontWeight.w900,
-      letterSpacing: 1.4,
+      letterSpacing: 1.6,
       height: 1,
     );
     return Stack(
@@ -172,7 +195,8 @@ class _OutlinedMenuLabel extends StatelessWidget {
           style: style.copyWith(
             foreground: Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = 4
+              ..strokeWidth = 7
+              ..strokeJoin = StrokeJoin.round
               ..color = kMenuGuideOutline,
           ),
         ),
@@ -180,9 +204,9 @@ class _OutlinedMenuLabel extends StatelessWidget {
           'MENU',
           style: TextStyle(
             color: kMenuGuideFill,
-            fontSize: 22,
+            fontSize: 26,
             fontWeight: FontWeight.w900,
-            letterSpacing: 1.4,
+            letterSpacing: 1.6,
             height: 1,
           ),
         ),
@@ -191,14 +215,13 @@ class _OutlinedMenuLabel extends StatelessWidget {
   }
 }
 
-/// Horizontal arrow pointing left (←) toward the hamburger.
 class _HorizontalArrowGraphic extends StatelessWidget {
   const _HorizontalArrowGraphic();
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(72, 28),
+      size: const Size(80, 32),
       painter: _HorizontalArrowPainter(),
     );
   }
@@ -210,14 +233,14 @@ class _HorizontalArrowPainter extends CustomPainter {
     final outline = Paint()
       ..color = kMenuGuideOutline
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
+      ..strokeWidth = 8
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     final fillStroke = Paint()
       ..color = kMenuGuideFill
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeWidth = 4.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -228,23 +251,20 @@ class _HorizontalArrowPainter extends CustomPainter {
     final outlineFill = Paint()
       ..color = kMenuGuideOutline
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeWidth = 4.5
       ..strokeJoin = StrokeJoin.round;
 
     final cy = size.height / 2;
-    // Tip on the left (toward hamburger), shaft to the right.
     final tip = Offset(2, cy);
     final shaftEnd = Offset(size.width - 2, cy);
 
-    // Shaft outline then white.
     canvas.drawLine(shaftEnd, tip, outline);
     canvas.drawLine(shaftEnd, tip, fillStroke);
 
-    // Arrowhead pointing left.
     final head = Path()
       ..moveTo(tip.dx, tip.dy)
-      ..lineTo(tip.dx + size.width * 0.38, tip.dy - size.height * 0.42)
-      ..lineTo(tip.dx + size.width * 0.38, tip.dy + size.height * 0.42)
+      ..lineTo(tip.dx + size.width * 0.40, tip.dy - size.height * 0.45)
+      ..lineTo(tip.dx + size.width * 0.40, tip.dy + size.height * 0.45)
       ..close();
 
     canvas.drawPath(head, fill);
