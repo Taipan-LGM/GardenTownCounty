@@ -45,13 +45,17 @@ class FileStorageService {
       _db.getFilesForMember(memberId);
 
   /// Pick a member profile photo. Always returns display bytes on success.
+  ///
+  /// Web: must not await anything before opening the file dialog — browsers
+  /// require `input.click()` in the same user-gesture turn.
   Future<MemberPhotoPickResult?> pickMemberPhoto({
     required String memberId,
   }) async {
     Uint8List? bytes;
     String fileName = 'photo.jpg';
 
-    // Web: native <input type=file> — FilePicker often returns empty bytes.
+    // Web: native <input type=file> with data-URL read (most reliable).
+    // Call this first — no awaits above this branch.
     if (kIsWeb) {
       final picked = await web_pick.pickImageBytesWeb();
       if (picked == null) return null;

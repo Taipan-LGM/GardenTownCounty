@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,12 +44,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
       ref.read(authUserProvider.notifier).state = user;
 
-      await ref.read(activityServiceProvider).record(
-            userName: user.displayName,
-            action: 'Login',
-            captureGps: true,
-          );
-      ref.invalidate(activitiesProvider);
+      // Record login with GPS in background — do not block sign-in on GPS wait.
+      unawaited(
+        ref.read(activityServiceProvider).record(
+              userName: user.displayName,
+              action: 'Login',
+              captureGps: true,
+            ).then((_) => ref.invalidate(activitiesProvider)),
+      );
 
       if (!mounted) return;
     } catch (error) {

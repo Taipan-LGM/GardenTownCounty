@@ -166,45 +166,38 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     setState(() => _photoBusy = true);
     try {
-      if (_currentId == null) {
-        final stamp = DateTime.now().millisecondsSinceEpoch.toString();
-        final draftSaId =
-            stamp.length >= 13 ? stamp.substring(stamp.length - 13) : stamp;
-        final draftGr = 'T-$stamp';
-        final draft = Member(
-          id: memberId,
-          saId: draftSaId,
-          globalRecordNo:
-              draftGr.length > 14 ? draftGr.substring(0, 14) : draftGr,
-          memberName: _memberName.text.trim().isEmpty
-              ? 'New'
-              : _memberName.text.trim(),
-          surname: _surname.text.trim().isEmpty
-              ? 'Member'
-              : _surname.text.trim(),
-          updatedAt: DateTime.now().toUtc(),
-          pendingSync: true,
-        );
-        await ref.read(databaseServiceProvider).upsertMember(draft);
-        _currentId = memberId;
-        ref.read(selectedMemberIdProvider.notifier).state = memberId;
-      }
-
+      // CRITICAL (web): open file picker in the same user-gesture turn.
+      // Any await before pickImageBytesWeb()/input.click() makes the browser
+      // ignore the dialog — photo "does nothing".
       final storage = ref.read(fileStorageServiceProvider);
       final result = await storage.pickMemberPhoto(memberId: memberId);
-      if (result == null) return;
       if (!mounted) return;
+      if (result == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo pick cancelled or no file selected.'),
+          ),
+        );
+        return;
+      }
+      if (result.bytes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Selected file had no image data. Try JPG or PNG.'),
+          ),
+        );
+        return;
+      }
 
       // Apply preview immediately — do not wait on list refresh.
       setState(() {
         _photoLocalPath = result.path;
         _photoUrl = result.photoUrl;
-        if (result.bytes.isNotEmpty) {
-          _photoBytes = result.bytes;
-        }
+        _photoBytes = result.bytes;
         _draftId = null;
         _currentId = memberId;
       });
+      ref.read(selectedMemberIdProvider.notifier).state = memberId;
 
       final members = await ref.read(memberRepositoryProvider).getAll();
       if (!mounted) return;
@@ -212,6 +205,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         _members = members;
         _browseIndex = members.indexWhere((m) => m.id == memberId);
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Member photo saved.')),
+        );
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -184,7 +184,7 @@ class AppDrawer extends ConsumerWidget {
                       style: TextStyle(
                         color: AppTheme.gold,
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 15,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -246,7 +246,7 @@ class AppDrawer extends ConsumerWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white70,
-            fontSize: 11,
+            fontSize: 13,
           ),
         ),
         Text(
@@ -254,7 +254,7 @@ class AppDrawer extends ConsumerWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 13,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
         ),
