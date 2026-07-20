@@ -14,11 +14,11 @@ class AppStrings {
   String get home => isAf ? 'Tuis' : 'Home';
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
-  String get memberInfo => isAf ? 'Lid Info' : 'Member Info';
+  String get memberInfo => isAf ? '1_Lid Info' : '1_Member Info';
   String get sos => 'SOS';
-  String get global528 => 'Global 528';
-  String get global928 => 'Global 928';
-  String get lro => 'LRO';
+  String get global528 => '2_Global 528';
+  String get global928 => '3_Global 928';
+  String get lro => '4_LRO';
   String get backupRestore =>
       isAf ? 'Rugsteun & Herstel' : 'Backup & Restore';
   String get addUser => isAf ? 'Voeg Gebruiker By' : 'Add User';

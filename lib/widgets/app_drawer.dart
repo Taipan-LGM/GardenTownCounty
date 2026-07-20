@@ -101,14 +101,6 @@ class AppDrawer extends ConsumerWidget {
                   _item(
                     context,
                     ref,
-                    icon: Icons.sos_outlined,
-                    label: strings.sos,
-                    selected: section == AppSection.sos,
-                    onTap: () => _go(context, ref, AppSection.sos),
-                  ),
-                  _item(
-                    context,
-                    ref,
                     icon: Icons.public,
                     label: strings.global528,
                     selected: section == AppSection.global528,
@@ -140,7 +132,7 @@ class AppDrawer extends ConsumerWidget {
                       onTap: () =>
                           _go(context, ref, AppSection.backupRestore),
                     ),
-                  if (isAdmin) ...[
+                  if (isAdmin)
                     _item(
                       context,
                       ref,
@@ -149,6 +141,15 @@ class AppDrawer extends ConsumerWidget {
                       selected: section == AppSection.addUser,
                       onTap: () => _go(context, ref, AppSection.addUser),
                     ),
+                  _item(
+                    context,
+                    ref,
+                    icon: Icons.sos_outlined,
+                    label: strings.sos,
+                    selected: section == AppSection.sos,
+                    onTap: () => _go(context, ref, AppSection.sos),
+                  ),
+                  if (isAdmin)
                     _item(
                       context,
                       ref,
@@ -157,7 +158,6 @@ class AppDrawer extends ConsumerWidget {
                       selected: section == AppSection.activities,
                       onTap: () => _go(context, ref, AppSection.activities),
                     ),
-                  ],
                 ],
               ),
             ),
