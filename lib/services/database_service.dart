@@ -21,6 +21,10 @@ class DatabaseService {
   Database? _db;
   bool _initialized = false;
   bool _memoryMode = false;
+  String? _dbPath;
+
+  String? get databasePath => _dbPath;
+  bool get isMemoryMode => _memoryMode;
 
   final Map<String, Member> _members = {};
   final Map<String, LookupItem> _lookups = {};
@@ -57,6 +61,7 @@ class DatabaseService {
 
     final documents = await getApplicationDocumentsDirectory();
     final dbPath = p.join(documents.path, 'garden_town_county.db');
+    _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
       version: 3,
@@ -789,5 +794,117 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<void> close() async {
+    if (_memoryMode) return;
+    await _db?.close();
+    _db = null;
+    _initialized = false;
+  }
+
+  /// Re-open after restore replaced the SQLite file on disk.
+  Future<void> reopenAfterRestore() async {
+    if (_memoryMode) {
+      _initialized = true;
+      return;
+    }
+    final path = _dbPath;
+    if (path == null) {
+      throw StateError('Database path unknown.');
+    }
+    await _db?.close();
+    _db = await openDatabase(path);
+    _initialized = true;
+  }
+
+  /// Snapshot of in-memory tables for web/memory backups.
+  Map<String, dynamic> exportMemorySnapshot() {
+    return {
+      'members': _members.values.map((m) => m.toMap()).toList(),
+      'lookups': _lookups.values.map((l) => l.toMap()).toList(),
+      'member_files': _files.values.map((f) => f.toMap()).toList(),
+      'activities': _activities.values.map((a) => a.toMap()).toList(),
+      'sos_presets': _presets.values.map((p) => p.toMap()).toList(),
+      'app_users': _appUsers.values.map((u) => u.toMap()).toList(),
+    };
+  }
+
+  Future<void> importMemorySnapshot(Map<String, dynamic> snapshot) async {
+    _members
+      ..clear()
+      ..addEntries(
+        ((snapshot['members'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, Member.fromMap(m))),
+      );
+    _lookups
+      ..clear()
+      ..addEntries(
+        ((snapshot['lookups'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, LookupItem.fromMap(m))),
+      );
+    _files
+      ..clear()
+      ..addEntries(
+        ((snapshot['member_files'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, MemberFile.fromMap(m))),
+      );
+    _activities
+      ..clear()
+      ..addEntries(
+        ((snapshot['activities'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, ActivityLog.fromMap(m))),
+      );
+    _presets
+      ..clear()
+      ..addEntries(
+        ((snapshot['sos_presets'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, SosPreset.fromMap(m))),
+      );
+    _appUsers
+      ..clear()
+      ..addEntries(
+        ((snapshot['app_users'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, AppUser.fromMap(m))),
+      );
+  }
+
+  /// Mark all non-deleted rows pending so restore can push to cloud.
+  Future<void> markAllPendingSync() async {
+    if (_memoryMode) {
+      for (final id in _members.keys.toList()) {
+        final m = _members[id];
+        if (m != null) _members[id] = m.copyWith(pendingSync: true);
+      }
+      for (final id in _lookups.keys.toList()) {
+        final l = _lookups[id];
+        if (l != null) _lookups[id] = l.copyWith(pendingSync: true);
+      }
+      for (final id in _files.keys.toList()) {
+        final f = _files[id];
+        if (f != null) _files[id] = f.copyWith(pendingSync: true);
+      }
+      for (final id in _presets.keys.toList()) {
+        final p = _presets[id];
+        if (p != null) _presets[id] = p.copyWith(pendingSync: true);
+      }
+      for (final id in _appUsers.keys.toList()) {
+        final u = _appUsers[id];
+        if (u != null) _appUsers[id] = u.copyWith(pendingSync: true);
+      }
+      return;
+    }
+    await db.update('members', {'pendingSync': 1});
+    await db.update('lookups', {'pendingSync': 1});
+    await db.update('member_files', {'pendingSync': 1});
+    await db.update('activities', {'pendingSync': 1});
+    await db.update('sos_presets', {'pendingSync': 1});
+    await db.update('app_users', {'pendingSync': 1});
   }
 }

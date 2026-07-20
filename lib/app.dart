@@ -6,12 +6,14 @@ import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
 import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
 import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
 import 'widgets/app_drawer.dart';
+import 'widgets/sync_status_indicator.dart';
 
 class GardenTownCountyApp extends ConsumerWidget {
   const GardenTownCountyApp({super.key});
@@ -29,23 +31,71 @@ class GardenTownCountyApp extends ConsumerWidget {
   }
 }
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
+  bool _backupReminderShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _maybeRemindBackup();
+    }
+  }
+
+  Future<void> _maybeRemindBackup() async {
+    if (_backupReminderShown) return;
+    final isAdmin = ref.read(isAdminProvider);
+    if (!isAdmin) return;
+    final auth = await ref.read(backupAuthServiceProvider).checkAuthorization();
+    if (!auth.authorized) return;
+    final overdue =
+        await ref.read(backupAuthServiceProvider).isBackupOverdue(days: 7);
+    if (!overdue || !mounted) return;
+    _backupReminderShown = true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "📅 It's been 7 days since your last backup. Please backup your data.",
+        ),
+        duration: Duration(seconds: 6),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final section = ref.watch(appSectionProvider);
     final refreshTick = ref.watch(appRefreshTickProvider);
     final isAdmin = ref.watch(isAdminProvider);
     final isHome = section == AppSection.home;
 
-    // Non-admins cannot remain on admin-only sections.
-    final effectiveSection =
-        (!isAdmin &&
-                (section == AppSection.activities ||
-                    section == AppSection.addUser))
-            ? AppSection.home
-            : section;
+    final effectiveSection = (!isAdmin &&
+            (section == AppSection.activities ||
+                section == AppSection.addUser ||
+                section == AppSection.backupRestore))
+        ? AppSection.home
+        : section;
 
     if (effectiveSection != section) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,56 +110,65 @@ class AppShell extends ConsumerWidget {
               title: Text(_titleFor(effectiveSection)),
             ),
       drawer: const AppDrawer(),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return RefreshIndicator(
-            color: AppTheme.gold,
-            backgroundColor: AppTheme.forestGreen,
-            displacement: 40,
-            onRefresh: () => refreshApp(ref),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                height: constraints.maxHeight,
-                width: constraints.maxWidth,
-                child: effectiveSection == AppSection.home
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const LandingScreen(),
-                          SafeArea(
-                            child: Align(
-                              alignment: Alignment.topLeft,
-                              child: Builder(
-                                builder: (context) {
-                                  return IconButton(
-                                    icon: const Icon(
-                                      Icons.menu,
-                                      color: AppTheme.gold,
-                                      size: 32,
-                                    ),
-                                    tooltip: 'Open menu',
-                                    onPressed: () =>
-                                        Scaffold.of(context).openDrawer(),
-                                  );
-                                },
+      body: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return RefreshIndicator(
+                color: AppTheme.gold,
+                backgroundColor: AppTheme.forestGreen,
+                displacement: 40,
+                onRefresh: () => refreshApp(ref),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    width: constraints.maxWidth,
+                    child: effectiveSection == AppSection.home
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              const LandingScreen(),
+                              SafeArea(
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Builder(
+                                    builder: (context) {
+                                      return IconButton(
+                                        icon: const Icon(
+                                          Icons.menu,
+                                          color: AppTheme.gold,
+                                          size: 32,
+                                        ),
+                                        tooltip: 'Open menu',
+                                        onPressed: () =>
+                                            Scaffold.of(context).openDrawer(),
+                                      );
+                                    },
+                                  ),
+                                ),
                               ),
+                            ],
+                          )
+                        : KeyedSubtree(
+                            key: ValueKey(
+                              'section-$effectiveSection-$refreshTick',
                             ),
+                            child: _bodyFor(effectiveSection),
                           ),
-                        ],
-                      )
-                    : KeyedSubtree(
-                        key: ValueKey(
-                          'section-$effectiveSection-$refreshTick',
-                        ),
-                        child: _bodyFor(effectiveSection),
-                      ),
-              ),
-            ),
-          );
-        },
+                  ),
+                ),
+              );
+            },
+          ),
+          const Positioned(
+            right: 16,
+            bottom: 16,
+            child: SyncStatusIndicator(),
+          ),
+        ],
       ),
     );
   }
@@ -126,6 +185,8 @@ class AppShell extends ConsumerWidget {
         return 'Activities';
       case AppSection.addUser:
         return 'Add User';
+      case AppSection.backupRestore:
+        return 'Backup & Restore';
       case AppSection.global528:
         return 'Global 528';
       case AppSection.global928:
@@ -147,6 +208,8 @@ class AppShell extends ConsumerWidget {
         return const ActivitiesScreen();
       case AppSection.addUser:
         return const AddUserScreen();
+      case AppSection.backupRestore:
+        return const BackupRestoreScreen();
       case AppSection.global528:
         return const PlaceholderScreen(title: 'Global 528');
       case AppSection.global928:

@@ -9,6 +9,15 @@ class AppConstants {
   static const String sosPresetsCollection = 'sos_presets';
   static const String appUsersCollection = 'app_users';
 
+  /// Local backup authorization marker (Documents/GardenTown/.gardentown_auth).
+  static const String backupAuthKeyLine = 'AUTH_KEY=GT528-GLOBAL';
+  static const String backupMasterPassword = 'GardenTownSecureBackup2026';
+  static const String gardenTownFolderName = 'GardenTown';
+  static const String backupAuthFileName = '.gardentown_auth';
+  static const String backupsFolderName = 'Backups';
+  static const String autoBackupsFolderName = 'AutoBackups';
+  static const int autoBackupRetentionDays = 7;
+
   static const int saIdMaxLength = 13;
   static const int globalRecordNoMaxLength = 14;
   static const int contactNoMaxLength = 12;

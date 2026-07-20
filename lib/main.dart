@@ -28,6 +28,12 @@ Future<void> main() async {
   final sync = container.read(syncEngineProvider);
   await sync.start();
 
+  final connectivity = container.read(connectivityServiceProvider);
+  await connectivity.start();
+
+  final autoBackup = container.read(autoBackupSchedulerProvider);
+  autoBackup.start();
+
   runApp(
     UncontrolledProviderScope(
       container: container,

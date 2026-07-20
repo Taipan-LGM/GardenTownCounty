@@ -7,6 +7,10 @@ import '../models/member.dart';
 import '../models/sos_preset.dart';
 import '../services/activity_service.dart';
 import '../services/auth_service.dart';
+import '../services/auto_backup_scheduler.dart';
+import '../services/backup_auth_service.dart';
+import '../services/backup_service.dart';
+import '../services/connectivity_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/member_repository.dart';
@@ -29,6 +33,44 @@ final authUserProvider = StateProvider<AuthUser?>((ref) => null);
 
 final isAdminProvider = Provider<bool>((ref) {
   return ref.watch(authUserProvider)?.isAdmin ?? false;
+});
+
+final backupAuthServiceProvider = Provider<BackupAuthService>((ref) {
+  return BackupAuthService();
+});
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  return BackupService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(backupAuthServiceProvider),
+  );
+});
+
+final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
+  return ConnectivityService(ref.watch(syncEngineProvider));
+});
+
+final autoBackupSchedulerProvider = Provider<AutoBackupScheduler>((ref) {
+  return AutoBackupScheduler(
+    ref.watch(backupAuthServiceProvider),
+    ref.watch(backupServiceProvider),
+  );
+});
+
+final backupAuthProvider =
+    FutureProvider.autoDispose<BackupAuthInfo>((ref) async {
+  return ref.watch(backupAuthServiceProvider).checkAuthorization();
+});
+
+final lastBackupAtProvider =
+    FutureProvider.autoDispose<DateTime?>((ref) async {
+  return ref.watch(backupAuthServiceProvider).lastBackupAt();
+});
+
+final syncStatusProvider = StreamProvider<SyncState>((ref) async* {
+  final engine = ref.watch(syncEngineProvider);
+  yield engine.state;
+  yield* engine.statusStream;
 });
 
 final memberRepositoryProvider = Provider<MemberRepository>((ref) {
@@ -90,6 +132,7 @@ enum AppSection {
   sos,
   activities,
   addUser,
+  backupRestore,
   global528,
   global928,
   lro,
@@ -109,6 +152,8 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(activitiesProvider);
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);
+  ref.invalidate(backupAuthProvider);
+  ref.invalidate(lastBackupAtProvider);
   for (final type in LookupType.values) {
     ref.invalidate(lookupsProvider(type));
   }

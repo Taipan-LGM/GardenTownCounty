@@ -109,6 +109,15 @@ class AppDrawer extends ConsumerWidget {
               selected: section == AppSection.lro,
               onTap: () => _go(context, ref, AppSection.lro),
             ),
+            if (isAdmin)
+              _item(
+                context,
+                ref,
+                icon: Icons.backup,
+                label: 'Backup & Restore',
+                selected: section == AppSection.backupRestore,
+                onTap: () => _go(context, ref, AppSection.backupRestore),
+              ),
             if (isAdmin) ...[
               _item(
                 context,

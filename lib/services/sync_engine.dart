@@ -15,6 +15,32 @@ import '../models/sos_preset.dart';
 import 'database_service.dart';
 import 'firebase_bootstrap.dart';
 
+enum SyncUiStatus { synced, syncing, offline, error }
+
+class SyncState {
+  final SyncUiStatus status;
+  final DateTime? lastSyncedAt;
+  final String? message;
+
+  const SyncState({
+    required this.status,
+    this.lastSyncedAt,
+    this.message,
+  });
+
+  SyncState copyWith({
+    SyncUiStatus? status,
+    DateTime? lastSyncedAt,
+    String? message,
+  }) {
+    return SyncState(
+      status: status ?? this.status,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      message: message,
+    );
+  }
+}
+
 /// Bidirectional offline-first sync: SQLite ↔ Firestore (+ Storage for files).
 class SyncEngine {
   SyncEngine(this._db);
@@ -29,14 +55,34 @@ class SyncEngine {
   Timer? _pushTimer;
   bool _pushing = false;
 
+  final _statusController = StreamController<SyncState>.broadcast();
+  SyncState _state = const SyncState(status: SyncUiStatus.offline);
+
+  Stream<SyncState> get statusStream => _statusController.stream;
+  SyncState get state => _state;
+
   FirebaseFirestore get _fs => FirebaseFirestore.instance;
   FirebaseStorage get _storage => FirebaseStorage.instance;
 
   bool get isCloudEnabled => FirebaseBootstrap.ready;
 
-  Future<void> start() async {
-    if (!isCloudEnabled) return;
+  void _emit(SyncState next) {
+    _state = next;
+    if (!_statusController.isClosed) {
+      _statusController.add(next);
+    }
+  }
 
+  Future<void> start() async {
+    if (!isCloudEnabled) {
+      _emit(const SyncState(
+        status: SyncUiStatus.offline,
+        message: 'Cloud not configured — local only',
+      ));
+      return;
+    }
+
+    _emit(_state.copyWith(status: SyncUiStatus.syncing, message: 'Starting…'));
     await pushPending();
     _listenCloud();
     _pushTimer = Timer.periodic(
@@ -53,6 +99,23 @@ class SyncEngine {
     await _presetsSub?.cancel();
     await _usersSub?.cancel();
     _pushTimer?.cancel();
+  }
+
+  Future<void> dispose() async {
+    await stop();
+    await _statusController.close();
+  }
+
+  void setOffline() {
+    _emit(_state.copyWith(
+      status: SyncUiStatus.offline,
+      message: 'Offline — changes pending locally',
+    ));
+  }
+
+  void setOnlineAndSync() {
+    if (!isCloudEnabled) return;
+    Future.microtask(pushPending);
   }
 
   void _listenCloud() {
@@ -106,6 +169,7 @@ class SyncEngine {
       if (data == null) continue;
       final remote = Member.fromFirestore({...data, 'id': change.doc.id});
       final local = await _db.getMemberById(remote.id);
+      // Last-write-wins on updatedAt.
       if (local == null ||
           remote.updatedAt.isAfter(local.updatedAt) ||
           (remote.deleted && !local.deleted)) {
@@ -163,25 +227,75 @@ class SyncEngine {
     }
   }
 
+  /// Push pending rows with exponential backoff on network errors.
   Future<void> pushPending() async {
     if (!isCloudEnabled || _pushing) return;
     _pushing = true;
-    try {
-      await _pushMembers();
-      await _pushLookups();
-      await _pushFiles();
-      await _pushActivities();
-      await _pushPresets();
-      await _pushAppUsers();
-    } catch (error, stack) {
-      _logError(error, stack);
-    } finally {
-      _pushing = false;
+    _emit(_state.copyWith(status: SyncUiStatus.syncing, message: 'Syncing…'));
+
+    var attempt = 0;
+    const maxAttempts = 4;
+    while (true) {
+      try {
+        await _pushMembersBatched();
+        await _pushLookupsBatched();
+        await _pushFiles();
+        await _pushActivitiesBatched();
+        await _pushPresetsBatched();
+        await _pushAppUsersBatched();
+        _emit(SyncState(
+          status: SyncUiStatus.synced,
+          lastSyncedAt: DateTime.now(),
+          message: 'Synced with cloud',
+        ));
+        break;
+      } catch (error, stack) {
+        _logError(error, stack);
+        attempt++;
+        if (attempt >= maxAttempts) {
+          _emit(_state.copyWith(
+            status: SyncUiStatus.error,
+            message: 'Sync failed — will retry',
+          ));
+          break;
+        }
+        final delay = Duration(seconds: 1 << (attempt - 1)); // 1,2,4,8
+        debugPrint('Sync retry in ${delay.inSeconds}s (attempt $attempt)');
+        await Future<void>.delayed(delay);
+      }
+    }
+
+    _pushing = false;
+  }
+
+  /// Force-push entire local DB after a manual restore (overwrite cloud).
+  Future<void> forcePushAllAfterRestore() async {
+    await _db.markAllPendingSync();
+    await pushPending();
+  }
+
+  Future<void> _commitBatches(
+    String collection,
+    List<({String id, Map<String, dynamic> data})> docs,
+  ) async {
+    const chunkSize = 400;
+    for (var i = 0; i < docs.length; i += chunkSize) {
+      final chunk = docs.skip(i).take(chunkSize);
+      final batch = _fs.batch();
+      for (final doc in chunk) {
+        batch.set(
+          _fs.collection(collection).doc(doc.id),
+          doc.data,
+          SetOptions(merge: true),
+        );
+      }
+      await batch.commit();
     }
   }
 
-  Future<void> _pushMembers() async {
+  Future<void> _pushMembersBatched() async {
     final pending = await _db.getPendingMembers();
+    final docs = <({String id, Map<String, dynamic> data})>[];
     for (final member in pending) {
       var photoUrl = member.photoUrl;
       if ((photoUrl == null || photoUrl.isEmpty) &&
@@ -199,23 +313,21 @@ class SyncEngine {
           member.copyWith(photoUrl: photoUrl, pendingSync: true),
         );
       }
-
-      final payload = member.copyWith(photoUrl: photoUrl);
-      await _fs
-          .collection(AppConstants.membersCollection)
-          .doc(member.id)
-          .set(payload.toFirestore(), SetOptions(merge: true));
+      docs.add((id: member.id, data: member.copyWith(photoUrl: photoUrl).toFirestore()));
+    }
+    await _commitBatches(AppConstants.membersCollection, docs);
+    for (final member in pending) {
       await _db.markMemberSynced(member.id);
     }
   }
 
-  Future<void> _pushLookups() async {
+  Future<void> _pushLookupsBatched() async {
     final pending = await _db.getPendingLookups();
+    await _commitBatches(
+      AppConstants.lookupsCollection,
+      pending.map((i) => (id: i.id, data: i.toFirestore())).toList(),
+    );
     for (final item in pending) {
-      await _fs
-          .collection(AppConstants.lookupsCollection)
-          .doc(item.id)
-          .set(item.toFirestore(), SetOptions(merge: true));
       await _db.markLookupSynced(item.id);
     }
   }
@@ -245,35 +357,35 @@ class SyncEngine {
     }
   }
 
-  Future<void> _pushActivities() async {
+  Future<void> _pushActivitiesBatched() async {
     final pending = await _db.getPendingActivities();
+    await _commitBatches(
+      AppConstants.activitiesCollection,
+      pending.map((a) => (id: a.id, data: a.toFirestore())).toList(),
+    );
     for (final activity in pending) {
-      await _fs
-          .collection(AppConstants.activitiesCollection)
-          .doc(activity.id)
-          .set(activity.toFirestore(), SetOptions(merge: true));
       await _db.markActivitySynced(activity.id);
     }
   }
 
-  Future<void> _pushPresets() async {
+  Future<void> _pushPresetsBatched() async {
     final pending = await _db.getPendingSosPresets();
+    await _commitBatches(
+      AppConstants.sosPresetsCollection,
+      pending.map((p) => (id: p.id, data: p.toFirestore())).toList(),
+    );
     for (final preset in pending) {
-      await _fs
-          .collection(AppConstants.sosPresetsCollection)
-          .doc(preset.id)
-          .set(preset.toFirestore(), SetOptions(merge: true));
       await _db.markSosPresetSynced(preset.id);
     }
   }
 
-  Future<void> _pushAppUsers() async {
+  Future<void> _pushAppUsersBatched() async {
     final pending = await _db.getPendingAppUsers();
+    await _commitBatches(
+      AppConstants.appUsersCollection,
+      pending.map((u) => (id: u.id, data: u.toFirestore())).toList(),
+    );
     for (final user in pending) {
-      await _fs
-          .collection(AppConstants.appUsersCollection)
-          .doc(user.id)
-          .set(user.toFirestore(), SetOptions(merge: true));
       await _db.markAppUserSynced(user.id);
     }
   }
