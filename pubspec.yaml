@@ -1,7 +1,7 @@
 name: garden_town_county
 description: Garden Town County Assembly — offline-first member database with Firebase sync.
 publish_to: "none"
-version: 1.2.0+10
+version: 1.2.1+11
 
 environment:
   sdk: ^3.12.2

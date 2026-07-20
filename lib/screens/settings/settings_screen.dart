@@ -102,38 +102,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         .saveLanguage(lang);
                   },
                 ),
-                if (isAdmin) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 6,
-                        ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        foregroundColor: AppTheme.forestGreen,
-                      ),
-                      onPressed: () => showCountySettingsDialog(context, ref),
-                      child: Text(
-                        'County Settings',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.forestGreen,
-                              decoration: TextDecoration.underline,
-                              decorationColor: AppTheme.forestGreen,
-                            ),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
-        if (!isAdmin)
+        // Outside Theme card — far left, under Theme/Language form.
+        if (isAdmin) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AppTheme.forestGreen,
+              ),
+              onPressed: () => showCountySettingsDialog(context, ref),
+              child: Text(
+                'County Settings',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.forestGreen,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppTheme.forestGreen,
+                    ),
+              ),
+            ),
+          ),
+        ] else
           const Padding(
             padding: EdgeInsets.only(top: 24),
             child: Text(

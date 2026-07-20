@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/activity_log.dart';
@@ -25,14 +26,18 @@ class ActivityService {
       try {
         final permission = await _ensurePermission();
         if (permission) {
-          final position = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.medium,
-            ),
-          );
-          lat = position.latitude;
-          lng = position.longitude;
-          label = '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+          final position = await _readAccuratePosition();
+          if (position != null) {
+            lat = position.latitude;
+            lng = position.longitude;
+            final accuracyM = position.accuracy;
+            label =
+                '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)} (±${accuracyM.toStringAsFixed(0)}m)';
+          } else {
+            label = 'GPS unavailable';
+          }
+        } else {
+          label = 'GPS permission denied';
         }
       } catch (_) {
         label = 'GPS unavailable';
@@ -49,6 +54,58 @@ class ActivityService {
     await _db.insertActivity(activity);
     await _sync.pushPending();
     return activity;
+  }
+
+  /// Prefer a fresh high-accuracy fix; fall back to last known.
+  Future<Position?> _readAccuratePosition() async {
+    final settings = _platformSettings();
+
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: settings,
+      );
+    } catch (_) {
+      try {
+        return await Geolocator.getLastKnownPosition();
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  LocationSettings _platformSettings() {
+    if (kIsWeb) {
+      return const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        timeLimit: Duration(seconds: 20),
+      );
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return AndroidSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+          forceLocationManager: true,
+          timeLimit: const Duration(seconds: 20),
+        );
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return AppleSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          activityType: ActivityType.other,
+          distanceFilter: 0,
+          pauseLocationUpdatesAutomatically: false,
+          timeLimit: const Duration(seconds: 20),
+        );
+      default:
+        return const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+          timeLimit: Duration(seconds: 20),
+        );
+    }
   }
 
   Future<bool> _ensurePermission() async {

@@ -166,48 +166,60 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     setState(() => _photoBusy = true);
     try {
-      // New members: stage photo after ensuring a draft row exists, or just
-      // copy locally via service once the member id is known.
       if (_currentId == null) {
-        // Persist a minimal draft so photo FK / folder is stable, then reload.
         final draft = Member(
           id: memberId,
-          saId: _saId.text.trim().isEmpty ? 'DRAFT${memberId.substring(0, 8)}' : _saId.text.trim(),
+          saId: _saId.text.trim().isEmpty
+              ? 'DRAFT${memberId.substring(0, 8)}'
+              : _saId.text.trim(),
           globalRecordNo: _globalRecordNo.text.trim().isEmpty
               ? 'DRAFT-${memberId.substring(0, 8)}'
               : _globalRecordNo.text.trim(),
-          memberName: _memberName.text.trim().isEmpty ? 'New' : _memberName.text.trim(),
-          surname: _surname.text.trim().isEmpty ? 'Member' : _surname.text.trim(),
+          memberName: _memberName.text.trim().isEmpty
+              ? 'New'
+              : _memberName.text.trim(),
+          surname: _surname.text.trim().isEmpty
+              ? 'Member'
+              : _surname.text.trim(),
           updatedAt: DateTime.now().toUtc(),
           pendingSync: true,
         );
-        await ref.read(memberRepositoryProvider).save(draft);
+        // Local upsert only — avoid sync failures blocking photo pick.
+        await ref.read(databaseServiceProvider).upsertMember(draft);
         _currentId = memberId;
         ref.read(selectedMemberIdProvider.notifier).state = memberId;
       }
 
-      final path = await ref.read(fileStorageServiceProvider).pickMemberPhoto(
-            memberId: memberId,
-          );
+      final storage = ref.read(fileStorageServiceProvider);
+      final path = await storage.pickMemberPhoto(memberId: memberId);
       if (path == null) return;
 
-      final updated = await ref.read(memberRepositoryProvider).getById(memberId);
+      final updated =
+          await ref.read(memberRepositoryProvider).getById(memberId);
       if (!mounted) return;
+
       final localPath = updated?.photoLocalPath ?? path;
       final photoUrl = updated?.photoUrl;
+      final bytes = storage.peekPhotoBytes(memberId) ??
+          await storage.loadWebPhotoBytes(memberId);
+
       setState(() {
         _photoLocalPath = localPath;
         _photoUrl = photoUrl;
+        if (bytes != null) _photoBytes = bytes;
+        _draftId = null;
       });
-      await _loadPhotoBytes(memberId, localPath, photoUrl);
-      // Refresh list without wiping the photo we just loaded.
+
+      if (bytes == null) {
+        await _loadPhotoBytes(memberId, localPath, photoUrl);
+      }
+
       final members = await ref.read(memberRepositoryProvider).getAll();
       if (!mounted) return;
       setState(() {
         _members = members;
         _browseIndex = members.indexWhere((m) => m.id == memberId);
         _currentId = memberId;
-        _draftId = null;
       });
       ref.read(selectedMemberIdProvider.notifier).state = memberId;
     } catch (error) {
@@ -257,7 +269,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       image = file_img.localFileImage(_photoLocalPath!);
     }
 
-    const photoSize = 560.0; // 2× previous 280
+    const photoSize = 320.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -574,14 +586,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      // Fields ~1/4 previous full-width column; photo 2× size.
-                      final fieldWidth =
-                          (constraints.maxWidth / 4).clamp(140.0, 220.0);
+                      // Fields stretch left → photo; photo sits in the middle.
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(
-                            width: fieldWidth,
+                          Expanded(
                             child: Column(
                               children: [
                                 TextFormField(
@@ -650,7 +659,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          Flexible(child: _memberPhotoPanel()),
+                          _memberPhotoPanel(),
+                          // Spacer keeps photo visually toward the middle.
+                          if (constraints.maxWidth > 720)
+                            const Expanded(child: SizedBox()),
                         ],
                       );
                     },

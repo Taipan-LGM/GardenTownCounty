@@ -405,22 +405,31 @@ class SyncEngine {
     final docs = <({String id, Map<String, dynamic> data})>[];
     for (final member in pending) {
       var photoUrl = member.photoUrl;
-      if ((photoUrl == null || photoUrl.isEmpty) &&
-          member.photoLocalPath != null &&
-          File(member.photoLocalPath!).existsSync()) {
-        final ext = member.photoLocalPath!.split('.').last.toLowerCase();
+      if (photoUrl != null && photoUrl.startsWith('data:')) {
+        photoUrl = null;
+      }
+      final localPath = member.photoLocalPath;
+      if (!kIsWeb &&
+          (photoUrl == null || photoUrl.isEmpty) &&
+          localPath != null &&
+          !localPath.startsWith('web-photo://') &&
+          File(localPath).existsSync()) {
+        final ext = localPath.split('.').last.toLowerCase();
         final ref = _storage
             .ref()
             .child('member_photos')
             .child(member.id)
             .child('profile.$ext');
-        await ref.putFile(File(member.photoLocalPath!));
+        await ref.putFile(File(localPath));
         photoUrl = await ref.getDownloadURL();
         await _db.upsertMember(
           member.copyWith(photoUrl: photoUrl, pendingSync: true),
         );
       }
-      docs.add((id: member.id, data: member.copyWith(photoUrl: photoUrl).toFirestore()));
+      docs.add((
+        id: member.id,
+        data: member.copyWith(photoUrl: photoUrl).toFirestore(),
+      ));
     }
     await _commitBatches(AppConstants.membersCollection, docs);
     for (final member in pending) {

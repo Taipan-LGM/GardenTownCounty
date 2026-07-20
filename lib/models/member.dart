@@ -149,6 +149,10 @@ class Member {
   }
 
   Map<String, dynamic> toFirestore() {
+    // Never sync huge data-URI photos to Firestore (1 MB doc limit).
+    final cloudPhoto = (photoUrl != null && photoUrl!.startsWith('data:'))
+        ? null
+        : photoUrl;
     return {
       'id': id,
       'saId': saId,
@@ -163,7 +167,7 @@ class Member {
       'contactNo2': contactNo2,
       'emailAddress': emailAddress,
       'comment': comment,
-      'photoUrl': photoUrl,
+      'photoUrl': cloudPhoto,
       'updatedAt': updatedAt.toIso8601String(),
       'deleted': deleted,
     };

@@ -352,17 +352,19 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                       auth.authorized
                           ? 'Authorized: ${auth.deviceName ?? (kIsWeb ? 'This browser' : 'This PC')}'
                           : kIsWeb
-                              ? 'Optional: name this browser, or tap Download (auto-authorizes).'
+                              ? 'Authorize this browser once, then Download / Restore unlock.'
                               : 'Authorize this PC once, then backup / restore unlock.',
                     ),
                     const SizedBox(height: 12),
-                    if (!auth.authorized)
+                    if (kIsWeb || !auth.authorized)
                       FilledButton.icon(
                         onPressed: _busy ? null : _enableLocalBackup,
                         icon: const Icon(Icons.key),
                         label: Text(
                           kIsWeb
-                              ? 'Enable Backup in this browser'
+                              ? (auth.authorized
+                                  ? 'Authorized Web browser'
+                                  : 'Authorize this Web browser')
                               : strings.enableLocalBackup,
                         ),
                         style: FilledButton.styleFrom(
@@ -370,8 +372,8 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                           foregroundColor: AppTheme.forestGreen,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                      )
-                    else if (!kIsWeb)
+                      ),
+                    if (!kIsWeb && auth.authorized)
                       FilledButton.icon(
                         onPressed: _busy
                             ? null

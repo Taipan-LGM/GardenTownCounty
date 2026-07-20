@@ -23,12 +23,16 @@ class FileStorageService {
   final SyncEngine _sync;
 
   static const _webPhotoPrefix = 'gtc_member_photo_';
-  static const _maxPhotoBytes = 5 * 1024 * 1024;
+  static const _maxPhotoBytes = 8 * 1024 * 1024;
+
+  /// In-memory photo cache (survives prefs quota failures on web).
+  final Map<String, Uint8List> _photoMemory = {};
 
   Future<List<MemberFile>> listForMember(String memberId) =>
       _db.getFilesForMember(memberId);
 
   /// Pick a member profile photo. Returns a display path / web marker.
+  /// Call [peekPhotoBytes] / [loadWebPhotoBytes] afterward for UI bytes.
   Future<String?> pickMemberPhoto({required String memberId}) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
@@ -40,28 +44,29 @@ class FileStorageService {
     final picked = result.files.single;
     var bytes = picked.bytes;
     final path = picked.path;
+    final ext = _extOf(picked.name);
 
-    // Desktop sometimes returns path only — read file when needed.
+    // Desktop path-only (no bytes).
     if (bytes == null && path != null && !kIsWeb) {
       final localCopy = await io.copyPhotoToAppDocs(
         sourcePath: path,
         memberId: memberId,
-        ext: _extOf(picked.name),
+        ext: ext,
       );
-      var photoUrl = '';
+      String? photoUrl;
       if (FirebaseBootstrap.ready) {
         try {
           photoUrl = await io.uploadPhotoFile(
             localPath: localCopy,
             memberId: memberId,
-            ext: _extOf(picked.name),
+            ext: ext,
           );
         } catch (_) {}
       }
       await _db.updateMemberPhoto(
         id: memberId,
         photoLocalPath: localCopy,
-        photoUrl: photoUrl.isEmpty ? null : photoUrl,
+        photoUrl: photoUrl,
       );
       await _safePush();
       return localCopy;
@@ -69,41 +74,49 @@ class FileStorageService {
 
     if (bytes == null) {
       throw Exception(
-        'Could not read selected image. Try JPG/PNG under 5 MB.',
+        'Could not read selected image. Try a JPG or PNG under 8 MB.',
       );
     }
 
     if (bytes.length > _maxPhotoBytes) {
-      throw Exception('Photo too large (max 5 MB).');
+      throw Exception('Photo too large (max 8 MB).');
     }
 
-    // Downscale so web localStorage / data-URI stays under quota.
-    bytes = await _downscaleImage(bytes, maxSide: 1024);
-    final ext = '.png';
+    // Downscale for web storage + display.
+    var imageBytes = bytes;
+    try {
+      imageBytes = await _downscaleImage(imageBytes, maxSide: 800);
+    } catch (_) {
+      // Keep original bytes if codec fails.
+    }
 
-    final dataUri = Uri.dataFromBytes(
-      bytes,
-      mimeType: 'image/png',
-    ).toString();
-
-    // Prefs cache is best-effort (web localStorage quota).
+    // Memory + prefs cache (base64 only — never put data-URI in DB/Firestore).
+    _photoMemory[memberId] = imageBytes;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('$_webPhotoPrefix$memberId', dataUri);
-    } catch (_) {}
+      await prefs.setString(
+        '$_webPhotoPrefix$memberId',
+        base64Encode(imageBytes),
+      );
+    } catch (_) {
+      // Prefs quota exceeded — memory cache still works this session.
+    }
 
-    var photoUrl = dataUri;
+    String? photoUrl;
     if (FirebaseBootstrap.ready) {
       try {
         final ref = FirebaseStorage.instance
             .ref()
             .child('member_photos')
             .child(memberId)
-            .child('profile$ext');
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/png'));
+            .child('profile.png');
+        await ref.putData(
+          imageBytes,
+          SettableMetadata(contentType: 'image/png'),
+        );
         photoUrl = await ref.getDownloadURL();
       } catch (_) {
-        // Keep data URI for local display / offline.
+        // Offline / Storage rules — local photo still works.
       }
     }
 
@@ -127,19 +140,18 @@ class FileStorageService {
     Uint8List bytes, {
     required int maxSide,
   }) async {
+    final codec = await ui.instantiateImageCodec(
+      bytes,
+      targetWidth: maxSide,
+    );
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
     try {
-      final codec = await ui.instantiateImageCodec(
-        bytes,
-        targetWidth: maxSide,
-      );
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
       final bd = await image.toByteData(format: ui.ImageByteFormat.png);
-      image.dispose();
       if (bd == null) return bytes;
       return bd.buffer.asUint8List();
-    } catch (_) {
-      return bytes;
+    } finally {
+      image.dispose();
     }
   }
 
@@ -149,18 +161,28 @@ class FileStorageService {
   }
 
   Future<Uint8List?> loadWebPhotoBytes(String memberId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('$_webPhotoPrefix$memberId');
-    if (raw == null) return null;
-    if (raw.startsWith('data:')) {
-      return Uri.parse(raw).data?.contentAsBytes();
-    }
+    final cached = _photoMemory[memberId];
+    if (cached != null) return cached;
+
     try {
-      return base64Decode(raw);
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('$_webPhotoPrefix$memberId');
+      if (raw == null) return null;
+      if (raw.startsWith('data:')) {
+        final bytes = Uri.parse(raw).data?.contentAsBytes();
+        if (bytes != null) _photoMemory[memberId] = bytes;
+        return bytes;
+      }
+      final bytes = base64Decode(raw);
+      _photoMemory[memberId] = bytes;
+      return bytes;
     } catch (_) {
       return null;
     }
   }
+
+  /// Expose last-picked bytes immediately for UI (avoids race with prefs).
+  Uint8List? peekPhotoBytes(String memberId) => _photoMemory[memberId];
 
   Future<MemberFile?> pickAndUpload({
     required String memberId,
@@ -223,73 +245,6 @@ class FileStorageService {
     );
   }
 
-  /// Pick a file and attach it as an [LroDocument] to a case or notice.
-  Future<LroDocument?> pickAndUploadLroDocument({
-    required String parentType,
-    required String parentId,
-    required String uploadedBy,
-    String description = '',
-    String docType = 'other',
-  }) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      withData: kIsWeb,
-      type: FileType.any,
-    );
-
-    if (result == null || result.files.isEmpty) return null;
-    final picked = result.files.single;
-    final fileName = picked.name;
-
-    if (kIsWeb) {
-      final bytes = picked.bytes;
-      if (bytes == null) {
-        throw Exception('Could not read selected file.');
-      }
-      var document = LroDocument.create(
-        parentType: parentType,
-        parentId: parentId,
-        fileName: fileName,
-        uploadedBy: uploadedBy,
-        docType: docType,
-        description: description.trim(),
-        contentType: _guessContentType(fileName),
-        sizeBytes: bytes.length,
-      );
-      if (FirebaseBootstrap.ready) {
-        try {
-          final ref = FirebaseStorage.instance
-              .ref()
-              .child('lro_files')
-              .child(parentId)
-              .child('${document.id}_$fileName');
-          await ref.putData(bytes);
-          final url = await ref.getDownloadURL();
-          document = document.copyWith(storageUrl: url);
-        } catch (_) {}
-      }
-      await _db.upsertLroDocument(document);
-      await _safePush();
-      return document;
-    }
-
-    final path = picked.path;
-    if (path == null) {
-      throw Exception('Could not read selected file path.');
-    }
-    return io.pickAndUploadLroDocumentDesktop(
-      db: _db,
-      sync: _sync,
-      parentType: parentType,
-      parentId: parentId,
-      uploadedBy: uploadedBy,
-      docType: docType,
-      description: description,
-      sourcePath: path,
-      fileName: fileName,
-    );
-  }
-
   Future<void> updateDescription(MemberFile file, String description) async {
     final updated = file.copyWith(
       description: description.trim(),
@@ -302,6 +257,71 @@ class FileStorageService {
   Future<void> deleteFile(MemberFile file) async {
     await _db.softDeleteMemberFile(file.id);
     await _safePush();
+  }
+
+  Future<LroDocument?> pickAndUploadLroDocument({
+    required String parentType,
+    required String parentId,
+    required String uploadedBy,
+    String description = '',
+    String docType = 'other',
+  }) async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      withData: kIsWeb,
+      type: FileType.any,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    final picked = result.files.single;
+    final fileName = picked.name;
+
+    if (kIsWeb) {
+      final bytes = picked.bytes;
+      if (bytes == null) {
+        throw Exception('Could not read selected file.');
+      }
+      var doc = LroDocument.create(
+        parentType: parentType,
+        parentId: parentId,
+        fileName: fileName,
+        uploadedBy: uploadedBy,
+        docType: docType,
+        description: description,
+        contentType: _guessContentType(fileName),
+        sizeBytes: bytes.length,
+      );
+      if (FirebaseBootstrap.ready) {
+        try {
+          final ref = FirebaseStorage.instance
+              .ref()
+              .child('lro_files')
+              .child(parentId)
+              .child('${doc.id}_$fileName');
+          await ref.putData(bytes);
+          final url = await ref.getDownloadURL();
+          doc = doc.copyWith(storageUrl: url);
+        } catch (_) {}
+      }
+      await _db.upsertLroDocument(doc);
+      await _safePush();
+      return doc;
+    }
+
+    final path = picked.path;
+    if (path == null) {
+      throw Exception('Could not read selected file path.');
+    }
+    return io.pickAndUploadLroDocumentDesktop(
+      db: _db,
+      sync: _sync,
+      parentType: parentType,
+      parentId: parentId,
+      uploadedBy: uploadedBy,
+      description: description,
+      docType: docType,
+      sourcePath: path,
+      fileName: fileName,
+    );
   }
 
   String _guessContentType(String fileName) {
