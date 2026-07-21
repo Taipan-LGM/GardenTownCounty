@@ -3,13 +3,20 @@ import 'package:garden_town_county/services/sa_id_validator.dart';
 
 void main() {
   group('SaIdValidator', () {
-    test('rejects empty / non-digits / wrong length', () {
+    test('hard validate rejects empty / non-digits / wrong length', () {
       expect(SaIdValidator.validate(''), isNotNull);
       expect(SaIdValidator.validate('abcdefghijklm'), isNotNull);
       expect(SaIdValidator.validate('123'), isNotNull);
     });
 
-    test('rejects bad month/day/citizenship/type', () {
+    test('hard validate accepts any 13 digits (Luhn is soft only)', () {
+      const badLuhn = '9001014800080';
+      expect(SaIdValidator.validate(badLuhn), isNull);
+      expect(SaIdValidator.validateLuhnChecksum(badLuhn), isFalse);
+      expect(SaIdValidator.softWarning(badLuhn), isNotNull);
+    });
+
+    test('rejects bad month/day/citizenship/type via format helper', () {
       expect(SaIdValidator.isValidFormat('8013015009087'), isFalse); // month 13
       expect(SaIdValidator.isValidFormat('8001325009087'), isFalse); // day 32
       expect(SaIdValidator.isValidFormat('8001015009287'), isFalse); // type 2
@@ -21,10 +28,17 @@ void main() {
       expect(SaIdValidator.isValidFormat(id), isTrue);
       expect(SaIdValidator.validateLuhnChecksum(id), isTrue);
       expect(SaIdValidator.validate(id), isNull);
+      expect(SaIdValidator.softWarning(id), isNull);
     });
 
-    test('rejects invalid checksum', () {
-      const id = '9001014800080'; // last digit wrong
+    test('softWarning flags unusual structure', () {
+      const weird = '8013015009087'; // month 13 but 13 digits
+      expect(SaIdValidator.validate(weird), isNull);
+      expect(SaIdValidator.softWarning(weird), isNotNull);
+    });
+
+    test('rejects invalid checksum via Luhn helper', () {
+      const id = '9001014800080';
       expect(SaIdValidator.validateLuhnChecksum(id), isFalse);
     });
   });

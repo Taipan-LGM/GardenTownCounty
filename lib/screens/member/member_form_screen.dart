@@ -80,6 +80,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   _FormSnapshot? _snapshot;
 
   String? _saIdError;
+  String? _saIdWarning;
   String? _globalRecordError;
   bool _isCheckingSaId = false;
   bool _isCheckingGlobalRecord = false;
@@ -301,12 +302,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     String label, {
     bool isDense = false,
     String? errorText,
+    String? helperText,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
       labelText: label,
       isDense: isDense,
       errorText: errorText,
+      helperText: helperText,
+      helperMaxLines: 2,
       errorMaxLines: 3,
       suffixIcon: suffixIcon ??
           Icon(
@@ -331,6 +335,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _saIdDebounce?.cancel();
     _globalRecordDebounce?.cancel();
     _saIdError = null;
+    _saIdWarning = null;
     _globalRecordError = null;
     _isCheckingSaId = false;
     _isCheckingGlobalRecord = false;
@@ -361,19 +366,21 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     setState(() {
       _isCheckingSaId = true;
       _saIdError = null;
+      _saIdWarning = null;
       _duplicateSaIdMemberId = null;
     });
 
-    final formatError = SaIdValidator.validate(value);
-    if (formatError != null) {
+    final hardError = SaIdValidator.validate(value);
+    if (hardError != null) {
       if (!mounted) return;
       setState(() {
-        _saIdError = formatError;
+        _saIdError = hardError;
         _isCheckingSaId = false;
       });
       return;
     }
 
+    final soft = SaIdValidator.softWarning(value);
     final excludeId = _currentId ?? _draftId;
     final result = await ref.read(memberDuplicateServiceProvider).checkSaId(
           value.trim(),
@@ -382,11 +389,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (!mounted) return;
     setState(() {
       _isCheckingSaId = false;
+      _saIdWarning = soft;
       if (result.isDuplicate) {
         _saIdError = result.errorMessage;
         _duplicateSaIdMemberId = result.existingMember?.id;
-      } else if (result.errorMessage != null) {
-        _saIdError = result.errorMessage;
       }
     });
   }
@@ -421,12 +427,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       if (result.isDuplicate) {
         _globalRecordError = result.errorMessage;
         _duplicateGlobalRecordMemberId = result.existingMember?.id;
-      } else if (result.errorMessage != null) {
-        _globalRecordError = result.errorMessage;
       }
     });
   }
 
+  /// Hard blockers only (empty / length / digits / confirmed duplicate / in-flight check).
   bool get _uniqueFieldsOk =>
       _saIdError == null &&
       _globalRecordError == null &&
@@ -434,6 +439,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       !_isCheckingGlobalRecord &&
       _saId.text.trim().isNotEmpty &&
       _globalRecordNo.text.trim().isNotEmpty;
+
+  bool get _canPressSave =>
+      _isEditing &&
+      !_saving &&
+      !_formReadOnly &&
+      !_fieldsMasked &&
+      _uniqueFieldsOk;
 
   Future<void> _openExistingDuplicate(String? memberId) async {
     if (memberId == null) return;
@@ -546,7 +558,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
     }
 
-    // Staff land on the browsable list by default.
     final nav = ref.read(memberNavigationProvider);
     if (nav.currentView == MemberNavView.profile &&
         nav.selectedMemberId != null) {
@@ -555,6 +566,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         _loadMember(members[index], index);
         return;
       }
+    }
+
+    // Staff: show blank New Member form (editable) — no need to press New first.
+    if (_canAddMembers) {
+      openMemberDraft();
+      return;
     }
     ref.read(memberNavigationProvider.notifier).goBackToList();
     _clearForm(newMember: false);
@@ -878,7 +895,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return false;
     }
     if (!_formKey.currentState!.validate()) return false;
-    if (!_uniqueFieldsOk) {
+    // Finish any in-flight uniqueness checks before save.
+    if (_isCheckingSaId || _isCheckingGlobalRecord) {
+      await _validateSaIdLive(_saId.text);
+      await _validateGlobalRecordLive(_globalRecordNo.text);
+    }
+    if (_saIdError != null || _globalRecordError != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -893,10 +915,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
       return false;
     }
-    // Final uniqueness re-check before save.
-    await _validateSaIdLive(_saId.text);
-    await _validateGlobalRecordLive(_globalRecordNo.text);
-    if (!_uniqueFieldsOk) return false;
+    if (_saId.text.trim().isEmpty || _globalRecordNo.text.trim().isEmpty) {
+      return false;
+    }
 
     setState(() => _saving = true);
 
@@ -963,6 +984,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       } catch (e) {
         debugPrint('Reminder sync after save failed: $e');
       }
+
+      // Keep selection so bootstrap reloads this member (not a blank draft).
+      ref.read(selectedMemberIdProvider.notifier).state = saved.id;
 
       await _bootstrap();
       final index = _members.indexWhere((m) => m.id == saved.id);
@@ -1554,7 +1578,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
-                  onPressed: (_saving || !_uniqueFieldsOk) ? null : () => _save(),
+                  onPressed: _canPressSave ? () => _save() : null,
                   icon: const Icon(Icons.save),
                   label: const Text('Save'),
                 ),
@@ -1634,7 +1658,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
-                  onPressed: (_saving || !_uniqueFieldsOk) ? null : () => _save(),
+                  onPressed: _canPressSave ? () => _save() : null,
                   icon: _saving
                       ? const SizedBox(
                           width: 16,
@@ -1706,6 +1730,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       'SA ID No.',
                                       isDense: true,
                                       errorText: _saIdError,
+                                      helperText: _saIdError == null
+                                          ? _saIdWarning
+                                          : null,
                                       suffixIcon: _isCheckingSaId
                                           ? const Padding(
                                               padding: EdgeInsets.all(12),
@@ -1721,9 +1748,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                           : _saIdError == null &&
                                                   _saId.text.isNotEmpty &&
                                                   _isEditing
-                                              ? const Icon(
-                                                  Icons.check_circle,
-                                                  color: Colors.green,
+                                              ? Icon(
+                                                  _saIdWarning == null
+                                                      ? Icons.check_circle
+                                                      : Icons.warning_amber,
+                                                  color: _saIdWarning == null
+                                                      ? Colors.green
+                                                      : Colors.orange,
                                                   size: 18,
                                                 )
                                               : null,
@@ -1733,13 +1764,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     inputFormatters: [
                                       FilteringTextInputFormatter.digitsOnly,
                                     ],
-                                    validator: (v) {
-                                      final err = SaIdValidator.validate(
-                                        v ?? '',
-                                      );
-                                      if (err != null) return err;
-                                      return _saIdError;
-                                    },
+                                    validator: (v) =>
+                                        SaIdValidator.validate(v ?? ''),
                                   ),
                                   DuplicateWarningWidget(
                                     field: 'SA ID',
@@ -1792,7 +1818,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                         v ?? '',
                                       );
                                       if (err != null) return err;
-                                      return _globalRecordError;
+                                      if (_globalRecordError != null &&
+                                          _duplicateGlobalRecordMemberId !=
+                                              null) {
+                                        return _globalRecordError;
+                                      }
+                                      return null;
                                     },
                                   ),
                                   DuplicateWarningWidget(

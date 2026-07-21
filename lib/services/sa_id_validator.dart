@@ -1,12 +1,15 @@
 import '../core/constants/app_constants.dart';
 
-/// South African ID (13-digit) format + Luhn checksum helpers.
+/// South African ID helpers.
+///
+/// Hard rules (block Save): required, digits only, exactly 13.
+/// Soft rules (warning only): date structure, citizenship/type, Luhn checksum.
 class SaIdValidator {
   SaIdValidator._();
 
   static final RegExp _digitsOnly = RegExp(r'^[0-9]+$');
 
-  /// Returns null if valid; otherwise an error message.
+  /// Hard validation — empty / non-digits / wrong length. Blocks Save.
   static String? validate(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return 'SA ID is required';
@@ -16,12 +19,23 @@ class SaIdValidator {
     if (value.length != AppConstants.saIdMaxLength) {
       return 'SA ID must be exactly 13 digits';
     }
-    if (!isValidFormat(value)) return 'Invalid SA ID format';
-    if (!validateLuhnChecksum(value)) return 'Invalid SA ID checksum';
     return null;
   }
 
-  /// YYMMDD + gender + citizenship (0/1) + id type (8/9) + checksum structure.
+  /// Soft warning — format / Luhn. Does not block Save.
+  static String? softWarning(String raw) {
+    final value = raw.trim();
+    if (validate(value) != null) return null;
+    if (!isValidFormat(value)) {
+      return 'Warning: SA ID date/citizenship/type looks unusual';
+    }
+    if (!validateLuhnChecksum(value)) {
+      return 'Warning: SA ID checksum does not match (Luhn)';
+    }
+    return null;
+  }
+
+  /// YYMMDD + gender + citizenship (0/1) + id type (8/9) structure.
   static bool isValidFormat(String saId) {
     if (saId.length != 13 || !_digitsOnly.hasMatch(saId)) return false;
 
