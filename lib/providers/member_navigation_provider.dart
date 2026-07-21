@@ -117,10 +117,24 @@ class MemberNavigationController extends StateNotifier<MemberNavigationState> {
     state = state.copyWith(
       currentView: MemberNavView.profile,
       selectedMemberId: member.id,
-      currentIndex: index,
+      currentIndex: index < 0 ? 0 : index,
       currentPage: page,
       highlightIndex: index < 0 ? 0 : index % state.itemsPerPage,
       forceEdit: forceEdit,
+    );
+  }
+
+  /// Keep counter / prev-next in sync after external reloads.
+  void syncSelection(Member member, List<Member> all) {
+    final list = filtered(all);
+    final index = list.indexWhere((m) => m.id == member.id);
+    if (index < 0) return;
+    state = state.copyWith(
+      currentView: MemberNavView.profile,
+      selectedMemberId: member.id,
+      currentIndex: index,
+      currentPage: index ~/ state.itemsPerPage,
+      highlightIndex: index % state.itemsPerPage,
     );
   }
 

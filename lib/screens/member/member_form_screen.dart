@@ -446,6 +446,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     });
     _suppressDirty = false;
     ref.read(selectedMemberIdProvider.notifier).state = member.id;
+    ref.read(memberNavigationProvider.notifier).syncSelection(member, _members);
     if (!masked) {
       _loadPhotoBytes(member.id, member.photoLocalPath, member.photoUrl);
     }
@@ -1123,7 +1124,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     flex: 3,
                     child: Card(
                       margin: EdgeInsets.zero,
-                      clipBehavior: Clip.antiAlias,
+                      // Do not clip — profile nav buttons must stay visible.
+                      clipBehavior: Clip.none,
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
                         child: showList
@@ -1246,96 +1248,110 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     final modeLabel = _isEditing ? 'EDIT MODE' : 'VIEW MODE';
 
-    final profileBody = Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (member != null)
-            ProfileNavigationBar(
-              currentMember: member,
-              currentIndex: idx,
-              totalMembers: filtered.length,
-              previousName: prevName,
-              nextName: nextName,
-              onBack: () => onBack(),
-              onPrevious: () => onPrev(),
-              onNext: () => onNext(),
-              canEdit: _canEnterEditMode && !_isEditing,
-              canDelete: !_isEditing &&
-                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
-                  !_isMemberOnly,
-              onEdit: (_canEnterEditMode && !_isEditing) ? _enterEditMode : null,
-              onUpload: () async {
-                if (_isEditing && _hasUnsavedChanges) {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('⚠️ Unsaved Changes'),
-                      content: const Text(
-                        'You have unsaved changes. Please save before uploading files.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('💾 Save First'),
-                        ),
-                      ],
+    Widget buildNavHeader() {
+      if (member != null) {
+        return ProfileNavigationBar(
+          currentMember: member,
+          currentIndex: idx,
+          totalMembers: filtered.length,
+          previousName: prevName,
+          nextName: nextName,
+          onBack: () => onBack(),
+          onPrevious: () => onPrev(),
+          onNext: () => onNext(),
+          canEdit: _canEnterEditMode && !_isEditing,
+          canDelete: !_isEditing &&
+              !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
+              !_isMemberOnly,
+          onEdit: (_canEnterEditMode && !_isEditing) ? _enterEditMode : null,
+          onUpload: () async {
+            if (_isEditing && _hasUnsavedChanges) {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('⚠️ Unsaved Changes'),
+                  content: const Text(
+                    'You have unsaved changes. Please save before uploading files.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
                     ),
-                  );
-                  if (confirm == true) {
-                    final ok = await _save();
-                    if (!ok || !mounted) return;
-                  } else {
-                    return;
-                  }
-                }
-                if (!mounted) return;
-                await showMemberFilesDialog(context, ref, member);
-              },
-              onDelete: (!_isEditing &&
-                      !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
-                      !_isMemberOnly)
-                  ? _delete
-                  : null,
-            )
-          else
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => onBack(),
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Back to List (Esc)',
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('💾 Save First'),
+                    ),
+                  ],
                 ),
-                Text(
+              );
+              if (confirm == true) {
+                final ok = await _save();
+                if (!ok || !mounted) return;
+              } else {
+                return;
+              }
+            }
+            if (!mounted) return;
+            await showMemberFilesDialog(context, ref, member);
+          },
+          onDelete: (!_isEditing &&
+                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
+                  !_isMemberOnly)
+              ? _delete
+              : null,
+        );
+      }
+      return Material(
+        color: AppTheme.forestGreen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => onBack(),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                tooltip: 'Back to List (Esc)',
+              ),
+              Expanded(
+                child: Text(
                   'New Member ($modeLabel)',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.forestGreen,
+                    color: AppTheme.gold,
                   ),
                 ),
-                const Spacer(),
-                if (_isEditing) ...[
-                  TextButton(onPressed: _cancelEdit, child: const Text('Cancel')),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : () => _save(),
-                    icon: const Icon(Icons.save),
-                    label: const Text('Save'),
-                  ),
-                ],
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: () => onBack(),
-                  icon: const Icon(Icons.close),
+              ),
+              if (_isEditing) ...[
+                TextButton(
+                  onPressed: _cancelEdit,
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _saving ? null : () => _save(),
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save'),
                 ),
               ],
-            ),
+              IconButton(
+                tooltip: 'Close',
+                onPressed: () => onBack(),
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final formChrome = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           if (_isEditing) _buildEditModeBanner(),
           const SizedBox(height: 8),
           Row(
@@ -1630,20 +1646,31 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     final lockedMember = _loadedMember;
     final authUser = ref.watch(authUserProvider);
-    Widget pane = profileBody;
+    Widget formArea = formChrome;
     if (lockedMember != null &&
         lockedMember.isLocked &&
         authUser != null) {
-      pane = ScreenshotProtectedView(
-        member: lockedMember,
-        user: authUser,
-        onScreenshotAttempt: () => _logScreenshotAttempt(lockedMember),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 48, bottom: 36),
-          child: profileBody,
+      formArea = SizedBox.expand(
+        child: ScreenshotProtectedView(
+          member: lockedMember,
+          user: authUser,
+          onScreenshotAttempt: () => _logScreenshotAttempt(lockedMember),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 48, bottom: 36),
+            child: formChrome,
+          ),
         ),
       );
     }
+
+    // Nav bar stays ABOVE lock watermark/banner so Previous/Next always visible.
+    final pane = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        buildNavHeader(),
+        Expanded(child: formArea),
+      ],
+    );
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
