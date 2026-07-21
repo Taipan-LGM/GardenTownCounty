@@ -14,7 +14,9 @@ import '../../providers/providers.dart';
 import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
 import '../../widgets/member_lock_banners.dart';
+import '../../widgets/screenshot_protected_view.dart';
 import '../../services/member_lock_service.dart';
+import '../../services/secure_screen_service.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
 
@@ -55,6 +57,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _photoBusy = false;
   String? _adminLinkedMemberId;
   Member? _loadedMember;
+  String? _lastLoggedSecureViewId;
 
   bool get _viewerIsSysAdmin =>
       ref.read(authUserProvider)?.isSystemAdministrator ?? false;
@@ -121,6 +124,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _contactNo2.dispose();
     _email.dispose();
     _comment.dispose();
+    SecureScreenService.disableSecureScreen();
     super.dispose();
   }
 
@@ -213,6 +217,38 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (!masked) {
       _loadPhotoBytes(member.id, member.photoLocalPath, member.photoUrl);
     }
+    _onSecureMemberView(member);
+  }
+
+  Future<void> _onSecureMemberView(Member member) async {
+    if (!member.isLocked) {
+      await SecureScreenService.disableSecureScreen();
+      return;
+    }
+    final user = ref.read(authUserProvider);
+    if (user == null) return;
+    // Log once per browse selection while this screen is open.
+    if (_lastLoggedSecureViewId != member.id) {
+      _lastLoggedSecureViewId = member.id;
+      await ref.read(activityServiceProvider).record(
+            userName: user.displayName,
+            action:
+                '🔒 view_locked_member ${member.fullName} '
+                '(${user.userRole.label})',
+            captureGps: false,
+          );
+    }
+  }
+
+  Future<void> _logScreenshotAttempt(Member member) async {
+    final user = ref.read(authUserProvider);
+    if (user == null) return;
+    await ref.read(activityServiceProvider).record(
+          userName: user.displayName,
+          action:
+              '⚠️ screenshot_attempt on locked member ${member.fullName}',
+          captureGps: false,
+        );
   }
 
   Future<void> _loadPhotoBytes(
@@ -630,7 +666,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Padding(
+    final body = Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -929,6 +965,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ],
       ),
     );
+
+    final member = _loadedMember;
+    final user = ref.watch(authUserProvider);
+    if (member != null && member.isLocked && user != null) {
+      return ScreenshotProtectedView(
+        member: member,
+        user: user,
+        onScreenshotAttempt: () => _logScreenshotAttempt(member),
+        child: Padding(
+          // Extra top/bottom inset so content clears red banners.
+          padding: const EdgeInsets.only(top: 48, bottom: 36),
+          child: body,
+        ),
+      );
+    }
+    return body;
   }
 
   Widget _buildLockChrome(Member member) {

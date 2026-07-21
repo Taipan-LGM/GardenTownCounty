@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/providers.dart';
 import '../../widgets/menu_guide_arrow.dart';
+import '../../widgets/legal_disclaimer_dialog.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +44,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             usernameOrEmail: _userController.text,
             password: _passwordController.text,
           );
+
+      if (!mounted) return;
+      final accepted = await ensureConfidentialityAccepted(
+        context,
+        onReject: () {
+          ref.read(authServiceProvider).signOut();
+          ref.read(authUserProvider.notifier).state = null;
+        },
+      );
+      if (!accepted) {
+        if (mounted) {
+          setState(() => _error = 'You must accept the confidentiality agreement.');
+        }
+        return;
+      }
+
       ref.read(authUserProvider.notifier).state = user;
 
       // Arm MENU guide for first 3 logins only.
