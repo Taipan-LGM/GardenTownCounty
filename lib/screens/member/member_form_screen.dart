@@ -10,10 +10,16 @@ import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item.dart';
 import '../../models/member.dart';
 import '../../models/member_form_mode.dart';
+import '../../models/member_navigation_state.dart';
+import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
 import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
 import '../../widgets/member_lock_banners.dart';
+import '../../widgets/member_nav/keyboard_shortcut_handler.dart';
+import '../../widgets/member_nav/member_filter_panel.dart';
+import '../../widgets/member_nav/member_list_panel.dart';
+import '../../widgets/member_nav/profile_navigation_bar.dart';
 import '../../widgets/onboarding_checklist_card.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import '../../services/temporary_access_service.dart';
@@ -52,13 +58,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   /// Stable id for new (unsaved) members so a photo can be staged.
   String? _draftId;
   List<Member> _members = const [];
-  int _browseIndex = -1;
   bool _loading = true;
   bool _saving = false;
   bool _photoBusy = false;
   String? _adminLinkedMemberId;
   Member? _loadedMember;
   String? _lastLoggedSecureViewId;
+  final _searchFocusNode = FocusNode();
+  bool _navForward = true;
 
   bool get _viewerIsSysAdmin =>
       ref.read(authUserProvider)?.isSystemAdministrator ?? false;
@@ -118,6 +125,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _contactNo2.dispose();
     _email.dispose();
     _comment.dispose();
+    _searchFocusNode.dispose();
     SecureScreenService.disableSecureScreen();
     super.dispose();
   }
@@ -157,6 +165,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         final index = members.indexWhere((m) => m.id == linked);
         if (index >= 0) {
           _loadMember(members[index], index);
+          await ref.read(memberNavigationProvider.notifier).openMember(
+                members[index],
+                all: members,
+              );
           return;
         }
       }
@@ -168,14 +180,26 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       final index = members.indexWhere((m) => m.id == selectedId);
       if (index >= 0) {
         _loadMember(members[index], index);
+        await ref.read(memberNavigationProvider.notifier).openMember(
+              members[index],
+              all: members,
+            );
         return;
       }
     }
-    if (members.isNotEmpty) {
-      _loadMember(members.first, 0);
-    } else {
-      _clearForm(newMember: true);
+
+    // Staff land on the browsable list by default.
+    final nav = ref.read(memberNavigationProvider);
+    if (nav.currentView == MemberNavView.profile &&
+        nav.selectedMemberId != null) {
+      final index = members.indexWhere((m) => m.id == nav.selectedMemberId);
+      if (index >= 0) {
+        _loadMember(members[index], index);
+        return;
+      }
     }
+    ref.read(memberNavigationProvider.notifier).goBackToList();
+    _clearForm(newMember: false);
   }
 
   void _loadMember(Member member, int index) {
@@ -184,7 +208,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _loadedMember = member;
       _currentId = member.id;
       _draftId = null;
-      _browseIndex = index;
       _saId.text = masked ? _maskValue : member.saId;
       _globalRecordNo.text = masked ? _maskValue : member.globalRecordNo;
       _memberName.text = masked ? _maskValue : member.memberName;
@@ -269,7 +292,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _loadedMember = null;
       _currentId = null;
       _draftId = const Uuid().v4();
-      if (newMember) _browseIndex = -1;
       _saId.clear();
       _globalRecordNo.clear();
       _memberName.clear();
@@ -332,7 +354,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       if (!mounted) return;
       setState(() {
         _members = members;
-        _browseIndex = members.indexWhere((m) => m.id == memberId);
       });
 
       if (mounted) {
@@ -533,7 +554,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
       await _bootstrap();
       final index = _members.indexWhere((m) => m.id == saved.id);
-      if (index >= 0) _loadMember(_members[index], index);
+      if (index >= 0) {
+        await ref.read(memberNavigationProvider.notifier).openMember(
+              _members[index],
+              all: _members,
+            );
+        _loadMember(_members[index], index);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -584,16 +611,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
     if (confirmed != true) return;
     await ref.read(memberRepositoryProvider).delete(_currentId!);
+    ref.read(memberNavigationProvider.notifier).goBackToList();
     await _bootstrap();
-  }
-
-  void _browse(int delta) {
-    if (_members.isEmpty) return;
-    var next = _browseIndex + delta;
-    if (_browseIndex < 0) next = 0;
-    if (next < 0) next = _members.length - 1;
-    if (next >= _members.length) next = 0;
-    _loadMember(_members[next], next);
   }
 
   Widget _lookupDropdown({
@@ -660,101 +679,338 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final body = Padding(
+    final navState = ref.watch(memberNavigationProvider);
+    final nav = ref.read(memberNavigationProvider.notifier);
+    final isMemberOnly = _isMemberOnly;
+    final showList = !isMemberOnly && navState.currentView == MemberNavView.list;
+    final filtered = nav.filtered(_members);
+    final page = nav.pageMembers(_members);
+    final counts = MemberNavigationLogic.counts(
+      _members,
+      favoriteIds: navState.favoriteIds,
+    );
+    final wide = MediaQuery.sizeOf(context).width >= 1100;
+
+    Future<void> openMember(Member m, {bool forceEdit = false}) async {
+      setState(() => _navForward = true);
+      await nav.openMember(m, all: _members, forceEdit: forceEdit);
+      final idx = _members.indexWhere((x) => x.id == m.id);
+      if (idx >= 0) _loadMember(_members[idx], idx);
+    }
+
+    Future<void> goPrev() async {
+      if (showList) {
+        nav.moveListHighlight(-1, pageLength: page.length);
+        return;
+      }
+      setState(() => _navForward = false);
+      await nav.navigateRelative(-1, all: _members);
+      final id = ref.read(memberNavigationProvider).selectedMemberId;
+      final idx = _members.indexWhere((m) => m.id == id);
+      if (idx >= 0) _loadMember(_members[idx], idx);
+    }
+
+    Future<void> goNext() async {
+      if (showList) {
+        nav.moveListHighlight(1, pageLength: page.length);
+        return;
+      }
+      setState(() => _navForward = true);
+      await nav.navigateRelative(1, all: _members);
+      final id = ref.read(memberNavigationProvider).selectedMemberId;
+      final idx = _members.indexWhere((m) => m.id == id);
+      if (idx >= 0) _loadMember(_members[idx], idx);
+    }
+
+    void openHighlighted() {
+      if (!showList || page.isEmpty) return;
+      final i = navState.highlightIndex.clamp(0, page.length - 1);
+      openMember(page[i]);
+    }
+
+    final shell = KeyboardShortcutHandler(
+      enabled: !isMemberOnly,
+      onPrevious: () => goPrev(),
+      onNext: () => goNext(),
+      onPagePrevious: showList
+          ? () => nav.previousPage()
+          : () => goPrev(),
+      onPageNext: showList
+          ? () => nav.nextPage(filtered.length)
+          : () => goNext(),
+      onBack: () {
+        if (!showList) {
+          nav.goBackToList();
+          _clearForm(newMember: false);
+        }
+      },
+      onSearch: () => _searchFocusNode.requestFocus(),
+      onEdit: () {
+        final m = _loadedMember;
+        if (m != null) openMember(m, forceEdit: true);
+      },
+      onSave: _formReadOnly ? null : () => _save(),
+      onNew: _canAddMembers ? openMemberDraft : null,
+      onDelete: (_loadedMember != null && !_formReadOnly) ? () => _delete() : null,
+      onUpload: () {
+        final m = _loadedMember;
+        if (m != null) showMemberFilesDialog(context, ref, m);
+      },
+      onRefresh: () => refreshApp(ref).then((_) => _bootstrap()),
+      onHome: () => nav.navigateFirst(all: _members).then((_) {
+        final id = ref.read(memberNavigationProvider).selectedMemberId;
+        final idx = _members.indexWhere((m) => m.id == id);
+        if (idx >= 0) _loadMember(_members[idx], idx);
+      }),
+      onEnd: () => nav.navigateLast(all: _members).then((_) {
+        final id = ref.read(memberNavigationProvider).selectedMemberId;
+        final idx = _members.indexWhere((m) => m.id == id);
+        if (idx >= 0) _loadMember(_members[idx], idx);
+      }),
+      onOpenHighlighted: openHighlighted,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                const Text(
+                  '👥 MEMBER MANAGEMENT',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.forestGreen,
+                  ),
+                ),
+                const Spacer(),
+                if (!isMemberOnly)
+                  IconButton(
+                    tooltip: 'Focus Search (Ctrl+F)',
+                    onPressed: () {
+                      if (showList) {
+                        _searchFocusNode.requestFocus();
+                      } else {
+                        nav.goBackToList();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _searchFocusNode.requestFocus();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.search),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!isMemberOnly && wide)
+                    SizedBox(
+                      width: 200,
+                      child: MemberFilterPanel(counts: counts),
+                    ),
+                  if (!isMemberOnly && wide) const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: showList
+                            ? KeyedSubtree(
+                                key: const ValueKey('list'),
+                                child: Column(
+                                  children: [
+                                    if (!wide)
+                                      Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: MemberFilterPanel(
+                                          counts: counts,
+                                          compact: true,
+                                        ),
+                                      ),
+                                    Expanded(
+                                      child: MemberListPanel(
+                                        allMembers: _members,
+                                        searchFocusNode: _searchFocusNode,
+                                        isAdmin: _viewerIsAdmin,
+                                        onAddNew: _canAddMembers
+                                            ? openMemberDraft
+                                            : null,
+                                        onOpen: (m, {forceEdit = false}) =>
+                                            openMember(
+                                          m,
+                                          forceEdit: forceEdit,
+                                        ),
+                                        onEdit: (m) =>
+                                            openMember(m, forceEdit: true),
+                                        onUpload: (m) => showMemberFilesDialog(
+                                          context,
+                                          ref,
+                                          m,
+                                        ),
+                                        onComplete: (m) async {
+                                          await openMember(m);
+                                          await _completeAndLock();
+                                        },
+                                        onGrantTempAccess: (m) async {
+                                          await openMember(m);
+                                          await showGrantTemporaryAccessDialog(
+                                            context: context,
+                                            ref: ref,
+                                            member: m,
+                                          );
+                                        },
+                                        onDelete: (m) async {
+                                          await openMember(m);
+                                          await _delete();
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : KeyedSubtree(
+                                key: ValueKey(
+                                  'profile-${_loadedMember?.id ?? 'new'}',
+                                ),
+                                child: _buildProfilePane(
+                                  filtered: filtered,
+                                  navState: navState,
+                                  onBack: () {
+                                    nav.goBackToList();
+                                    _clearForm(newMember: false);
+                                  },
+                                  onPrev: goPrev,
+                                  onNext: goNext,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  if (!isMemberOnly && wide) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 240,
+                      child: RecentlyViewedPanel(
+                        allMembers: _members,
+                        onOpen: (m) => openMember(m),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return shell;
+  }
+
+  void openMemberDraft() {
+    _clearForm(newMember: true);
+    ref.read(memberNavigationProvider.notifier).beginNewMember();
+    setState(() {});
+  }
+
+  Widget _buildProfilePane({
+    required List<Member> filtered,
+    required MemberNavigationState navState,
+    required VoidCallback onBack,
+    required Future<void> Function() onPrev,
+    required Future<void> Function() onNext,
+  }) {
+    final member = _loadedMember;
+    final idx = navState.currentIndex;
+    String? prevName;
+    String? nextName;
+    if (idx > 0 && idx < filtered.length) {
+      prevName = filtered[idx - 1].fullName;
+    }
+    if (idx >= 0 && idx < filtered.length - 1) {
+      nextName = filtered[idx + 1].fullName;
+    }
+
+    final profileBody = Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Member Info',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+          if (member != null)
+            ProfileNavigationBar(
+              currentMember: member,
+              currentIndex: idx,
+              totalMembers: filtered.length,
+              previousName: prevName,
+              nextName: nextName,
+              onBack: onBack,
+              onPrevious: () => onPrev(),
+              onNext: () => onNext(),
+              canEdit: !_formReadOnly,
+              canDelete: !_formReadOnly &&
+                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin),
+              onEdit: _formReadOnly
+                  ? null
+                  : () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Form is editable — change fields and Save (Ctrl+S).'),
+                        ),
+                      );
+                    },
+              onUpload: () => showMemberFilesDialog(context, ref, member),
+              onDelete: (!_formReadOnly &&
+                      !(_loadedMember?.isLocked == true && !_viewerIsAdmin))
+                  ? _delete
+                  : null,
+            )
+          else
+            Row(
+              children: [
+                IconButton(
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Back to List (Esc)',
                 ),
-              ),
-              const SizedBox(width: 12),
-              _statusChip(_formMode, _loadedMember),
-              const Spacer(),
-              if (_canAddMembers)
-                FilledButton.tonalIcon(
-                  onPressed: () {
-                    _clearForm(newMember: true);
-                  },
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Add New Member'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.forestGreen,
+                const Text(
+                  'New Member',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.forestGreen,
                   ),
                 ),
-              if (_canAddMembers) const SizedBox(width: 8),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save'),
+                ),
+              ],
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _statusChip(_formMode, _loadedMember),
+              const Spacer(),
               if (_currentId != null && !_fieldsMasked)
                 OutlinedButton.icon(
-                  onPressed: _formReadOnly
-                      ? () {
-                          final member = _members
-                              .where((m) => m.id == _currentId)
-                              .cast<Member?>()
-                              .firstWhere(
-                                (m) => m != null,
-                                orElse: () => null,
-                              );
-                          if (member == null) return;
-                          showMemberFilesDialog(context, ref, member);
-                        }
-                      : () {
-                          final member = _members
-                              .where((m) => m.id == _currentId)
-                              .cast<Member?>()
-                              .firstWhere(
-                                (m) => m != null,
-                                orElse: () => null,
-                              );
-                          if (member == null) return;
-                          showMemberFilesDialog(context, ref, member);
-                        },
+                  onPressed: () {
+                    final m = _loadedMember;
+                    if (m == null) return;
+                    showMemberFilesDialog(context, ref, m);
+                  },
                   icon: Icon(
                     _formReadOnly ? Icons.folder_open : Icons.upload_file,
                   ),
                   label: Text(_formReadOnly ? 'View Files' : 'Upload Files'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (_canBrowseMembers)
-                IconButton(
-                  tooltip: 'Previous',
-                  onPressed: _members.isEmpty ? null : () => _browse(-1),
-                  icon: const Icon(Icons.chevron_left),
-                ),
-              Expanded(
-                child: Text(
-                  _browseLabel(),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (_canBrowseMembers)
-                IconButton(
-                  tooltip: 'Next',
-                  onPressed: _members.isEmpty ? null : () => _browse(1),
-                  icon: const Icon(Icons.chevron_right),
-                ),
-              if (_currentId != null &&
-                  _canBrowseMembers &&
-                  !_fieldsMasked &&
-                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin))
-                TextButton.icon(
-                  onPressed: _delete,
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  label: const Text(
-                    'Delete',
-                    style: TextStyle(color: Colors.red),
-                  ),
                 ),
               const SizedBox(width: 8),
               FilledButton.icon(
@@ -797,7 +1053,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const photoSize = 320.0;
-                      // 4 fields spaced evenly to match photo panel height.
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -976,21 +1231,30 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       ),
     );
 
-    final member = _loadedMember;
-    final user = ref.watch(authUserProvider);
-    if (member != null && member.isLocked && user != null) {
-      return ScreenshotProtectedView(
-        member: member,
-        user: user,
-        onScreenshotAttempt: () => _logScreenshotAttempt(member),
+    final lockedMember = _loadedMember;
+    final authUser = ref.watch(authUserProvider);
+    Widget pane = profileBody;
+    if (lockedMember != null &&
+        lockedMember.isLocked &&
+        authUser != null) {
+      pane = ScreenshotProtectedView(
+        member: lockedMember,
+        user: authUser,
+        onScreenshotAttempt: () => _logScreenshotAttempt(lockedMember),
         child: Padding(
-          // Extra top/bottom inset so content clears red banners.
           padding: const EdgeInsets.only(top: 48, bottom: 36),
-          child: body,
+          child: profileBody,
         ),
       );
     }
-    return body;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      child: KeyedSubtree(
+        key: ValueKey(lockedMember?.id ?? 'new-$_navForward'),
+        child: pane,
+      ),
+    );
   }
 
   Widget _buildLockChrome(Member member) {
@@ -1144,22 +1408,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
       ),
     );
-  }
-
-  String _browseLabel() {
-    if (_browseIndex < 0) return 'New member';
-    if (!_canBrowseMembers) return 'Your member profile';
-    final m = _loadedMember;
-    final status = m == null
-        ? ''
-        : m.isLocked
-            ? ' 🔒'
-            : (m.registrationStatus == 'pending' ||
-                    m.registrationStatus == 'in_progress'
-                ? ' · onboarding'
-                : '');
-    return 'Browse ${_browseIndex + 1} / ${_members.length}$status'
-        '${m == null ? '' : ' — ${m.fullName}'}';
   }
 
   Future<void> _toggleOnboardingStep(int step, bool complete) async {
