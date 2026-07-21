@@ -9,9 +9,12 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item.dart';
 import '../../models/member.dart';
+import '../../models/user_role.dart';
 import '../../providers/providers.dart';
 import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
+import '../../widgets/member_lock_banners.dart';
+import '../../services/member_lock_service.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
 
@@ -51,14 +54,23 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _saving = false;
   bool _photoBusy = false;
   String? _adminLinkedMemberId;
+  Member? _loadedMember;
 
   bool get _viewerIsSysAdmin =>
       ref.read(authUserProvider)?.isSystemAdministrator ?? false;
+
+  bool get _viewerIsAdmin => ref.read(authUserProvider)?.isAdmin ?? false;
 
   bool get _isMemberOnly =>
       ref.read(authUserProvider)?.isMemberRole ?? false;
 
   String? get _viewerMemberId => ref.read(authUserProvider)?.memberId;
+
+  bool get _sessionTempAccess {
+    final id = _currentId;
+    if (id == null) return false;
+    return ref.read(verifiedTempAccessIdsProvider).contains(id);
+  }
 
   bool _isProtectedAdminMember(String? memberId) {
     if (memberId == null || _adminLinkedMemberId == null) return false;
@@ -72,12 +84,25 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   bool get _canAddMembers => !_isMemberOnly && !_fieldsMasked;
 
-  bool get _formReadOnly =>
-      _fieldsMasked ||
-      (_isMemberOnly &&
-          _viewerMemberId != null &&
-          _currentId != null &&
-          _currentId != _viewerMemberId);
+  bool get _formReadOnly {
+    if (_fieldsMasked) return true;
+    if (_isMemberOnly &&
+        _viewerMemberId != null &&
+        _currentId != null &&
+        _currentId != _viewerMemberId) {
+      return true;
+    }
+    final member = _loadedMember;
+    final user = ref.read(authUserProvider);
+    if (member != null && member.isLocked && user != null && !user.isAdmin) {
+      return !ref.read(memberLockServiceProvider).canEditMember(
+            member: member,
+            user: user,
+            sessionVerifiedTempAccess: _sessionTempAccess,
+          );
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -158,6 +183,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void _loadMember(Member member, int index) {
     final masked = _isProtectedAdminMember(member.id) && !_viewerIsSysAdmin;
     setState(() {
+      _loadedMember = member;
       _currentId = member.id;
       _draftId = null;
       _browseIndex = index;
@@ -210,6 +236,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   void _clearForm({required bool newMember}) {
     setState(() {
+      _loadedMember = null;
       _currentId = null;
       _draftId = const Uuid().v4();
       if (newMember) _browseIndex = -1;
@@ -497,6 +524,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   Future<void> _delete() async {
     if (!_canBrowseMembers || _fieldsMasked) return;
     if (_currentId == null) return;
+    final member = _loadedMember;
+    if (member != null && member.isLocked && !_viewerIsAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '🔒 This member is locked and cannot be deleted.',
+          ),
+        ),
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -659,12 +697,33 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   icon: const Icon(Icons.chevron_right),
                 ),
               const Spacer(),
-              if (_currentId != null && _canBrowseMembers && !_fieldsMasked)
+              if (_currentId != null &&
+                  _canBrowseMembers &&
+                  !_fieldsMasked &&
+                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin))
                 TextButton.icon(
                   onPressed: _delete,
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: const Text('Delete', style: TextStyle(color: Colors.red)),
                 ),
+              if (_loadedMember != null &&
+                  !_loadedMember!.isLocked &&
+                  (_viewerIsAdmin ||
+                      (ref.read(authUserProvider)?.hasPermission(
+                            AppPermission.onboarding,
+                          ) ??
+                          false) ||
+                      (ref.read(authUserProvider)?.hasPermission(
+                            AppPermission.memberInfo,
+                          ) ??
+                          false))) ...[
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: _saving ? null : _completeAndLock,
+                  icon: const Icon(Icons.verified),
+                  label: const Text('Complete'),
+                ),
+              ],
               const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: (_saving || _formReadOnly || (_isMemberOnly && _currentId == null))
@@ -682,6 +741,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             ],
           ),
           const Divider(),
+          if (_loadedMember != null) _buildLockChrome(_loadedMember!),
           Expanded(
             child: Form(
               key: _formKey,
@@ -869,5 +929,174 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildLockChrome(Member member) {
+    final user = ref.watch(authUserProvider);
+    final verified = ref.watch(verifiedTempAccessIdsProvider).contains(member.id);
+    final users = ref.watch(appUsersProvider).valueOrNull ?? const [];
+    String? nameOf(String? id) {
+      if (id == null) return null;
+      for (final u in users) {
+        if (u.id == id) return u.displayName;
+      }
+      return id;
+    }
+
+    if (!member.isLocked) return const SizedBox.shrink();
+
+    if (user?.isAdmin == true) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: AdminLockedBanner(
+          member: member,
+          lockedByName: nameOf(member.lockedBy),
+          onUnlock: () async {
+            final ok = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Unlock Member'),
+                content: Text('Unlock ${member.fullName}?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Unlock'),
+                  ),
+                ],
+              ),
+            );
+            if (ok != true || user == null) return;
+            final unlocked = await ref
+                .read(memberLockServiceProvider)
+                .unlock(member: member, actor: user);
+            setState(() => _loadedMember = unlocked);
+            ref.invalidate(membersProvider);
+            ref.invalidate(lockedMembersProvider);
+          },
+          onGrantAccess: () async {
+            await showGrantTemporaryAccessDialog(
+              context: context,
+              ref: ref,
+              member: member,
+            );
+            final refreshed =
+                await ref.read(memberRepositoryProvider).getById(member.id);
+            if (refreshed != null && mounted) {
+              setState(() => _loadedMember = refreshed);
+            }
+            ref.invalidate(lockedMembersProvider);
+          },
+          onRevokeAccess: () async {
+            if (user == null) return;
+            final cleared = await ref
+                .read(temporaryAccessServiceProvider)
+                .revoke(member: member, actor: user);
+            final next = {...ref.read(verifiedTempAccessIdsProvider)}
+              ..remove(member.id);
+            ref.read(verifiedTempAccessIdsProvider.notifier).state = next;
+            setState(() => _loadedMember = cleared);
+            ref.invalidate(lockedMembersProvider);
+          },
+        ),
+      );
+    }
+
+    if (verified &&
+        TemporaryAccessService.isGrantValidFor(member, user!.id)) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TemporaryAccessActiveBanner(
+          member: member,
+          grantedByName: nameOf(member.temporaryAccessGrantedBy),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: LockedMemberBanner(
+        member: member,
+        lockedByName: nameOf(member.lockedBy),
+        onEnterCode: user == null
+            ? null
+            : () async {
+                final ok = await showEnterTemporaryAccessCodeDialog(
+                  context: context,
+                  ref: ref,
+                  member: member,
+                  secretary: user,
+                );
+                if (ok) {
+                  final next = {...ref.read(verifiedTempAccessIdsProvider)}
+                    ..add(member.id);
+                  ref.read(verifiedTempAccessIdsProvider.notifier).state =
+                      next;
+                  setState(() {});
+                }
+              },
+        onRequestAccess: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Contact the System Administrator for a temporary access code.',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _completeAndLock() async {
+    final member = _loadedMember;
+    final user = ref.read(authUserProvider);
+    if (member == null || user == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Complete & Lock Member'),
+        content: Text(
+          'Mark all 4 steps complete and lock ${member.fullName}?\n'
+          'Recording Secretaries will only be able to view this member.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final locked = await ref.read(memberLockServiceProvider).completeAndLock(
+            member: member,
+            actor: user,
+          );
+      if (!mounted) return;
+      setState(() => _loadedMember = locked);
+      ref.invalidate(membersProvider);
+      ref.invalidate(lockedMembersProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ ${locked.fullName} has completed all requirements. Member is now locked.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 }

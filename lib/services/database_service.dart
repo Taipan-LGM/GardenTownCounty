@@ -16,6 +16,7 @@ import '../models/member_file.dart';
 import '../models/reminder.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
+import '../models/temporary_access_log.dart';
 import 'password_hasher.dart';
 
 /// Offline-first SQLite access layer for Garden Town County.
@@ -44,6 +45,7 @@ class DatabaseService {
   final Map<String, LroDocument> _lroDocuments = {};
   final Map<String, LroHistory> _lroHistory = {};
   final Map<String, Reminder> _reminders = {};
+  final Map<String, TemporaryAccessLog> _tempAccessLogs = {};
 
   Database get db {
     final database = _db;
@@ -76,7 +78,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 7,
+      version: 8,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -117,6 +119,122 @@ class DatabaseService {
     if (oldVersion < 7) {
       await _addColumnIfMissing(database, 'members', 'userId', 'TEXT');
     }
+    if (oldVersion < 8) {
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'registrationStatus',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'isEmailVerified',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'emailVerifiedDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'registrationDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step1MemberInfoComplete',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step2Global528Complete',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step3Global928Complete',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step4LROComplete',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step1CompletionDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step2CompletionDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step3CompletionDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step4CompletionDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(database, 'members', 'step1ApprovedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'step2ApprovedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'step3ApprovedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'step4ApprovedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'isLocked', 'INTEGER');
+      await _addColumnIfMissing(database, 'members', 'lockedDate', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'lockedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'lockedReason', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'temporaryAccessCode',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'temporaryAccessExpiry',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'temporaryAccessGrantedBy',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'temporaryAccessGrantedTo',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'temporaryAccessReason',
+        'TEXT',
+      );
+      await _addColumnIfMissing(database, 'members', 'createdBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'lastModifiedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'createdAt', 'TEXT');
+      await _createTemporaryAccessLogsTable(database);
+    }
   }
 
   Future<void> _addColumnIfMissing(
@@ -146,6 +264,28 @@ class DatabaseService {
         isCompleted INTEGER NOT NULL DEFAULT 0,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+  }
+
+  Future<void> _createTemporaryAccessLogsTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS temporary_access_logs (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        memberId TEXT NOT NULL,
+        adminId TEXT NOT NULL,
+        secretaryId TEXT NOT NULL,
+        accessCode TEXT NOT NULL,
+        grantedAt TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        isUsed INTEGER NOT NULL DEFAULT 0,
+        usedAt TEXT,
+        reason TEXT,
+        revoked INTEGER NOT NULL DEFAULT 0,
+        revokedAt TEXT,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0
       )
@@ -303,6 +443,34 @@ class DatabaseService {
         photoLocalPath TEXT,
         photoUrl TEXT,
         userId TEXT,
+        registrationStatus TEXT,
+        isEmailVerified INTEGER,
+        emailVerifiedDate TEXT,
+        registrationDate TEXT,
+        step1MemberInfoComplete INTEGER,
+        step2Global528Complete INTEGER,
+        step3Global928Complete INTEGER,
+        step4LROComplete INTEGER,
+        step1CompletionDate TEXT,
+        step2CompletionDate TEXT,
+        step3CompletionDate TEXT,
+        step4CompletionDate TEXT,
+        step1ApprovedBy TEXT,
+        step2ApprovedBy TEXT,
+        step3ApprovedBy TEXT,
+        step4ApprovedBy TEXT,
+        isLocked INTEGER,
+        lockedDate TEXT,
+        lockedBy TEXT,
+        lockedReason TEXT,
+        temporaryAccessCode TEXT,
+        temporaryAccessExpiry TEXT,
+        temporaryAccessGrantedBy TEXT,
+        temporaryAccessGrantedTo TEXT,
+        temporaryAccessReason TEXT,
+        createdBy TEXT,
+        lastModifiedBy TEXT,
+        createdAt TEXT,
         updatedAt TEXT NOT NULL,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0
@@ -373,6 +541,7 @@ class DatabaseService {
     await _createRolesTable(database);
     await _createLroTables(database);
     await _createRemindersTable(database);
+    await _createTemporaryAccessLogsTable(database);
   }
 
   Future<void> ensureSeedAdmin() async {
@@ -933,6 +1102,99 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<List<Member>> getLockedMembers() async {
+    if (_memoryMode) {
+      return _members.values
+          .where((m) => !m.deleted && m.isLocked)
+          .toList()
+        ..sort((a, b) {
+          final s = a.surname.toLowerCase().compareTo(b.surname.toLowerCase());
+          if (s != 0) return s;
+          return a.memberName.toLowerCase().compareTo(b.memberName.toLowerCase());
+        });
+    }
+    final rows = await db.query(
+      'members',
+      where: 'deleted = 0 AND isLocked = 1',
+      orderBy: 'surname COLLATE NOCASE ASC, memberName COLLATE NOCASE ASC',
+    );
+    return rows.map(Member.fromMap).toList();
+  }
+
+  // ── Temporary Access Logs ──────────────────────────────────────────────
+
+  Future<void> upsertTemporaryAccessLog(TemporaryAccessLog log) async {
+    if (_memoryMode) {
+      _tempAccessLogs[log.id] = log;
+      return;
+    }
+    await db.insert(
+      'temporary_access_logs',
+      log.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<TemporaryAccessLog>> getTemporaryAccessLogsForMember(
+    String memberId,
+  ) async {
+    if (_memoryMode) {
+      return _tempAccessLogs.values
+          .where((l) => !l.deleted && l.memberId == memberId)
+          .toList()
+        ..sort((a, b) => b.grantedAt.compareTo(a.grantedAt));
+    }
+    final rows = await db.query(
+      'temporary_access_logs',
+      where: 'memberId = ? AND deleted = 0',
+      whereArgs: [memberId],
+      orderBy: 'grantedAt DESC',
+    );
+    return rows.map(TemporaryAccessLog.fromMap).toList();
+  }
+
+  Future<List<TemporaryAccessLog>> getPendingTemporaryAccessLogs() async {
+    if (_memoryMode) {
+      return _tempAccessLogs.values.where((l) => l.pendingSync).toList();
+    }
+    final rows = await db.query(
+      'temporary_access_logs',
+      where: 'pendingSync = 1',
+    );
+    return rows.map(TemporaryAccessLog.fromMap).toList();
+  }
+
+  Future<void> markTemporaryAccessLogSynced(String id) async {
+    if (_memoryMode) {
+      final log = _tempAccessLogs[id];
+      if (log != null) {
+        _tempAccessLogs[id] = log.copyWith(pendingSync: false);
+      }
+      return;
+    }
+    await db.update(
+      'temporary_access_logs',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<bool> temporaryAccessCodeExists(String code) async {
+    if (_memoryMode) {
+      return _tempAccessLogs.values.any(
+        (l) => !l.deleted && !l.revoked && l.accessCode == code,
+      );
+    }
+    final rows = await db.query(
+      'temporary_access_logs',
+      where: 'accessCode = ? AND deleted = 0 AND revoked = 0',
+      whereArgs: [code],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 
   // ── Lookups ────────────────────────────────────────────────────────────

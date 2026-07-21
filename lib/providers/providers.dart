@@ -21,6 +21,7 @@ import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/member_repository.dart';
+import '../services/member_lock_service.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
 
@@ -136,6 +137,31 @@ final messagingServiceProvider = Provider<MessagingService>((ref) {
   return MessagingService();
 });
 
+final memberLockServiceProvider = Provider<MemberLockService>((ref) {
+  return MemberLockService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(syncEngineProvider),
+    ref.watch(activityServiceProvider),
+  );
+});
+
+final temporaryAccessServiceProvider = Provider<TemporaryAccessService>((ref) {
+  return TemporaryAccessService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(syncEngineProvider),
+    ref.watch(activityServiceProvider),
+  );
+});
+
+/// Session-verified temporary access member IDs (after code entry).
+final verifiedTempAccessIdsProvider =
+    StateProvider<Set<String>>((ref) => <String>{});
+
+final lockedMembersProvider =
+    FutureProvider.autoDispose<List<Member>>((ref) async {
+  return ref.watch(databaseServiceProvider).getLockedMembers();
+});
+
 final membersProvider =
     FutureProvider.autoDispose<List<Member>>((ref) async {
   return ref.watch(memberRepositoryProvider).getAll();
@@ -186,6 +212,8 @@ enum AppSection {
   global528,
   global928,
   lro,
+  lockedMembers,
+  onboarding,
 }
 
 final appSectionProvider = StateProvider<AppSection>((ref) => AppSection.home);
@@ -199,6 +227,7 @@ final appRefreshTickProvider = StateProvider<int>((ref) => 0);
 Future<void> refreshApp(WidgetRef ref) async {
   await ref.read(syncEngineProvider).pushPending();
   ref.invalidate(membersProvider);
+  ref.invalidate(lockedMembersProvider);
   ref.invalidate(activitiesProvider);
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);

@@ -10,6 +10,7 @@ import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
+import 'screens/member/locked_members_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
 import 'screens/reminders/reminders_screen.dart';
@@ -277,6 +278,11 @@ class _AppShellState extends ConsumerState<AppShell>
         return user.hasPermission(AppPermission.global928);
       case AppSection.lro:
         return user.hasPermission(AppPermission.lro);
+      case AppSection.lockedMembers:
+        return user.isAdmin;
+      case AppSection.onboarding:
+        return user.isAdmin ||
+            user.hasPermission(AppPermission.onboarding);
     }
   }
 
@@ -304,6 +310,10 @@ class _AppShellState extends ConsumerState<AppShell>
         return '928 Emancipation';
       case AppSection.lro:
         return 'LRO';
+      case AppSection.lockedMembers:
+        return 'Locked Members';
+      case AppSection.onboarding:
+        return 'Onboarding';
     }
   }
 
@@ -331,6 +341,10 @@ class _AppShellState extends ConsumerState<AppShell>
         return const PlaceholderScreen(title: 'Global 928');
       case AppSection.lro:
         return const PlaceholderScreen(title: 'LRO');
+      case AppSection.lockedMembers:
+        return const LockedMembersScreen();
+      case AppSection.onboarding:
+        return const MemberFormScreen();
     }
   }
 }

@@ -27,7 +27,7 @@ enum UserRole {
   bool get isMember => this == UserRole.member;
 }
 
-/// Drawer / module permissions (10 total; two Admin-only).
+/// Drawer / module permissions (11 total; two Admin-only).
 enum AppPermission {
   search('search', 'Search'),
   memberInfo('memberInfo', 'Member Info'),
@@ -38,7 +38,8 @@ enum AppPermission {
   userManagement('userManagement', 'User Management'),
   sos('sos', 'SOS'),
   reminders('reminders', 'Reminders'),
-  activities('activities', 'Activities');
+  activities('activities', 'Activities'),
+  onboarding('onboarding', 'Onboarding');
 
   const AppPermission(this.code, this.label);
   final String code;
@@ -56,6 +57,7 @@ enum AppPermission {
     sos,
     reminders,
     activities,
+    onboarding,
   ];
 
   /// May be granted to Recording Secretaries.
@@ -68,6 +70,7 @@ enum AppPermission {
     sos,
     reminders,
     activities,
+    onboarding,
   ];
 
   /// Always Admin-only — shown locked OFF in User Management.
@@ -112,4 +115,5 @@ class AppPermissions {
   static const String sos = 'SOS';
   static const String reminders = 'Reminders';
   static const String activities = 'Activities';
+  static const String onboarding = 'Onboarding';
 }
