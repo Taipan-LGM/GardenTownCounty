@@ -52,6 +52,7 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _backupReminderShown = false;
   bool _showMenuGuide = false;
+  bool _menuGuideShownThisSession = false;
   final GlobalKey<MenuGuideArrowState> _menuGuideKey =
       GlobalKey<MenuGuideArrowState>();
 
@@ -77,11 +78,13 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _maybeStartMenuGuide() async {
-    if (_showMenuGuide) return;
+    if (_showMenuGuide || _menuGuideShownThisSession) return;
     if (!mounted) return;
-    // Only first 3 logins (armed in login_screen).
-    final pending = await takeMenuGuidePending();
-    if (!mounted || !pending) return;
+    // Prefer pending flag from login/session restore; still show once if
+    // legacy installs had the old 3-login cap cleared.
+    await takeMenuGuidePending();
+    if (!mounted) return;
+    _menuGuideShownThisSession = true;
     setState(() => _showMenuGuide = true);
   }
 

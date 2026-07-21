@@ -6,6 +6,7 @@ import 'app.dart';
 import 'providers/providers.dart';
 import 'services/database_service.dart';
 import 'services/firebase_bootstrap.dart';
+import 'widgets/menu_guide_arrow.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +24,8 @@ Future<void> main() async {
   await auth.restoreSession();
   if (auth.currentUser != null) {
     container.read(authUserProvider.notifier).state = auth.currentUser;
+    // Session restore skips LoginScreen — still arm MENU guide once.
+    await registerMenuGuideLoginAttempt();
   }
 
   final prefs = container.read(appPreferencesServiceProvider);

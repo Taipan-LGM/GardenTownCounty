@@ -62,7 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       ref.read(authUserProvider.notifier).state = user;
 
-      // Arm MENU guide for first 3 logins only.
+      // Arm MENU guide for landing splash (every login).
       await registerMenuGuideLoginAttempt();
 
       // Record login with GPS in background — do not block sign-in on GPS wait.

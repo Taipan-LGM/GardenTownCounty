@@ -7,18 +7,13 @@ const Color kMenuGuideOutline = Colors.black;
 
 const String kMenuGuideLoginCountKey = 'menu_guide_login_count';
 const String kMenuGuidePendingKey = 'menu_guide_pending';
-const int kMenuGuideMaxLogins = 3;
 
-/// Call after a successful sign-in. Counts toward the first 3 logins and
-/// arms the guide for this session's landing animation.
+/// Call after a successful sign-in. Arms the MENU guide for this session's
+/// landing animation (shown every login).
 Future<void> registerMenuGuideLoginAttempt() async {
   final prefs = await SharedPreferences.getInstance();
-  final count = prefs.getInt(kMenuGuideLoginCountKey) ?? 0;
-  if (count >= kMenuGuideMaxLogins) {
-    await prefs.setBool(kMenuGuidePendingKey, false);
-    return;
-  }
-  await prefs.setInt(kMenuGuideLoginCountKey, count + 1);
+  // Clear legacy first-3-logins counter so older installs show the guide again.
+  await prefs.remove(kMenuGuideLoginCountKey);
   await prefs.setBool(kMenuGuidePendingKey, true);
 }
 
@@ -34,7 +29,7 @@ Future<bool> takeMenuGuidePending() async {
 
 /// Horizontal bold arrow + "MENU" in one row, pointing left at the hamburger.
 ///
-/// Shown only for the first [kMenuGuideMaxLogins] consecutive logins.
+/// Shown after landing splash when armed by [registerMenuGuideLoginAttempt].
 class MenuGuideArrow extends StatefulWidget {
   const MenuGuideArrow({
     super.key,
