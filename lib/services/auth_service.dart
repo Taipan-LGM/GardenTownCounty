@@ -41,6 +41,7 @@ class AuthUser {
 
   bool hasPermission(AppPermission permission) {
     if (isAdmin) return true;
+    if (permission.isAdminOnly) return false;
     if (isMemberRole) {
       return permission == AppPermission.memberInfo;
     }
@@ -169,6 +170,133 @@ class AuthService {
 
   String _normalizeRole(String role) =>
       UserRole.fromStorage(role).storageName;
+
+  /// User Management: assign role/permissions to a Member (no password / login).
+  Future<AppUser> assignMemberAccess({
+    required String memberId,
+    required String saId,
+    required String memberName,
+    required String surname,
+    required String role,
+    List<AppPermission> permissions = const [],
+  }) async {
+    _requireAdmin();
+    final member = await _db.getMemberById(memberId);
+    if (member == null) {
+      throw Exception('Member not found.');
+    }
+
+    final adminUser = await _db.getAppUserById('demo-admin');
+    if (adminUser?.memberId == memberId ||
+        (adminUser != null &&
+            adminUser.username == saId.trim().toLowerCase())) {
+      throw Exception('⚠️ The System Administrator cannot be demoted.');
+    }
+
+    final roleName = _normalizeRole(role);
+    if (roleName == UserRole.admin.storageName) {
+      throw Exception(
+        'Cannot create another Admin. Only one System Administrator exists.',
+      );
+    }
+
+    final byMember = await _db.getAppUserByMemberId(memberId);
+    final bySa = await _db.getAppUserByUsername(saId.trim().toLowerCase());
+    final existing = byMember ?? bySa;
+
+    final safePerms = roleName == UserRole.secretary.storageName
+        ? permissions.where((p) => !p.isAdminOnly).toList()
+        : const <AppPermission>[];
+
+    final display =
+        '$memberName $surname'.trim().isEmpty ? saId.trim() : '$memberName $surname'.trim();
+
+    if (existing != null && !existing.deleted) {
+      if (existing.isSystemAdministrator) {
+        throw Exception('⚠️ The System Administrator cannot be demoted.');
+      }
+      // Updating an existing access row is allowed (edit flow).
+      // New assignment of someone already a secretary is blocked by the UI filter.
+      final updated = existing.copyWith(
+        username: saId.trim().toLowerCase(),
+        displayName: display,
+        role: roleName,
+        memberId: memberId,
+        permissions: safePerms,
+        pendingSync: true,
+        updatedAt: DateTime.now().toUtc(),
+      );
+      await _db.upsertAppUser(updated);
+      await _linkMemberUserId(memberId, updated.id);
+      return updated;
+    }
+
+    // No login password — User Management only. Placeholder hash never used in UI.
+    final user = AppUser.create(
+      username: saId.trim().toLowerCase(),
+      displayName: display,
+      passwordHash: PasswordHasher.hash('__user_mgmt_no_login__'),
+      role: roleName,
+      memberId: memberId,
+      permissions: safePerms,
+    );
+    await _db.upsertAppUser(user);
+    await _linkMemberUserId(memberId, user.id);
+    return user;
+  }
+
+  Future<void> _linkMemberUserId(String memberId, String appUserId) async {
+    final member = await _db.getMemberById(memberId);
+    if (member == null) return;
+    await _db.upsertMember(
+      member.copyWith(
+        userId: appUserId,
+        pendingSync: true,
+        updatedAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
+  /// Demote Recording Secretary to Member (clear rights) or soft-delete Member access.
+  Future<void> removeMemberAccess(String appUserId) async {
+    _requireAdmin();
+    if (appUserId == _currentUser!.id) {
+      throw Exception('You cannot delete your own account.');
+    }
+    final user = await _db.getAppUserById(appUserId);
+    if (user == null) {
+      throw Exception('User not found.');
+    }
+    if (user.isSystemAdministrator || user.isAdmin) {
+      throw Exception(
+        'The System Administrator cannot be deleted. This account is protected.',
+      );
+    }
+    if (user.isSecretary) {
+      await _db.upsertAppUser(
+        user.copyWith(
+          role: UserRole.member.storageName,
+          permissions: const [],
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        ),
+      );
+      return;
+    }
+    if (user.memberId != null) {
+      final member = await _db.getMemberById(user.memberId!);
+      if (member != null) {
+        await _db.upsertMember(
+          member.copyWith(
+            clearUserId: true,
+            pendingSync: true,
+            updatedAt: DateTime.now().toUtc(),
+          ),
+        );
+      }
+    }
+    await _db.softDeleteAppUser(appUserId);
+  }
 
   Future<AppUser> createOperator({
     required String username,

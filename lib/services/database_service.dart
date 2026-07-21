@@ -76,7 +76,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 6,
+      version: 7,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -113,6 +113,9 @@ class DatabaseService {
       await _addColumnIfMissing(database, 'app_users', 'permissions', 'TEXT');
       await _addColumnIfMissing(database, 'app_users', 'memberId', 'TEXT');
       await _createRemindersTable(database);
+    }
+    if (oldVersion < 7) {
+      await _addColumnIfMissing(database, 'members', 'userId', 'TEXT');
     }
   }
 
@@ -299,6 +302,7 @@ class DatabaseService {
         comment TEXT NOT NULL DEFAULT '',
         photoLocalPath TEXT,
         photoUrl TEXT,
+        userId TEXT,
         updatedAt TEXT NOT NULL,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0
@@ -765,6 +769,42 @@ class DatabaseService {
     );
     if (rows.isEmpty) return null;
     return Member.fromMap(rows.first);
+  }
+
+  Future<Member?> getMemberBySaId(String saId) async {
+    final key = saId.trim();
+    if (key.isEmpty) return null;
+    if (_memoryMode) {
+      for (final m in _members.values) {
+        if (!m.deleted && m.saId == key) return m;
+      }
+      return null;
+    }
+    final rows = await db.query(
+      'members',
+      where: 'saId = ? AND deleted = 0',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Member.fromMap(rows.first);
+  }
+
+  Future<AppUser?> getAppUserByMemberId(String memberId) async {
+    if (_memoryMode) {
+      for (final u in _appUsers.values) {
+        if (!u.deleted && u.memberId == memberId) return u;
+      }
+      return null;
+    }
+    final rows = await db.query(
+      'app_users',
+      where: 'memberId = ? AND deleted = 0',
+      whereArgs: [memberId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AppUser.fromMap(rows.first);
   }
 
   Future<List<Member>> searchMembers(String query) async {

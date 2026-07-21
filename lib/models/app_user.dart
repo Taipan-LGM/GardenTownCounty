@@ -48,6 +48,7 @@ class AppUser {
 
   bool hasPermission(AppPermission permission) {
     if (isAdmin) return true;
+    if (permission.isAdminOnly) return false;
     if (isMemberRole) {
       return permission == AppPermission.memberInfo;
     }

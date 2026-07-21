@@ -17,7 +17,6 @@ enum UserRole {
       return UserRole.secretary;
     }
     if (v == 'manager' || v == 'supervisor' || v == 'user') {
-      // Legacy roles collapse to member (or secretary if was privileged — treat as member).
       return UserRole.member;
     }
     return UserRole.member;
@@ -28,13 +27,15 @@ enum UserRole {
   bool get isMember => this == UserRole.member;
 }
 
-/// Drawer / module permissions assignable to Recording Secretaries.
+/// Drawer / module permissions (10 total; two Admin-only).
 enum AppPermission {
   search('search', 'Search'),
-  memberInfo('memberInfo', '1_Member Info'),
-  global528('global528', '2_Global 528'),
-  global928('global928', '3_Global 928'),
-  lro('lro', '4_LRO'),
+  memberInfo('memberInfo', 'Member Info'),
+  global528('global528', 'Global 528'),
+  global928('global928', 'Global 928'),
+  lro('lro', 'LRO'),
+  backupRestore('backupRestore', 'Backup & Restore'),
+  userManagement('userManagement', 'User Management'),
   sos('sos', 'SOS'),
   reminders('reminders', 'Reminders'),
   activities('activities', 'Activities');
@@ -43,8 +44,39 @@ enum AppPermission {
   final String code;
   final String label;
 
-  /// Permissions Admin may grant to Recording Secretaries.
-  static const assignable = AppPermission.values;
+  /// Exact order for the User Management toggle list.
+  static const managementOrder = [
+    search,
+    memberInfo,
+    global528,
+    global928,
+    lro,
+    backupRestore,
+    userManagement,
+    sos,
+    reminders,
+    activities,
+  ];
+
+  /// May be granted to Recording Secretaries.
+  static const assignable = [
+    search,
+    memberInfo,
+    global528,
+    global928,
+    lro,
+    sos,
+    reminders,
+    activities,
+  ];
+
+  /// Always Admin-only — shown locked OFF in User Management.
+  static const adminOnly = [
+    backupRestore,
+    userManagement,
+  ];
+
+  bool get isAdminOnly => adminOnly.contains(this);
 
   static AppPermission? fromCode(String? code) {
     for (final p in AppPermission.values) {
@@ -55,17 +87,29 @@ enum AppPermission {
 
   static List<AppPermission> parseList(String? raw) {
     if (raw == null || raw.trim().isEmpty) return const [];
-    final parts = raw.contains(',')
-        ? raw.split(',')
-        : raw.split('|');
+    final parts = raw.contains(',') ? raw.split(',') : raw.split('|');
     final out = <AppPermission>[];
     for (final part in parts) {
       final p = fromCode(part.trim());
-      if (p != null) out.add(p);
+      if (p != null && !p.isAdminOnly) out.add(p);
     }
     return out;
   }
 
   static String encodeList(Iterable<AppPermission> perms) =>
-      perms.map((p) => p.code).join(',');
+      perms.where((p) => !p.isAdminOnly).map((p) => p.code).join(',');
+}
+
+/// Display-name constants for permission labels (User Management UI / docs).
+class AppPermissions {
+  static const String search = 'Search';
+  static const String memberInfo = 'Member Info';
+  static const String global528 = 'Global 528';
+  static const String global928 = 'Global 928';
+  static const String lro = 'LRO';
+  static const String backupRestore = 'Backup & Restore';
+  static const String userManagement = 'User Management';
+  static const String sos = 'SOS';
+  static const String reminders = 'Reminders';
+  static const String activities = 'Activities';
 }

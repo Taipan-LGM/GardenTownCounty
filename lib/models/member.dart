@@ -16,6 +16,8 @@ class Member {
   final String comment;
   final String? photoLocalPath;
   final String? photoUrl;
+  /// Link to AppUser when Member has assigned access (User Management).
+  final String? userId;
   final DateTime updatedAt;
   final bool pendingSync;
   final bool deleted;
@@ -36,6 +38,7 @@ class Member {
     this.comment = '',
     this.photoLocalPath,
     this.photoUrl,
+    this.userId,
     required this.updatedAt,
     this.pendingSync = true,
     this.deleted = false,
@@ -94,11 +97,13 @@ class Member {
     String? comment,
     String? photoLocalPath,
     String? photoUrl,
+    String? userId,
     DateTime? updatedAt,
     bool? pendingSync,
     bool? deleted,
     bool clearPhotoLocalPath = false,
     bool clearPhotoUrl = false,
+    bool clearUserId = false,
   }) {
     return Member(
       id: id ?? this.id,
@@ -117,6 +122,7 @@ class Member {
       photoLocalPath:
           clearPhotoLocalPath ? null : (photoLocalPath ?? this.photoLocalPath),
       photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
+      userId: clearUserId ? null : (userId ?? this.userId),
       updatedAt: updatedAt ?? this.updatedAt,
       pendingSync: pendingSync ?? this.pendingSync,
       deleted: deleted ?? this.deleted,
@@ -142,6 +148,7 @@ class Member {
       'comment': comment,
       'photoLocalPath': photoLocalPath,
       'photoUrl': photoUrl,
+      'userId': userId,
       'updatedAt': updatedAt.toIso8601String(),
       'pendingSync': pendingSync ? 1 : 0,
       'deleted': deleted ? 1 : 0,
@@ -168,6 +175,7 @@ class Member {
       'emailAddress': emailAddress,
       'comment': comment,
       'photoUrl': cloudPhoto,
+      'userId': userId,
       'updatedAt': updatedAt.toIso8601String(),
       'deleted': deleted,
     };
@@ -190,6 +198,7 @@ class Member {
       comment: map['comment'] as String? ?? '',
       photoLocalPath: map['photoLocalPath'] as String?,
       photoUrl: map['photoUrl'] as String?,
+      userId: map['userId'] as String?,
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: (map['pendingSync'] as int? ?? 0) == 1,
@@ -213,6 +222,7 @@ class Member {
       emailAddress: map['emailAddress'] as String? ?? '',
       comment: map['comment'] as String? ?? '',
       photoUrl: map['photoUrl'] as String?,
+      userId: map['userId'] as String?,
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: false,
