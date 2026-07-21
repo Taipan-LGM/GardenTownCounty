@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../form_dialog_title.dart';
+
 /// Result of the unsaved-changes navigation dialog.
 enum UnsavedChangesAction { save, discard, stay }
 
@@ -11,13 +13,11 @@ Future<UnsavedChangesAction?> showUnsavedChangesDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
-      title: const Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange),
-          SizedBox(width: 8),
-          Text('Unsaved Changes'),
-        ],
+      title: FormDialogTitle(
+        title: 'Unsaved Changes',
+        onClose: () => Navigator.pop(ctx, UnsavedChangesAction.stay),
       ),
+      titlePadding: formDialogTitlePadding,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +83,11 @@ Future<bool?> showDiscardEditsDialog(BuildContext context) {
   return showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('⚠️ Discard Changes?'),
+      title: FormDialogTitle(
+        title: '⚠️ Discard Changes?',
+        onClose: () => Navigator.pop(ctx, false),
+      ),
+      titlePadding: formDialogTitlePadding,
       content: const Text(
         'You have unsaved changes. Are you sure you want to discard them?',
       ),

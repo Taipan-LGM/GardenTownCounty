@@ -1329,6 +1329,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     label: const Text('Save'),
                   ),
                 ],
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => onBack(),
+                  icon: const Icon(Icons.close),
+                ),
               ],
             ),
           if (_isEditing) _buildEditModeBanner(),

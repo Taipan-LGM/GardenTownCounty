@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/lookup_item.dart';
 import '../../providers/providers.dart';
+import '../../widgets/form_dialog_title.dart';
 
 Future<void> showLookupManagerDialog(
   BuildContext context,
@@ -88,19 +89,8 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
     final asyncItems = ref.watch(lookupsProvider(widget.type));
 
     return AlertDialog(
-      titlePadding: const EdgeInsets.fromLTRB(24, 12, 8, 0),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text('Manage ${widget.type.label}'),
-          ),
-          IconButton(
-            tooltip: 'Close',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
-        ],
-      ),
+      titlePadding: formDialogTitlePadding,
+      title: FormDialogTitle(title: 'Manage ${widget.type.label}'),
       content: SizedBox(
         width: 420,
         height: 420,

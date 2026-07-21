@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
+import '../../widgets/form_dialog_title.dart';
 
 class RemindersScreen extends ConsumerStatefulWidget {
   const RemindersScreen({super.key});
@@ -28,7 +29,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('New Reminder'),
+            title: const FormDialogTitle(title: 'New Reminder'),
+            titlePadding: formDialogTitlePadding,
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

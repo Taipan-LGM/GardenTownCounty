@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/member.dart';
 import '../../providers/providers.dart';
+import '../../widgets/form_dialog_title.dart';
 
 Future<void> showGlobalSearchDialog(BuildContext context, WidgetRef ref) {
   return showDialog<void>(
@@ -58,17 +59,8 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Row(
-        children: [
-          const Expanded(child: Text('Global Search')),
-          IconButton(
-            tooltip: 'Close',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
-        ],
-      ),
-      titlePadding: const EdgeInsets.fromLTRB(24, 12, 8, 0),
+      title: const FormDialogTitle(title: 'Global Search'),
+      titlePadding: formDialogTitlePadding,
       content: SizedBox(
         width: 520,
         child: Column(

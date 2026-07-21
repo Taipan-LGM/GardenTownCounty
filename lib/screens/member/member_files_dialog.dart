@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/member.dart';
 import '../../models/member_file.dart';
 import '../../providers/providers.dart';
+import '../../widgets/form_dialog_title.dart';
 
 Future<void> showMemberFilesDialog(
   BuildContext context,
@@ -119,7 +120,8 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
     final user = ref.watch(authUserProvider);
 
     return AlertDialog(
-      title: Text('Files — ${widget.member.fullName}'),
+      title: FormDialogTitle(title: 'Files — ${widget.member.fullName}'),
+      titlePadding: formDialogTitlePadding,
       content: SizedBox(
         width: 720,
         height: 520,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'form_dialog_title.dart';
+
 const _kConfidentialityAcceptedKey = 'gtc_confidentiality_accepted_v1';
 
 /// Shows once until accepted. Reject signs the user out via [onReject].
@@ -18,7 +20,11 @@ Future<bool> ensureConfidentialityAccepted(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
-      title: const Text('⚠️ Confidentiality Agreement'),
+      title: FormDialogTitle(
+        title: '⚠️ Confidentiality Agreement',
+        onClose: () => Navigator.pop(ctx, false),
+      ),
+      titlePadding: formDialogTitlePadding,
       content: const SingleChildScrollView(
         child: Text(
           'By accessing this system, you agree to the following:\n\n'

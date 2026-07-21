@@ -11,6 +11,7 @@ import '../../models/member.dart';
 import '../../models/temporary_access_log.dart';
 import '../../providers/providers.dart';
 import '../../services/auth_service.dart';
+import 'form_dialog_title.dart';
 
 final _dateFmt = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -306,7 +307,8 @@ Future<void> showGrantTemporaryAccessDialog({
       return StatefulBuilder(
         builder: (ctx, setLocal) {
           return AlertDialog(
-            title: const Text('🔑 Grant Temporary Access'),
+            title: const FormDialogTitle(title: '🔑 Grant Temporary Access'),
+            titlePadding: formDialogTitlePadding,
             content: SizedBox(
               width: 420,
               child: Column(
@@ -426,7 +428,8 @@ Future<void> showGrantTemporaryAccessDialog({
     builder: (ctx) {
       final spaced = granted.code.split('').join(' ');
       return AlertDialog(
-        title: const Text('✅ Temporary Access Granted'),
+        title: const FormDialogTitle(title: '✅ Temporary Access Granted'),
+        titlePadding: formDialogTitlePadding,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,7 +513,8 @@ Future<bool> showEnterTemporaryAccessCodeDialog({
       return StatefulBuilder(
         builder: (ctx, setLocal) {
           return AlertDialog(
-            title: const Text('🔑 Temporary Access Required'),
+            title: const FormDialogTitle(title: '🔑 Temporary Access Required'),
+            titlePadding: formDialogTitlePadding,
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

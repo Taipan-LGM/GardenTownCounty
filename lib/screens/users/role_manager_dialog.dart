@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/role_definition.dart';
 import '../../providers/providers.dart';
+import '../../widgets/form_dialog_title.dart';
 
 Future<void> showRoleManagerDialog(BuildContext context, WidgetRef ref) {
   return showDialog<void>(
@@ -95,7 +96,8 @@ class _RoleManagerDialogState extends ConsumerState<RoleManagerDialog> {
     final asyncRoles = ref.watch(rolesProvider);
 
     return AlertDialog(
-      title: const Text('Manage Rights / Role'),
+      title: const FormDialogTitle(title: 'Manage Rights / Role'),
+      titlePadding: formDialogTitlePadding,
       content: SizedBox(
         width: 420,
         height: 420,

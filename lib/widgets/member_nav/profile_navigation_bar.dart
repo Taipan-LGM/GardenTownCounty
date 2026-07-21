@@ -110,6 +110,11 @@ class ProfileNavigationBar extends StatelessWidget {
                 tooltip: 'Delete (Ctrl+D)',
                 onPressed: canDelete ? onDelete : null,
               ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'Close (Esc)',
+              onPressed: onBack,
+            ),
           ],
         ),
       ),

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/activity_log.dart';
+import '../../widgets/form_dialog_title.dart';
 
 Future<void> showActivityMapDialog(
   BuildContext context,
@@ -76,7 +77,8 @@ class ActivityMapDialog extends StatelessWidget {
     final point = _point;
     if (point == null) {
       return AlertDialog(
-        title: const Text('GPS'),
+        title: const FormDialogTitle(title: 'GPS'),
+        titlePadding: formDialogTitlePadding,
         content: const Text('No GPS coordinates for this activity.'),
         actions: [
           TextButton(

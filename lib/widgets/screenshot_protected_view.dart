@@ -8,6 +8,7 @@ import '../core/constants/watermark_settings.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/secure_screen_service.dart';
+import 'form_dialog_title.dart';
 
 /// Top confidentiality strip shown on locked member profiles.
 class ConfidentialityBanner extends StatelessWidget {
@@ -113,7 +114,8 @@ class _ScreenshotProtectedViewState extends State<ScreenshotProtectedView> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('⚠️ Screenshot Attempt Detected'),
+        title: const FormDialogTitle(title: '⚠️ Screenshot Attempt Detected'),
+        titlePadding: formDialogTitlePadding,
         content: const Text(
           'You have attempted to take a screenshot of a locked member\'s '
           'information.\n\n'
