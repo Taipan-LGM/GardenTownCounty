@@ -268,6 +268,7 @@ class SyncEngine {
         await _pushPresetsBatched();
         await _pushAppUsersBatched();
         await _pushRolesBatched();
+        await _pushRemindersBatched();
         _emit(SyncState(
           status: SyncUiStatus.synced,
           lastSyncedAt: DateTime.now(),
@@ -475,6 +476,17 @@ class SyncEngine {
     );
     for (final role in pending) {
       await _db.markRoleSynced(role.id);
+    }
+  }
+
+  Future<void> _pushRemindersBatched() async {
+    final pending = await _db.getPendingReminders();
+    await _commitBatches(
+      AppConstants.remindersCollection,
+      pending.map((r) => (id: r.id, data: r.toFirestore())).toList(),
+    );
+    for (final reminder in pending) {
+      await _db.markReminderSynced(reminder.id);
     }
   }
 

@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'models/user_role.dart';
 import 'providers/providers.dart';
 import 'services/auth_service.dart';
+import 'services/reminder_expiry_service.dart';
 import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
@@ -61,10 +62,15 @@ class _AppShellState extends ConsumerState<AppShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ReminderExpiryService.start(ref.read(reminderServiceProvider));
+    });
   }
 
   @override
   void dispose() {
+    ReminderExpiryService.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

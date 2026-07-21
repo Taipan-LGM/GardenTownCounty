@@ -22,6 +22,8 @@ import '../services/connectivity_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
+import '../services/reminder_notification_service.dart';
+import '../services/reminder_service.dart';
 import '../services/member_duplicate_service.dart';
 import '../services/member_repository.dart';
 import '../services/member_lock_service.dart';
@@ -229,6 +231,35 @@ final remindersProvider =
   return ref.watch(databaseServiceProvider).getReminders();
 });
 
+final reminderNotificationServiceProvider =
+    Provider<ReminderNotificationService>((ref) {
+  return ReminderNotificationService(ref.watch(databaseServiceProvider));
+});
+
+final reminderServiceProvider = Provider<ReminderService>((ref) {
+  return ReminderService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(syncEngineProvider),
+    ref.watch(reminderNotificationServiceProvider),
+    activityService: ref.watch(activityServiceProvider),
+  );
+});
+
+final activeOnboardingRemindersProvider =
+    FutureProvider.autoDispose<List<Reminder>>((ref) async {
+  return ref.watch(reminderServiceProvider).getActiveReminders();
+});
+
+final reminderStatsProvider =
+    FutureProvider.autoDispose<ReminderStats>((ref) async {
+  return ref.watch(reminderServiceProvider).getReminderStats();
+});
+
+final activeReminderCountProvider =
+    FutureProvider.autoDispose<int>((ref) async {
+  return ref.watch(databaseServiceProvider).getActiveOnboardingReminderCount();
+});
+
 /// Navigation target shown inside the shell after login.
 enum AppSection {
   home,
@@ -263,6 +294,9 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(appUsersProvider);
   ref.invalidate(rolesProvider);
   ref.invalidate(remindersProvider);
+  ref.invalidate(activeOnboardingRemindersProvider);
+  ref.invalidate(reminderStatsProvider);
+  ref.invalidate(activeReminderCountProvider);
   ref.invalidate(backupAuthProvider);
   ref.invalidate(lastBackupAtProvider);
   ref.invalidate(countyProfileProvider);

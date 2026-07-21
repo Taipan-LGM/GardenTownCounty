@@ -103,7 +103,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 10,
+      version: 11,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -309,6 +309,25 @@ class DatabaseService {
         'ON members(globalRecordNo)',
       );
     }
+    if (oldVersion < 11) {
+      await _addColumnIfMissing(database, 'reminders', 'kind', "TEXT DEFAULT 'manual'");
+      await _addColumnIfMissing(database, 'reminders', 'stepNumber', 'INTEGER');
+      await _addColumnIfMissing(database, 'reminders', 'stepDescription', 'TEXT');
+      await _addColumnIfMissing(database, 'reminders', 'memberName', 'TEXT');
+      await _addColumnIfMissing(database, 'reminders', 'surname', 'TEXT');
+      await _addColumnIfMissing(database, 'reminders', 'saId', 'TEXT');
+      await _addColumnIfMissing(database, 'reminders', 'expiryDate', 'TEXT');
+      await _addColumnIfMissing(database, 'reminders', 'status', "TEXT DEFAULT 'active'");
+      await _addColumnIfMissing(database, 'reminders', 'completedDate', 'TEXT');
+      await _addColumnIfMissing(database, 'reminders', 'completedBy', 'TEXT');
+      await database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)',
+      );
+      await database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_reminders_member '
+        'ON reminders(memberId)',
+      );
+    }
   }
 
   Future<void> _addColumnIfMissing(
@@ -339,9 +358,25 @@ class DatabaseService {
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         pendingSync INTEGER NOT NULL DEFAULT 1,
-        deleted INTEGER NOT NULL DEFAULT 0
+        deleted INTEGER NOT NULL DEFAULT 0,
+        kind TEXT NOT NULL DEFAULT 'manual',
+        stepNumber INTEGER,
+        stepDescription TEXT,
+        memberName TEXT,
+        surname TEXT,
+        saId TEXT,
+        expiryDate TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        completedDate TEXT,
+        completedBy TEXT
       )
     ''');
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reminders_member ON reminders(memberId)',
+    );
   }
 
   Future<void> _createTemporaryAccessLogsTable(Database database) async {
@@ -915,6 +950,51 @@ class DatabaseService {
       orderBy: 'reminderDateTime ASC',
     );
     return rows.map(Reminder.fromMap).toList();
+  }
+
+  Future<List<Reminder>> getActiveOnboardingReminders() async {
+    final all = await getReminders(includeCompleted: false);
+    final list = all
+        .where(
+          (r) =>
+              r.isOnboarding &&
+              r.status == 'active' &&
+              !r.isCompleted &&
+              !r.deleted,
+        )
+        .toList()
+      ..sort((a, b) {
+        final sa = a.stepNumber ?? 99;
+        final sb = b.stepNumber ?? 99;
+        if (sa != sb) return sa.compareTo(sb);
+        final ea = a.expiryDate ?? a.reminderDateTime;
+        final eb = b.expiryDate ?? b.reminderDateTime;
+        return ea.compareTo(eb);
+      });
+    return list;
+  }
+
+  Future<List<Reminder>> getActiveRemindersByMember(String memberId) async {
+    final all = await getActiveOnboardingReminders();
+    return all.where((r) => r.memberId == memberId).toList();
+  }
+
+  Future<List<Reminder>> getRemindersByStep(int stepNumber) async {
+    final all = await getActiveOnboardingReminders();
+    return all.where((r) => r.stepNumber == stepNumber).toList();
+  }
+
+  Future<List<Reminder>> getExpiredReminders(DateTime now) async {
+    final all = await getActiveOnboardingReminders();
+    final clock = now.toUtc();
+    return all
+        .where((r) => r.expiryDate != null && r.expiryDate!.isBefore(clock))
+        .toList();
+  }
+
+  Future<int> getActiveOnboardingReminderCount() async {
+    final list = await getActiveOnboardingReminders();
+    return list.length;
   }
 
   Future<Reminder?> getReminderById(String id) async {

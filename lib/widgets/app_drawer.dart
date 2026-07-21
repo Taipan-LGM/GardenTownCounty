@@ -208,10 +208,14 @@ class AppDrawer extends ConsumerWidget {
                     _item(
                       context,
                       ref,
-                      icon: Icons.notifications_outlined,
-                      label: strings.reminders,
+                      icon: Icons.alarm,
+                      label: '⏰ Reminders',
                       selected: section == AppSection.reminders,
                       onTap: () => _go(context, ref, AppSection.reminders),
+                      badgeCount: ref
+                              .watch(activeReminderCountProvider)
+                              .valueOrNull ??
+                          0,
                     ),
                   if (showActivities)
                     _item(
@@ -343,6 +347,7 @@ class AppDrawer extends ConsumerWidget {
     required String label,
     required bool selected,
     required VoidCallback onTap,
+    int badgeCount = 0,
   }) {
     return ListTile(
       leading: Icon(icon, color: selected ? AppTheme.gold : Colors.white70),
@@ -353,6 +358,23 @@ class AppDrawer extends ConsumerWidget {
           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
+      trailing: badgeCount > 0
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red.shade600,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                badgeCount > 99 ? '99+' : '$badgeCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          : null,
       selected: selected,
       selectedTileColor: Colors.white12,
       onTap: onTap,

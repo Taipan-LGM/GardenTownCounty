@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -946,6 +947,21 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   : 'Updated member ${saved.fullName}',
               captureGps: false,
             );
+      }
+
+      // Automated onboarding reminders (step 1–4, 24h expiry).
+      try {
+        final reminders = ref.read(reminderServiceProvider);
+        if (existing == null) {
+          await reminders.onMemberCreated(saved, actor: user?.id);
+        } else {
+          await reminders.syncFromMember(saved, actor: user?.id);
+        }
+        ref.invalidate(activeOnboardingRemindersProvider);
+        ref.invalidate(reminderStatsProvider);
+        ref.invalidate(activeReminderCountProvider);
+      } catch (e) {
+        debugPrint('Reminder sync after save failed: $e');
       }
 
       await _bootstrap();
@@ -2128,6 +2144,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         setState(() => _members = next);
       }
       ref.invalidate(membersProvider);
+      try {
+        await ref.read(reminderServiceProvider).syncFromMember(
+              updated,
+              actor: user.id,
+            );
+        ref.invalidate(activeOnboardingRemindersProvider);
+        ref.invalidate(reminderStatsProvider);
+        ref.invalidate(activeReminderCountProvider);
+      } catch (e) {
+        debugPrint('Reminder sync after step toggle failed: $e');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2188,6 +2215,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       setState(() => _loadedMember = locked);
       ref.invalidate(membersProvider);
       ref.invalidate(lockedMembersProvider);
+      try {
+        await ref.read(reminderServiceProvider).onLROCompleted(
+              locked,
+              actor: user.id,
+            );
+        ref.invalidate(activeOnboardingRemindersProvider);
+        ref.invalidate(reminderStatsProvider);
+        ref.invalidate(activeReminderCountProvider);
+      } catch (e) {
+        debugPrint('Reminder sync after complete/lock failed: $e');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
