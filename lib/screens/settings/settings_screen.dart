@@ -35,7 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: AppTheme.forestGreen,
+            color: AppTheme.bodyText,
           ),
         ),
         const SizedBox(height: 16),
@@ -290,7 +290,7 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                   Text(
                     'County Settings',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppTheme.forestGreen,
+                          color: AppTheme.bodyText,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -321,7 +321,7 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  color: AppTheme.forestGreen,
+                                  color: AppTheme.bodyText,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),

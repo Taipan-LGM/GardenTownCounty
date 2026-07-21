@@ -25,10 +25,9 @@ Member _member(String id, String name, String surname) {
 }
 
 void main() {
-  testWidgets('ProfileNavigationBar shows Previous and Next labels',
+  testWidgets('ProfileNavigationBar shows New Edit Upload Delete Close',
       (tester) async {
-    var prev = 0;
-    var next = 0;
+    var created = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -36,25 +35,28 @@ void main() {
             currentMember: _member('2', 'Jane', 'Doe'),
             currentIndex: 1,
             totalMembers: 3,
-            previousName: 'Ada Lovelace',
-            nextName: 'Zoe Zebra',
             onBack: () {},
-            onPrevious: () => prev++,
-            onNext: () => next++,
+            onPrevious: () {},
+            onNext: () {},
+            onNew: () => created++,
+            onEdit: () {},
+            onUpload: () {},
+            onDelete: () {},
           ),
         ),
       ),
     );
 
+    expect(find.text('New'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Upload'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
     expect(find.textContaining('Previous'), findsOneWidget);
     expect(find.textContaining('Next'), findsOneWidget);
-    expect(find.text('2 of 3'), findsOneWidget);
-    expect(find.textContaining('Jane Doe'), findsOneWidget);
 
-    await tester.tap(find.textContaining('Previous'));
-    await tester.tap(find.textContaining('Next'));
-    expect(prev, 1);
-    expect(next, 1);
+    await tester.tap(find.text('New'));
+    expect(created, 1);
   });
 
   testWidgets('ProfileNavigationBar disables edges', (tester) async {

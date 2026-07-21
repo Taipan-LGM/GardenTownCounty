@@ -192,24 +192,35 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'MEMBER LIST',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.forestGreen,
+          child: Material(
+            color: AppTheme.forestGreen,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'MEMBER LIST',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.labelText,
+                      ),
+                    ),
                   ),
-                ),
+                  if (widget.onAddNew != null)
+                    FilledButton.tonalIcon(
+                      onPressed: widget.onAddNew,
+                      style: FilledButton.styleFrom(
+                        foregroundColor: AppTheme.labelText,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      ),
+                      icon: const Icon(Icons.person_add, size: 18),
+                      label: const Text('New'),
+                    ),
+                ],
               ),
-              if (widget.onAddNew != null)
-                FilledButton.tonalIcon(
-                  onPressed: widget.onAddNew,
-                  icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('New'),
-                ),
-            ],
+            ),
           ),
         ),
         Padding(
@@ -524,7 +535,7 @@ class RecentlyViewedPanel extends ConsumerWidget {
               '🕐 RECENTLY VIEWED',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: AppTheme.forestGreen,
+                color: AppTheme.bodyText,
               ),
             ),
           ),

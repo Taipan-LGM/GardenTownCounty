@@ -54,7 +54,7 @@ class ActivitiesScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const Spacer(),
@@ -65,7 +65,7 @@ class ActivitiesScreen extends ConsumerWidget {
                   label: const Text('GPS'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.forestGreen,
+                    foregroundColor: AppTheme.bodyText,
                   ),
                 ),
                 orElse: () => const SizedBox.shrink(),

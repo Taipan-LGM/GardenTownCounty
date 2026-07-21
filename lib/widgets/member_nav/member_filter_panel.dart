@@ -61,12 +61,18 @@ class MemberFilterPanel extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Text(
-              'FILTERS',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.forestGreen,
+            padding: EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Material(
+              color: AppTheme.forestGreen,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'FILTERS',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.labelText,
+                  ),
+                ),
               ),
             ),
           ),

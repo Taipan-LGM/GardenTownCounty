@@ -662,13 +662,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         const Icon(
                           Icons.add_a_photo_outlined,
                           size: 44,
-                          color: AppTheme.forestGreen,
+                          color: AppTheme.bodyText,
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        const Text(
                           'Member Photo',
                           style: TextStyle(
-                            color: AppTheme.forestGreen.withValues(alpha: 0.9),
+                            color: AppTheme.bodyText,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1077,35 +1077,44 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                const Text(
-                  '👥 MEMBER MANAGEMENT',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.forestGreen,
-                  ),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Material(
+              color: AppTheme.forestGreen,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '👥 MEMBER MANAGEMENT',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.labelText,
+                        ),
+                      ),
+                    ),
+                    if (!isMemberOnly)
+                      IconButton(
+                        tooltip: 'Focus Search (Ctrl+F)',
+                        color: AppTheme.labelText,
+                        onPressed: () async {
+                          if (showList) {
+                            _searchFocusNode.requestFocus();
+                          } else {
+                            await goBackToList();
+                            if (!mounted) return;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _searchFocusNode.requestFocus();
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.search),
+                      ),
+                  ],
                 ),
-                const Spacer(),
-                if (!isMemberOnly)
-                  IconButton(
-                    tooltip: 'Focus Search (Ctrl+F)',
-                    onPressed: () async {
-                      if (showList) {
-                        _searchFocusNode.requestFocus();
-                      } else {
-                        await goBackToList();
-                        if (!mounted) return;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _searchFocusNode.requestFocus();
-                        });
-                      }
-                    },
-                    icon: const Icon(Icons.search),
-                  ),
-              ],
+              ),
             ),
           ),
           Expanded(
@@ -1264,6 +1273,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
               !_isMemberOnly,
           onEdit: (_canEnterEditMode && !_isEditing) ? _enterEditMode : null,
+          onNew: _canAddMembers
+              ? () async {
+                  if (!await _ensureCanNavigate()) return;
+                  openMemberDraft();
+                }
+              : null,
+          canNew: _canAddMembers,
           onUpload: () async {
             if (_isEditing && _hasUnsavedChanges) {
               final confirm = await showDialog<bool>(
@@ -1319,10 +1335,20 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.gold,
+                    color: AppTheme.labelText,
                   ),
                 ),
               ),
+              if (_canAddMembers)
+                TextButton.icon(
+                  onPressed: () async {
+                    if (!await _ensureCanNavigate()) return;
+                    openMemberDraft();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                  icon: const Icon(Icons.person_add_outlined, size: 18),
+                  label: const Text('New'),
+                ),
               if (_isEditing) ...[
                 TextButton(
                   onPressed: _cancelEdit,
@@ -1449,13 +1475,21 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               child: ListView(
                 key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
-                  Text(
-                    _isEditing
-                        ? '📋 MEMBER INFORMATION (Editable)'
-                        : '📋 MEMBER INFORMATION (Read-Only)',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.forestGreen,
+                  Container(
+                    width: double.infinity,
+                    color: AppTheme.forestGreen,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      _isEditing
+                          ? '📋 MEMBER INFORMATION (Editable)'
+                          : '📋 MEMBER INFORMATION (Read-Only)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.labelText,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),

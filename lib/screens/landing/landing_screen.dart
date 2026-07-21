@@ -139,7 +139,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                     onPressed: _beginTransition,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.gold,
-                      foregroundColor: AppTheme.forestGreen,
+                      foregroundColor: AppTheme.bodyText,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 14,

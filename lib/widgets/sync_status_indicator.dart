@@ -56,7 +56,7 @@ class SyncStatusIndicator extends ConsumerWidget {
                   },
                   style: const TextStyle(
                     fontSize: 12,
-                    color: AppTheme.forestGreen,
+                    color: AppTheme.bodyText,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

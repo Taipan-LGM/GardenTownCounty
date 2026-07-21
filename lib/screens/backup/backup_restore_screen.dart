@@ -318,7 +318,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const SizedBox(height: 8),
@@ -337,7 +337,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 label: const Text('Download Backup (.gtb)'),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.gold,
-                  foregroundColor: AppTheme.forestGreen,
+                  foregroundColor: AppTheme.bodyText,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
@@ -369,7 +369,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                         ),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.gold,
-                          foregroundColor: AppTheme.forestGreen,
+                          foregroundColor: AppTheme.bodyText,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
@@ -473,7 +473,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.forestGreen,
+                    color: AppTheme.bodyText,
                   ),
                 ),
               ],

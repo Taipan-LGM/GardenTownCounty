@@ -193,7 +193,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const Spacer(),

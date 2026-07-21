@@ -6,6 +6,11 @@ class AppTheme {
   static const Color brick = Color(0xFFA0452F);
   static const Color sky = Color(0xFF7EB6D9);
   static const Color cream = Color(0xFFF7F3E9);
+  /// Labels/headings on forest-green bars (readable white).
+  static const Color labelText = Colors.white;
+  /// Body text on cream/white cards — near-black (replaces hard-to-read green;
+  /// pure white on cream would be invisible).
+  static const Color bodyText = Color(0xFF111111);
 
   static ThemeData get light {
     final base = ThemeData(
@@ -30,7 +35,7 @@ class AppTheme {
       drawerTheme: const DrawerThemeData(backgroundColor: forestGreen),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: gold,
-        foregroundColor: forestGreen,
+        foregroundColor: Colors.white,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -74,7 +79,7 @@ class AppTheme {
       drawerTheme: const DrawerThemeData(backgroundColor: Color(0xFF0B1A14)),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: gold,
-        foregroundColor: forestGreen,
+        foregroundColor: Colors.white,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(

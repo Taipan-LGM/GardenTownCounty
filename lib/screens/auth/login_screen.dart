@@ -112,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.forestGreen,
+                          color: AppTheme.bodyText,
                         ),
                       ),
                       const SizedBox(height: 8),

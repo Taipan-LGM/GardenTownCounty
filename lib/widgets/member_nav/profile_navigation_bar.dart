@@ -15,9 +15,11 @@ class ProfileNavigationBar extends StatelessWidget {
     required this.onNext,
     this.previousName,
     this.nextName,
+    this.onNew,
     this.onEdit,
     this.onUpload,
     this.onDelete,
+    this.canNew = true,
     this.canEdit = true,
     this.canDelete = true,
   });
@@ -30,9 +32,11 @@ class ProfileNavigationBar extends StatelessWidget {
   final VoidCallback onNext;
   final String? previousName;
   final String? nextName;
+  final VoidCallback? onNew;
   final VoidCallback? onEdit;
   final VoidCallback? onUpload;
   final VoidCallback? onDelete;
+  final bool canNew;
   final bool canEdit;
   final bool canDelete;
 
@@ -65,31 +69,42 @@ class ProfileNavigationBar extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.gold,
+                      color: Colors.white,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (onNew != null)
+                  _ActionChip(
+                    icon: Icons.person_add_outlined,
+                    label: 'New',
+                    tooltip: 'New Member',
+                    onPressed: canNew ? onNew : null,
+                  ),
                 if (onEdit != null)
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                  _ActionChip(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit',
                     tooltip: 'Edit (Ctrl+E)',
                     onPressed: canEdit ? onEdit : null,
                   ),
                 if (onUpload != null)
-                  IconButton(
-                    icon: const Icon(Icons.attach_file, color: Colors.white),
+                  _ActionChip(
+                    icon: Icons.attach_file,
+                    label: 'Upload',
                     tooltip: 'Upload Files (Ctrl+U)',
                     onPressed: onUpload,
                   ),
                 if (onDelete != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                  _ActionChip(
+                    icon: Icons.delete_outline,
+                    label: 'Delete',
                     tooltip: 'Delete (Ctrl+D)',
                     onPressed: canDelete ? onDelete : null,
                   ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                _ActionChip(
+                  icon: Icons.close,
+                  label: 'Close',
                   tooltip: 'Close (Esc)',
                   onPressed: onBack,
                 ),
@@ -155,6 +170,41 @@ class ProfileNavigationBar extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Tooltip(
+        message: tooltip,
+        child: TextButton.icon(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            disabledForegroundColor: Colors.white38,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            minimumSize: const Size(0, 40),
+          ),
+          icon: Icon(icon, size: 18),
+          label: Text(label),
         ),
       ),
     );

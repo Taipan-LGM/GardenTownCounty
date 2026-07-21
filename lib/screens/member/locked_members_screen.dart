@@ -47,7 +47,7 @@ class LockedMembersScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const SizedBox(height: 12),
@@ -108,7 +108,7 @@ class LockedMembersScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const SizedBox(height: 8),
@@ -237,7 +237,7 @@ class _StatCard extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               Text(label, textAlign: TextAlign.center),

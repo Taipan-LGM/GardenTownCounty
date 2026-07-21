@@ -118,7 +118,7 @@ class AdminLockedBanner extends StatelessWidget {
               '🔑 TEMPORARY ACCESS MANAGEMENT',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: AppTheme.forestGreen,
+                color: AppTheme.bodyText,
               ),
             ),
             const Text(

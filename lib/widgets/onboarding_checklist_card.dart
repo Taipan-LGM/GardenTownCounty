@@ -49,7 +49,7 @@ class OnboardingChecklistCard extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: AppTheme.forestGreen,
+                color: AppTheme.bodyText,
               ),
             ),
             const Divider(),
@@ -94,7 +94,7 @@ class OnboardingChecklistCard extends StatelessWidget {
                 value: progress,
                 minHeight: 10,
                 backgroundColor: Colors.grey.shade300,
-                color: allDone ? Colors.green : AppTheme.forestGreen,
+                color: AppTheme.bodyText,
               ),
             ),
             if (showCompleteButton) ...[

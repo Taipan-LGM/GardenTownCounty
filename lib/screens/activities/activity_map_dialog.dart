@@ -112,7 +112,7 @@ class ActivityMapDialog extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.forestGreen,
+                            color: AppTheme.bodyText,
                           ),
                         ),
                         Text(

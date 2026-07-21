@@ -117,7 +117,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const SizedBox(height: 12),

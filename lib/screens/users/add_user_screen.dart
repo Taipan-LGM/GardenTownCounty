@@ -335,7 +335,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.forestGreen,
+                  color: AppTheme.bodyText,
                 ),
               ),
               const SizedBox(height: 4),
@@ -486,7 +486,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: AppTheme.forestGreen,
+                    color: AppTheme.bodyText,
                   ),
                 ),
                 const SizedBox(height: 8),
