@@ -20,6 +20,7 @@ import '../../widgets/member_nav/keyboard_shortcut_handler.dart';
 import '../../widgets/member_nav/member_filter_panel.dart';
 import '../../widgets/member_nav/member_list_panel.dart';
 import '../../widgets/member_nav/profile_navigation_bar.dart';
+import '../../widgets/member_nav/unsaved_changes_dialog.dart';
 import '../../widgets/onboarding_checklist_card.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import '../../services/temporary_access_service.dart';
@@ -67,6 +68,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   final _searchFocusNode = FocusNode();
   bool _navForward = true;
 
+  /// Explicit Edit Mode — fields stay read-only until user clicks Edit.
+  bool _isEditing = false;
+  bool _hasUnsavedChanges = false;
+  bool _suppressDirty = false;
+  _FormSnapshot? _snapshot;
+
   bool get _viewerIsSysAdmin =>
       ref.read(authUserProvider)?.isSystemAdministrator ?? false;
 
@@ -101,16 +108,41 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   bool get _canAddMembers => !_isMemberOnly && !_fieldsMasked;
 
+  /// Whether this user may enter Edit Mode for the current profile.
+  bool get _canEnterEditMode {
+    if (_fieldsMasked) return false;
+    if (_isMemberOnly) {
+      return _viewerMemberId != null &&
+          _currentId != null &&
+          _currentId == _viewerMemberId;
+    }
+    if (_loadedMember == null) return _canAddMembers;
+    return _formMode.canEditFields;
+  }
+
+  /// Fields enabled only while Edit Mode is active and permitted.
   bool get _formReadOnly {
     if (_fieldsMasked) return true;
-    // Members may only view their own profile (read-only).
-    if (_isMemberOnly) return true;
-    return !_formMode.canEditFields;
+    if (!_isEditing) return true;
+    return !_canEnterEditMode;
   }
 
   @override
   void initState() {
     super.initState();
+    for (final c in [
+      _saId,
+      _globalRecordNo,
+      _memberName,
+      _surname,
+      _address,
+      _contactNo1,
+      _contactNo2,
+      _email,
+      _comment,
+    ]) {
+      c.addListener(_onFormFieldChanged);
+    }
     _bootstrap();
   }
 
@@ -128,6 +160,184 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _searchFocusNode.dispose();
     SecureScreenService.disableSecureScreen();
     super.dispose();
+  }
+
+  void _onFormFieldChanged() {
+    if (_suppressDirty || !_isEditing) return;
+    if (!_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
+    }
+  }
+
+  void _markDirty() {
+    if (_suppressDirty || !_isEditing) return;
+    if (!_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
+    }
+  }
+
+  _FormSnapshot _takeSnapshot() {
+    return _FormSnapshot(
+      saId: _saId.text,
+      globalRecordNo: _globalRecordNo.text,
+      memberName: _memberName.text,
+      surname: _surname.text,
+      address: _address.text,
+      suburb: _suburb,
+      townCity: _townCity,
+      postalCode: _postalCode,
+      contactNo1: _contactNo1.text,
+      contactNo2: _contactNo2.text,
+      email: _email.text,
+      comment: _comment.text,
+      photoLocalPath: _photoLocalPath,
+      photoUrl: _photoUrl,
+    );
+  }
+
+  void _applySnapshot(_FormSnapshot snap) {
+    _suppressDirty = true;
+    _saId.text = snap.saId;
+    _globalRecordNo.text = snap.globalRecordNo;
+    _memberName.text = snap.memberName;
+    _surname.text = snap.surname;
+    _address.text = snap.address;
+    _suburb = snap.suburb;
+    _townCity = snap.townCity;
+    _postalCode = snap.postalCode;
+    _contactNo1.text = snap.contactNo1;
+    _contactNo2.text = snap.contactNo2;
+    _email.text = snap.email;
+    _comment.text = snap.comment;
+    _photoLocalPath = snap.photoLocalPath;
+    _photoUrl = snap.photoUrl;
+    _suppressDirty = false;
+  }
+
+  void _exitEditMode({required bool restoreSnapshot}) {
+    if (restoreSnapshot && _snapshot != null) {
+      _applySnapshot(_snapshot!);
+      if (_loadedMember != null && !_fieldsMasked) {
+        _loadPhotoBytes(
+          _loadedMember!.id,
+          _photoLocalPath,
+          _photoUrl,
+        );
+      }
+    }
+    setState(() {
+      _isEditing = false;
+      _hasUnsavedChanges = false;
+      _snapshot = _takeSnapshot();
+    });
+  }
+
+  void _enterEditMode() {
+    if (!_canEnterEditMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '🔒 You do not have permission to edit this member.',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _snapshot = _takeSnapshot();
+      _isEditing = true;
+      _hasUnsavedChanges = false;
+    });
+  }
+
+  Future<void> _cancelEdit() async {
+    if (!_isEditing) return;
+    if (_hasUnsavedChanges) {
+      final ok = await showDiscardEditsDialog(context);
+      if (ok != true || !mounted) return;
+    }
+    _exitEditMode(restoreSnapshot: true);
+  }
+
+  /// Returns true if navigation away is allowed.
+  Future<bool> _ensureCanNavigate() async {
+    if (!_isEditing) return true;
+    if (!_hasUnsavedChanges) {
+      _exitEditMode(restoreSnapshot: false);
+      return true;
+    }
+    final action = await showUnsavedChangesDialog(context);
+    if (!mounted) return false;
+    switch (action) {
+      case UnsavedChangesAction.save:
+        final ok = await _save();
+        return ok;
+      case UnsavedChangesAction.discard:
+        _exitEditMode(restoreSnapshot: true);
+        return true;
+      case UnsavedChangesAction.stay:
+      case null:
+        return false;
+    }
+  }
+
+  InputDecoration _fieldDecoration(String label, {bool isDense = false}) {
+    return InputDecoration(
+      labelText: label,
+      isDense: isDense,
+      suffixIcon: Icon(
+        _isEditing && !_formReadOnly ? Icons.edit : Icons.lock,
+        size: 16,
+        color: _isEditing && !_formReadOnly ? Colors.blue : Colors.grey,
+      ),
+      enabledBorder: _isEditing && !_formReadOnly
+          ? OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.blue.shade300),
+            )
+          : null,
+      focusedBorder: _isEditing && !_formReadOnly
+          ? OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildEditModeBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        border: Border(
+          bottom: BorderSide(color: Colors.orange.shade300),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.edit_note, color: Colors.orange.shade700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '✏️ EDIT MODE ACTIVE - Changes will be saved when you click Save',
+              style: TextStyle(
+                color: Colors.orange.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            'Unsaved Changes: ${_hasUnsavedChanges ? 'Yes' : 'No'}',
+            style: TextStyle(
+              color: _hasUnsavedChanges
+                  ? Colors.red.shade700
+                  : Colors.green.shade700,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _bootstrap() async {
@@ -202,9 +412,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _clearForm(newMember: false);
   }
 
-  void _loadMember(Member member, int index) {
+  void _loadMember(Member member, int index, {bool enterEdit = false}) {
     final masked = _isProtectedAdminMember(member.id) && !_viewerIsSysAdmin;
+    _suppressDirty = true;
     setState(() {
+      _isEditing = false;
+      _hasUnsavedChanges = false;
       _loadedMember = member;
       _currentId = member.id;
       _draftId = null;
@@ -229,12 +442,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _photoLocalPath = member.photoLocalPath;
       _photoUrl = member.photoUrl;
       _photoBytes = null;
+      _snapshot = _takeSnapshot();
     });
+    _suppressDirty = false;
     ref.read(selectedMemberIdProvider.notifier).state = member.id;
     if (!masked) {
       _loadPhotoBytes(member.id, member.photoLocalPath, member.photoUrl);
     }
     _onSecureMemberView(member);
+    if (enterEdit && _canEnterEditMode) {
+      _enterEditMode();
+    }
   }
 
   Future<void> _onSecureMemberView(Member member) async {
@@ -288,7 +506,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   void _clearForm({required bool newMember}) {
+    _suppressDirty = true;
     setState(() {
+      _isEditing = false;
+      _hasUnsavedChanges = false;
       _loadedMember = null;
       _currentId = null;
       _draftId = const Uuid().v4();
@@ -307,7 +528,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _photoLocalPath = null;
       _photoUrl = null;
       _photoBytes = null;
+      _snapshot = _takeSnapshot();
     });
+    _suppressDirty = false;
     ref.read(selectedMemberIdProvider.notifier).state = null;
   }
 
@@ -348,6 +571,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         _draftId = null;
         _currentId = memberId;
       });
+      _markDirty();
       ref.read(selectedMemberIdProvider.notifier).state = memberId;
 
       final members = await ref.read(memberRepositoryProvider).getAll();
@@ -473,7 +697,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
-  Future<void> _save() async {
+  Future<bool> _save() async {
     if (_isMemberOnly && _currentId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -482,25 +706,27 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ),
         );
       }
-      return;
+      return false;
     }
-    if (_formReadOnly || _fieldsMasked) {
+    if (!_isEditing || _formReadOnly || _fieldsMasked) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('This member profile is protected and cannot be edited.'),
+            content: Text(
+              'Click Edit to make changes before saving.',
+            ),
           ),
         );
       }
-      return;
+      return false;
     }
     if (_isMemberOnly &&
         _viewerMemberId != null &&
         _currentId != null &&
         _currentId != _viewerMemberId) {
-      return;
+      return false;
     }
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return false;
     setState(() => _saving = true);
 
     try {
@@ -561,18 +787,31 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             );
         _loadMember(_members[index], index);
       }
+      setState(() {
+        _isEditing = false;
+        _hasUnsavedChanges = false;
+        _snapshot = _takeSnapshot();
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Member saved')),
+          const SnackBar(
+            content: Text('✅ Member saved successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
+      return true;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $error')),
+          SnackBar(
+            content: Text('❌ Error saving: $error'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -642,7 +881,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   '${type.storageKey}-${_currentId ?? 'new'}-$effective',
                 ),
                 initialValue: effective,
-                decoration: InputDecoration(labelText: label),
+                decoration: _fieldDecoration(label),
                 items: [
                   const DropdownMenuItem<String?>(
                     value: null,
@@ -692,10 +931,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final wide = MediaQuery.sizeOf(context).width >= 1100;
 
     Future<void> openMember(Member m, {bool forceEdit = false}) async {
+      if (!await _ensureCanNavigate()) return;
       setState(() => _navForward = true);
       await nav.openMember(m, all: _members, forceEdit: forceEdit);
       final idx = _members.indexWhere((x) => x.id == m.id);
-      if (idx >= 0) _loadMember(_members[idx], idx);
+      if (idx >= 0) {
+        _loadMember(_members[idx], idx, enterEdit: forceEdit);
+      }
     }
 
     Future<void> goPrev() async {
@@ -703,6 +945,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         nav.moveListHighlight(-1, pageLength: page.length);
         return;
       }
+      if (!await _ensureCanNavigate()) return;
       setState(() => _navForward = false);
       await nav.navigateRelative(-1, all: _members);
       final id = ref.read(memberNavigationProvider).selectedMemberId;
@@ -715,6 +958,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         nav.moveListHighlight(1, pageLength: page.length);
         return;
       }
+      if (!await _ensureCanNavigate()) return;
       setState(() => _navForward = true);
       await nav.navigateRelative(1, all: _members);
       final id = ref.read(memberNavigationProvider).selectedMemberId;
@@ -728,6 +972,61 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       openMember(page[i]);
     }
 
+    Future<void> goBackToList() async {
+      if (!showList) {
+        if (!await _ensureCanNavigate()) return;
+        nav.goBackToList();
+        _clearForm(newMember: false);
+      }
+    }
+
+    Future<void> guardedUpload() async {
+      final m = _loadedMember;
+      if (m == null) return;
+      if (_isEditing && _hasUnsavedChanges) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('⚠️ Unsaved Changes'),
+            content: const Text(
+              'You have unsaved changes. Please save before uploading files.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('💾 Save First'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          final ok = await _save();
+          if (!ok || !mounted) return;
+        } else {
+          return;
+        }
+      }
+      if (!mounted) return;
+      await showMemberFilesDialog(context, ref, m);
+    }
+
+    Future<void> guardedDelete() async {
+      if (_isEditing) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please save or cancel before deleting'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      await _delete();
+    }
+
     final shell = KeyboardShortcutHandler(
       enabled: !isMemberOnly,
       onPrevious: () => goPrev(),
@@ -738,35 +1037,40 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       onPageNext: showList
           ? () => nav.nextPage(filtered.length)
           : () => goNext(),
-      onBack: () {
-        if (!showList) {
-          nav.goBackToList();
-          _clearForm(newMember: false);
-        }
-      },
+      onBack: () => goBackToList(),
       onSearch: () => _searchFocusNode.requestFocus(),
       onEdit: () {
-        final m = _loadedMember;
-        if (m != null) openMember(m, forceEdit: true);
+        if (_isEditing) return;
+        _enterEditMode();
       },
-      onSave: _formReadOnly ? null : () => _save(),
-      onNew: _canAddMembers ? openMemberDraft : null,
-      onDelete: (_loadedMember != null && !_formReadOnly) ? () => _delete() : null,
-      onUpload: () {
-        final m = _loadedMember;
-        if (m != null) showMemberFilesDialog(context, ref, m);
+      onSave: _isEditing ? () => _save() : null,
+      onNew: _canAddMembers
+          ? () async {
+              if (!await _ensureCanNavigate()) return;
+              openMemberDraft();
+            }
+          : null,
+      onDelete: (_loadedMember != null) ? () => guardedDelete() : null,
+      onUpload: () => guardedUpload(),
+      onRefresh: () async {
+        if (!await _ensureCanNavigate()) return;
+        await refreshApp(ref);
+        await _bootstrap();
       },
-      onRefresh: () => refreshApp(ref).then((_) => _bootstrap()),
-      onHome: () => nav.navigateFirst(all: _members).then((_) {
+      onHome: () async {
+        if (!await _ensureCanNavigate()) return;
+        await nav.navigateFirst(all: _members);
         final id = ref.read(memberNavigationProvider).selectedMemberId;
         final idx = _members.indexWhere((m) => m.id == id);
         if (idx >= 0) _loadMember(_members[idx], idx);
-      }),
-      onEnd: () => nav.navigateLast(all: _members).then((_) {
+      },
+      onEnd: () async {
+        if (!await _ensureCanNavigate()) return;
+        await nav.navigateLast(all: _members);
         final id = ref.read(memberNavigationProvider).selectedMemberId;
         final idx = _members.indexWhere((m) => m.id == id);
         if (idx >= 0) _loadMember(_members[idx], idx);
-      }),
+      },
       onOpenHighlighted: openHighlighted,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -787,11 +1091,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 if (!isMemberOnly)
                   IconButton(
                     tooltip: 'Focus Search (Ctrl+F)',
-                    onPressed: () {
+                    onPressed: () async {
                       if (showList) {
                         _searchFocusNode.requestFocus();
                       } else {
-                        nav.goBackToList();
+                        await goBackToList();
+                        if (!mounted) return;
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           _searchFocusNode.requestFocus();
                         });
@@ -882,10 +1187,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 child: _buildProfilePane(
                                   filtered: filtered,
                                   navState: navState,
-                                  onBack: () {
-                                    nav.goBackToList();
-                                    _clearForm(newMember: false);
-                                  },
+                                  onBack: goBackToList,
                                   onPrev: goPrev,
                                   onNext: goNext,
                                 ),
@@ -917,13 +1219,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void openMemberDraft() {
     _clearForm(newMember: true);
     ref.read(memberNavigationProvider.notifier).beginNewMember();
-    setState(() {});
+    setState(() {
+      _isEditing = true;
+      _hasUnsavedChanges = false;
+      _snapshot = _takeSnapshot();
+    });
   }
 
   Widget _buildProfilePane({
     required List<Member> filtered,
     required MemberNavigationState navState,
-    required VoidCallback onBack,
+    required Future<void> Function() onBack,
     required Future<void> Function() onPrev,
     required Future<void> Function() onNext,
   }) {
@@ -938,6 +1244,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       nextName = filtered[idx + 1].fullName;
     }
 
+    final modeLabel = _isEditing ? 'EDIT MODE' : 'VIEW MODE';
+
     final profileBody = Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -950,24 +1258,48 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               totalMembers: filtered.length,
               previousName: prevName,
               nextName: nextName,
-              onBack: onBack,
+              onBack: () => onBack(),
               onPrevious: () => onPrev(),
               onNext: () => onNext(),
-              canEdit: !_formReadOnly,
-              canDelete: !_formReadOnly &&
-                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin),
-              onEdit: _formReadOnly
-                  ? null
-                  : () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Form is editable — change fields and Save (Ctrl+S).'),
+              canEdit: _canEnterEditMode && !_isEditing,
+              canDelete: !_isEditing &&
+                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
+                  !_isMemberOnly,
+              onEdit: (_canEnterEditMode && !_isEditing) ? _enterEditMode : null,
+              onUpload: () async {
+                if (_isEditing && _hasUnsavedChanges) {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('⚠️ Unsaved Changes'),
+                      content: const Text(
+                        'You have unsaved changes. Please save before uploading files.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
                         ),
-                      );
-                    },
-              onUpload: () => showMemberFilesDialog(context, ref, member),
-              onDelete: (!_formReadOnly &&
-                      !(_loadedMember?.isLocked == true && !_viewerIsAdmin))
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('💾 Save First'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    final ok = await _save();
+                    if (!ok || !mounted) return;
+                  } else {
+                    return;
+                  }
+                }
+                if (!mounted) return;
+                await showMemberFilesDialog(context, ref, member);
+              },
+              onDelete: (!_isEditing &&
+                      !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
+                      !_isMemberOnly)
                   ? _delete
                   : null,
             )
@@ -975,59 +1307,104 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             Row(
               children: [
                 IconButton(
-                  onPressed: onBack,
+                  onPressed: () => onBack(),
                   icon: const Icon(Icons.arrow_back),
                   tooltip: 'Back to List (Esc)',
                 ),
-                const Text(
-                  'New Member',
-                  style: TextStyle(
+                Text(
+                  'New Member ($modeLabel)',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.forestGreen,
                   ),
                 ),
                 const Spacer(),
-                FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save'),
-                ),
+                if (_isEditing) ...[
+                  TextButton(onPressed: _cancelEdit, child: const Text('Cancel')),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _saving ? null : () => _save(),
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save'),
+                  ),
+                ],
               ],
             ),
+          if (_isEditing) _buildEditModeBanner(),
           const SizedBox(height: 8),
           Row(
             children: [
               _statusChip(_formMode, _loadedMember),
+              const SizedBox(width: 8),
+              Chip(
+                visualDensity: VisualDensity.compact,
+                backgroundColor: _isEditing
+                    ? Colors.orange.withValues(alpha: 0.15)
+                    : Colors.grey.withValues(alpha: 0.15),
+                label: Text(
+                  modeLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: _isEditing ? Colors.orange.shade800 : Colors.black54,
+                  ),
+                ),
+              ),
               const Spacer(),
               if (_currentId != null && !_fieldsMasked)
                 OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     final m = _loadedMember;
                     if (m == null) return;
-                    showMemberFilesDialog(context, ref, m);
+                    if (_isEditing && _hasUnsavedChanges) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Save or cancel edits before opening files.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    await showMemberFilesDialog(context, ref, m);
                   },
-                  icon: Icon(
-                    _formReadOnly ? Icons.folder_open : Icons.upload_file,
-                  ),
-                  label: Text(_formReadOnly ? 'View Files' : 'Upload Files'),
+                  icon: const Icon(Icons.attach_file),
+                  label: const Text('Upload Files'),
                 ),
               const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: (_saving ||
-                        _formReadOnly ||
-                        (_isMemberOnly && _currentId == null))
-                    ? null
-                    : _save,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save),
-                label: const Text('Save'),
-              ),
+              if (!_isEditing && _canEnterEditMode)
+                FilledButton.icon(
+                  onPressed: _enterEditMode,
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Edit'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              if (_isEditing) ...[
+                TextButton(
+                  onPressed: _saving ? null : _cancelEdit,
+                  child: const Text('❌ Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _saving ? null : () => _save(),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: const Text('Save'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ],
           ),
           const Divider(),
@@ -1038,8 +1415,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: OnboardingChecklistCard(
                 member: _loadedMember!,
-                readOnly: _formMode.checklistReadOnly || _formReadOnly,
-                showCompleteButton: _formMode.showCompleteButton,
+                readOnly: _formMode.checklistReadOnly || !_isEditing,
+                showCompleteButton:
+                    _formMode.showCompleteButton && !_isEditing,
                 onToggleStep: _toggleOnboardingStep,
                 onComplete: _completeAndLock,
               ),
@@ -1050,6 +1428,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               child: ListView(
                 key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
+                  Text(
+                    _isEditing
+                        ? '📋 MEMBER INFORMATION (Editable)'
+                        : '📋 MEMBER INFORMATION (Read-Only)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.forestGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const photoSize = 320.0;
@@ -1066,8 +1454,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   TextFormField(
                                     controller: _saId,
                                     enabled: !_formReadOnly,
-                                    decoration: const InputDecoration(
-                                      labelText: 'SA ID (max 13)',
+                                    decoration: _fieldDecoration(
+                                      'SA ID (max 13)',
                                       isDense: true,
                                     ),
                                     maxLength: AppConstants.saIdMaxLength,
@@ -1088,8 +1476,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   TextFormField(
                                     controller: _globalRecordNo,
                                     enabled: !_formReadOnly,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Global Record No (max 14)',
+                                    decoration: _fieldDecoration(
+                                      'Global Record No (max 14)',
                                       isDense: true,
                                     ),
                                     maxLength:
@@ -1109,8 +1497,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   TextFormField(
                                     controller: _memberName,
                                     enabled: !_formReadOnly,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Member Name',
+                                    decoration: _fieldDecoration(
+                                      'Member Name',
                                       isDense: true,
                                     ),
                                     validator: (v) =>
@@ -1121,8 +1509,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   TextFormField(
                                     controller: _surname,
                                     enabled: !_formReadOnly,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Surname',
+                                    decoration: _fieldDecoration(
+                                      'Surname',
                                       isDense: true,
                                     ),
                                     validator: (v) =>
@@ -1146,7 +1534,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   TextFormField(
                     controller: _address,
                     enabled: !_formReadOnly,
-                    decoration: const InputDecoration(labelText: 'Address'),
+                    decoration: _fieldDecoration('Address'),
                     maxLines: 2,
                   ),
                   const SizedBox(height: 8),
@@ -1154,21 +1542,30 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     label: 'Suburb',
                     type: LookupType.suburb,
                     value: _suburb,
-                    onChanged: (v) => setState(() => _suburb = v),
+                    onChanged: (v) {
+                      setState(() => _suburb = v);
+                      _markDirty();
+                    },
                   ),
                   const SizedBox(height: 8),
                   _lookupDropdown(
                     label: 'Town / City',
                     type: LookupType.townCity,
                     value: _townCity,
-                    onChanged: (v) => setState(() => _townCity = v),
+                    onChanged: (v) {
+                      setState(() => _townCity = v);
+                      _markDirty();
+                    },
                   ),
                   const SizedBox(height: 8),
                   _lookupDropdown(
                     label: 'Postal Code',
                     type: LookupType.postalCode,
                     value: _postalCode,
-                    onChanged: (v) => setState(() => _postalCode = v),
+                    onChanged: (v) {
+                      setState(() => _postalCode = v);
+                      _markDirty();
+                    },
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1177,9 +1574,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         child: TextFormField(
                           controller: _contactNo1,
                           enabled: !_formReadOnly,
-                          decoration: const InputDecoration(
-                            labelText: 'Contact No 1 (max 12)',
-                          ),
+                          decoration: _fieldDecoration('Contact No 1 (max 12)'),
                           maxLength: AppConstants.contactNoMaxLength,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
@@ -1194,9 +1589,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         child: TextFormField(
                           controller: _contactNo2,
                           enabled: !_formReadOnly,
-                          decoration: const InputDecoration(
-                            labelText: 'Contact No 2 (max 12)',
-                          ),
+                          decoration: _fieldDecoration('Contact No 2 (max 12)'),
                           maxLength: AppConstants.contactNoMaxLength,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
@@ -1212,15 +1605,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   TextFormField(
                     controller: _email,
                     enabled: !_formReadOnly,
-                    decoration:
-                        const InputDecoration(labelText: 'Email Address'),
+                    decoration: _fieldDecoration('Email Address'),
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _comment,
                     enabled: !_formReadOnly,
-                    decoration: const InputDecoration(labelText: 'Comment'),
+                    decoration: _fieldDecoration('Comment'),
                     maxLines: 4,
                   ),
                 ],
@@ -1439,6 +1831,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   Future<void> _completeAndLock() async {
+    if (_isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Please save or cancel before completing.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     final member = _loadedMember;
     final user = ref.read(authUserProvider);
     if (member == null || user == null) return;
@@ -1495,4 +1896,38 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       );
     }
   }
+}
+
+class _FormSnapshot {
+  const _FormSnapshot({
+    required this.saId,
+    required this.globalRecordNo,
+    required this.memberName,
+    required this.surname,
+    required this.address,
+    required this.suburb,
+    required this.townCity,
+    required this.postalCode,
+    required this.contactNo1,
+    required this.contactNo2,
+    required this.email,
+    required this.comment,
+    required this.photoLocalPath,
+    required this.photoUrl,
+  });
+
+  final String saId;
+  final String globalRecordNo;
+  final String memberName;
+  final String surname;
+  final String address;
+  final String? suburb;
+  final String? townCity;
+  final String? postalCode;
+  final String contactNo1;
+  final String contactNo2;
+  final String email;
+  final String comment;
+  final String? photoLocalPath;
+  final String? photoUrl;
 }
