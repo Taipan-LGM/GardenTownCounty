@@ -14,35 +14,124 @@ class MemberLockService {
   final SyncEngine _sync;
   final ActivityService _activity;
 
-  /// Mark all 4 steps complete and lock the member (Recording Secretary or Admin).
+  bool _canManageOnboarding(AuthUser actor) =>
+      actor.isAdmin ||
+      actor.hasPermission(AppPermission.onboarding) ||
+      actor.hasPermission(AppPermission.memberInfo);
+
+  /// Toggle a single onboarding step (1–4). Logs who/when; notifies member.
+  Future<Member> setOnboardingStep({
+    required Member member,
+    required AuthUser actor,
+    required int step,
+    required bool complete,
+  }) async {
+    if (!_canManageOnboarding(actor)) {
+      throw Exception('You do not have permission to update onboarding steps.');
+    }
+    if (member.isLocked && !actor.isAdmin) {
+      throw Exception('🔒 Locked members cannot have steps changed.');
+    }
+    if (step < 1 || step > 4) {
+      throw Exception('Invalid onboarding step.');
+    }
+
+    final now = DateTime.now().toUtc();
+    final labels = {
+      1: 'Member Info',
+      2: 'Global 528',
+      3: 'Global 928',
+      4: 'LRO',
+    };
+    var updated = member;
+    switch (step) {
+      case 1:
+        updated = member.copyWith(
+          step1MemberInfoComplete: complete,
+          step1CompletionDate: complete ? now : member.step1CompletionDate,
+          step1ApprovedBy: complete ? actor.id : member.step1ApprovedBy,
+        );
+      case 2:
+        updated = member.copyWith(
+          step2Global528Complete: complete,
+          step2CompletionDate: complete ? now : member.step2CompletionDate,
+          step2ApprovedBy: complete ? actor.id : member.step2ApprovedBy,
+        );
+      case 3:
+        updated = member.copyWith(
+          step3Global928Complete: complete,
+          step3CompletionDate: complete ? now : member.step3CompletionDate,
+          step3ApprovedBy: complete ? actor.id : member.step3ApprovedBy,
+        );
+      case 4:
+        updated = member.copyWith(
+          step4LROComplete: complete,
+          step4CompletionDate: complete ? now : member.step4CompletionDate,
+          step4ApprovedBy: complete ? actor.id : member.step4ApprovedBy,
+        );
+    }
+
+    String nextStatus = updated.registrationStatus;
+    if (!updated.isLocked) {
+      final anyStep = updated.step1MemberInfoComplete ||
+          updated.step2Global528Complete ||
+          updated.step3Global928Complete ||
+          updated.step4LROComplete;
+      if (updated.allStepsComplete) {
+        nextStatus = 'complete';
+      } else if (anyStep) {
+        nextStatus = 'in_progress';
+      } else {
+        nextStatus = 'pending';
+      }
+    }
+
+    updated = updated.copyWith(
+      registrationStatus: nextStatus,
+      lastModifiedBy: actor.id,
+      updatedAt: now,
+      pendingSync: true,
+    );
+
+    await _db.upsertMember(updated);
+    await _activity.record(
+      userName: actor.displayName,
+      action: complete
+          ? '✅ step_$step (${labels[step]}) completed for ${member.fullName}'
+          : '⬜ step_$step (${labels[step]}) unchecked for ${member.fullName}',
+      captureGps: false,
+    );
+    if (complete) {
+      await _activity.record(
+        userName: 'System',
+        action:
+            '📧 Notify ${member.fullName}: Step $step (${labels[step]}) approved '
+            'by ${actor.displayName}',
+        captureGps: false,
+      );
+    }
+    await _sync.pushPending();
+    return updated;
+  }
+
+  /// Lock member after all 4 checklist steps are complete.
   Future<Member> completeAndLock({
     required Member member,
     required AuthUser actor,
     String? reason,
   }) async {
-    if (!actor.isAdmin &&
-        !actor.hasPermission(AppPermission.onboarding) &&
-        !actor.hasPermission(AppPermission.memberInfo)) {
+    if (!_canManageOnboarding(actor)) {
       throw Exception('You do not have permission to complete members.');
     }
     if (member.isLocked) {
       throw Exception('⚠️ Member is already locked.');
     }
+    if (!member.allStepsComplete) {
+      throw Exception('❌ Member has not completed all 4 steps.');
+    }
 
     final now = DateTime.now().toUtc();
     final locked = member.copyWith(
-      step1MemberInfoComplete: true,
-      step2Global528Complete: true,
-      step3Global928Complete: true,
-      step4LROComplete: true,
-      step1CompletionDate: member.step1CompletionDate ?? now,
-      step2CompletionDate: member.step2CompletionDate ?? now,
-      step3CompletionDate: member.step3CompletionDate ?? now,
-      step4CompletionDate: member.step4CompletionDate ?? now,
-      step1ApprovedBy: member.step1ApprovedBy ?? actor.id,
-      step2ApprovedBy: member.step2ApprovedBy ?? actor.id,
-      step3ApprovedBy: member.step3ApprovedBy ?? actor.id,
-      step4ApprovedBy: member.step4ApprovedBy ?? actor.id,
       registrationStatus: 'fully_fledged',
       isLocked: true,
       lockedDate: now,

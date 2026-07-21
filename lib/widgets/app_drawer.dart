@@ -34,7 +34,6 @@ class AppDrawer extends ConsumerWidget {
     final showSos = isAdmin || can(AppPermission.sos);
     final showReminders = isAdmin || can(AppPermission.reminders);
     final showActivities = isAdmin || can(AppPermission.activities);
-    final showOnboarding = isAdmin || can(AppPermission.onboarding);
 
     return Drawer(
       child: SafeArea(
@@ -185,16 +184,6 @@ class AppDrawer extends ConsumerWidget {
                       selected: section == AppSection.lockedMembers,
                       onTap: () =>
                           _go(context, ref, AppSection.lockedMembers),
-                    ),
-                  if (showOnboarding)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.how_to_reg_outlined,
-                      label: 'Onboarding',
-                      selected: section == AppSection.onboarding,
-                      onTap: () =>
-                          _go(context, ref, AppSection.onboarding),
                     ),
                   if (showSos)
                     _item(

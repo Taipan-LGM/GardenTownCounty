@@ -9,11 +9,12 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item.dart';
 import '../../models/member.dart';
-import '../../models/user_role.dart';
+import '../../models/member_form_mode.dart';
 import '../../providers/providers.dart';
 import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
 import '../../widgets/member_lock_banners.dart';
+import '../../widgets/onboarding_checklist_card.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import '../../services/temporary_access_service.dart';
 import '../../services/secure_screen_service.dart';
@@ -75,6 +76,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     return ref.read(verifiedTempAccessIdsProvider).contains(id);
   }
 
+  MemberFormMode get _formMode => determineMemberFormMode(
+        member: _loadedMember,
+        user: ref.read(authUserProvider),
+        sessionVerifiedTempAccess: _sessionTempAccess,
+      );
+
   bool _isProtectedAdminMember(String? memberId) {
     if (memberId == null || _adminLinkedMemberId == null) return false;
     return memberId == _adminLinkedMemberId;
@@ -89,22 +96,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   bool get _formReadOnly {
     if (_fieldsMasked) return true;
-    if (_isMemberOnly &&
-        _viewerMemberId != null &&
-        _currentId != null &&
-        _currentId != _viewerMemberId) {
-      return true;
-    }
-    final member = _loadedMember;
-    final user = ref.read(authUserProvider);
-    if (member != null && member.isLocked && user != null && !user.isAdmin) {
-      return !ref.read(memberLockServiceProvider).canEditMember(
-            member: member,
-            user: user,
-            sessionVerifiedTempAccess: _sessionTempAccess,
-          );
-    }
-    return false;
+    // Members may only view their own profile (read-only).
+    if (_isMemberOnly) return true;
+    return !_formMode.canEditFields;
   }
 
   @override
@@ -399,7 +393,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         InkWell(
-          onTap: _photoBusy ? null : _pickMemberPhoto,
+          onTap: (_photoBusy || _formReadOnly) ? null : _pickMemberPhoto,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             width: photoSize,
@@ -445,11 +439,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ),
         const SizedBox(height: 8),
         TextButton.icon(
-          onPressed: _photoBusy ? null : _pickMemberPhoto,
+          onPressed: (_photoBusy || _formReadOnly) ? null : _pickMemberPhoto,
           icon: const Icon(Icons.photo_camera_outlined, size: 18),
           label: Text(image == null ? 'Upload Photo' : 'Change Photo'),
         ),
-        if (image != null)
+        if (image != null && !_formReadOnly)
           TextButton(
             onPressed: _photoBusy ? null : _clearMemberPhoto,
             child: const Text('Remove', style: TextStyle(color: Colors.red)),
@@ -681,6 +675,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   color: AppTheme.forestGreen,
                 ),
               ),
+              const SizedBox(width: 12),
+              _statusChip(_formMode, _loadedMember),
               const Spacer(),
               if (_canAddMembers)
                 FilledButton.tonalIcon(
@@ -697,16 +693,33 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               if (_canAddMembers) const SizedBox(width: 8),
               if (_currentId != null && !_fieldsMasked)
                 OutlinedButton.icon(
-                  onPressed: () {
-                    final member = _members
-                        .where((m) => m.id == _currentId)
-                        .cast<Member?>()
-                        .firstWhere((m) => m != null, orElse: () => null);
-                    if (member == null) return;
-                    showMemberFilesDialog(context, ref, member);
-                  },
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Upload Files'),
+                  onPressed: _formReadOnly
+                      ? () {
+                          final member = _members
+                              .where((m) => m.id == _currentId)
+                              .cast<Member?>()
+                              .firstWhere(
+                                (m) => m != null,
+                                orElse: () => null,
+                              );
+                          if (member == null) return;
+                          showMemberFilesDialog(context, ref, member);
+                        }
+                      : () {
+                          final member = _members
+                              .where((m) => m.id == _currentId)
+                              .cast<Member?>()
+                              .firstWhere(
+                                (m) => m != null,
+                                orElse: () => null,
+                              );
+                          if (member == null) return;
+                          showMemberFilesDialog(context, ref, member);
+                        },
+                  icon: Icon(
+                    _formReadOnly ? Icons.folder_open : Icons.upload_file,
+                  ),
+                  label: Text(_formReadOnly ? 'View Files' : 'Upload Files'),
                 ),
             ],
           ),
@@ -719,12 +732,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   onPressed: _members.isEmpty ? null : () => _browse(-1),
                   icon: const Icon(Icons.chevron_left),
                 ),
-              Text(
-                _browseIndex < 0
-                    ? 'New member'
-                    : _canBrowseMembers
-                        ? 'Browse ${_browseIndex + 1} / ${_members.length}'
-                        : 'Your member profile',
+              Expanded(
+                child: Text(
+                  _browseLabel(),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               if (_canBrowseMembers)
                 IconButton(
@@ -732,7 +744,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   onPressed: _members.isEmpty ? null : () => _browse(1),
                   icon: const Icon(Icons.chevron_right),
                 ),
-              const Spacer(),
               if (_currentId != null &&
                   _canBrowseMembers &&
                   !_fieldsMasked &&
@@ -740,29 +751,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 TextButton.icon(
                   onPressed: _delete,
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  label: const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
-              if (_loadedMember != null &&
-                  !_loadedMember!.isLocked &&
-                  (_viewerIsAdmin ||
-                      (ref.read(authUserProvider)?.hasPermission(
-                            AppPermission.onboarding,
-                          ) ??
-                          false) ||
-                      (ref.read(authUserProvider)?.hasPermission(
-                            AppPermission.memberInfo,
-                          ) ??
-                          false))) ...[
-                const SizedBox(width: 8),
-                FilledButton.tonalIcon(
-                  onPressed: _saving ? null : _completeAndLock,
-                  icon: const Icon(Icons.verified),
-                  label: const Text('Complete'),
-                ),
-              ],
               const SizedBox(width: 8),
               FilledButton.icon(
-                onPressed: (_saving || _formReadOnly || (_isMemberOnly && _currentId == null))
+                onPressed: (_saving ||
+                        _formReadOnly ||
+                        (_isMemberOnly && _currentId == null))
                     ? null
                     : _save,
                 icon: _saving
@@ -777,7 +775,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             ],
           ),
           const Divider(),
-          if (_loadedMember != null) _buildLockChrome(_loadedMember!),
+          if (_loadedMember != null && _formMode.showTempAccessSection)
+            _buildLockChrome(_loadedMember!),
+          if (_loadedMember != null && _formMode.showOnboardingChecklist)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: OnboardingChecklistCard(
+                member: _loadedMember!,
+                readOnly: _formMode.checklistReadOnly || _formReadOnly,
+                showCompleteButton: _formMode.showCompleteButton,
+                onToggleStep: _toggleOnboardingStep,
+                onComplete: _completeAndLock,
+              ),
+            ),
           Expanded(
             child: Form(
               key: _formKey,
@@ -987,6 +997,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final user = ref.watch(authUserProvider);
     final verified = ref.watch(verifiedTempAccessIdsProvider).contains(member.id);
     final users = ref.watch(appUsersProvider).valueOrNull ?? const [];
+    final logs = (ref.watch(temporaryAccessLogsProvider).valueOrNull ?? const [])
+        .where((l) => l.memberId == member.id)
+        .toList();
     String? nameOf(String? id) {
       if (id == null) return null;
       for (final u in users) {
@@ -1003,6 +1016,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         child: AdminLockedBanner(
           member: member,
           lockedByName: nameOf(member.lockedBy),
+          recentLogs: logs,
           onUnlock: () async {
             final ok = await showDialog<bool>(
               context: context,
@@ -1106,17 +1120,96 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
+  Widget _statusChip(MemberFormMode mode, Member? member) {
+    Color color;
+    switch (mode) {
+      case MemberFormMode.newMember:
+        color = Colors.orange;
+      case MemberFormMode.regularMember:
+        color = Colors.blue;
+      case MemberFormMode.lockedSecretary:
+      case MemberFormMode.lockedAdmin:
+        color = Colors.red;
+      case MemberFormMode.tempAccessActive:
+        color = Colors.green;
+    }
+    final label = member == null
+        ? 'New'
+        : '${mode.statusLabel} · ${member.registrationStatus}';
+    return Chip(
+      visualDensity: VisualDensity.compact,
+      backgroundColor: color.withValues(alpha: 0.15),
+      label: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
+      ),
+    );
+  }
+
+  String _browseLabel() {
+    if (_browseIndex < 0) return 'New member';
+    if (!_canBrowseMembers) return 'Your member profile';
+    final m = _loadedMember;
+    final status = m == null
+        ? ''
+        : m.isLocked
+            ? ' 🔒'
+            : (m.registrationStatus == 'pending' ||
+                    m.registrationStatus == 'in_progress'
+                ? ' · onboarding'
+                : '');
+    return 'Browse ${_browseIndex + 1} / ${_members.length}$status'
+        '${m == null ? '' : ' — ${m.fullName}'}';
+  }
+
+  Future<void> _toggleOnboardingStep(int step, bool complete) async {
+    final member = _loadedMember;
+    final user = ref.read(authUserProvider);
+    if (member == null || user == null) return;
+    try {
+      final updated = await ref.read(memberLockServiceProvider).setOnboardingStep(
+            member: member,
+            actor: user,
+            step: step,
+            complete: complete,
+          );
+      if (!mounted) return;
+      setState(() => _loadedMember = updated);
+      final idx = _members.indexWhere((m) => m.id == updated.id);
+      if (idx >= 0) {
+        final next = [..._members];
+        next[idx] = updated;
+        setState(() => _members = next);
+      }
+      ref.invalidate(membersProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
   Future<void> _completeAndLock() async {
     final member = _loadedMember;
     final user = ref.read(authUserProvider);
     if (member == null || user == null) return;
+    if (!member.allStepsComplete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Check all 4 onboarding steps before completing.'),
+        ),
+      );
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Complete & Lock Member'),
+        title: const Text('Complete Member Onboarding?'),
         content: Text(
-          'Mark all 4 steps complete and lock ${member.fullName}?\n'
-          'Recording Secretaries will only be able to view this member.',
+          'Are you sure ${member.fullName} has completed all requirements?\n\n'
+          'This will LOCK the member. Recording Secretaries will not be able to '
+          'edit this member without temporary access from the Administrator.',
         ),
         actions: [
           TextButton(
@@ -1125,7 +1218,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Complete'),
+            child: const Text('Yes, Complete'),
           ),
         ],
       ),
@@ -1143,7 +1236,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '✅ ${locked.fullName} has completed all requirements. Member is now locked.',
+            '✅ ${locked.fullName} completed and locked successfully.',
           ),
         ),
       );

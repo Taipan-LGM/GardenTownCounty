@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/app_user.dart';
 import '../../models/member.dart';
+import '../../models/temporary_access_log.dart';
 import '../../providers/providers.dart';
 import '../../services/auth_service.dart';
 
@@ -40,7 +42,7 @@ class LockedMemberBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '⚠️ 🔒 MEMBER LOCKED',
+              '🔑 TEMPORARY ACCESS REQUIRED',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.brown,
@@ -48,15 +50,14 @@ class LockedMemberBanner extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              'This member has completed all requirements and is locked.\n'
-              'Only the System Administrator can make changes.',
+              'This member is locked. To make changes, please enter the '
+              '5-digit code provided by the Administrator.',
             ),
             const SizedBox(height: 4),
             Text(
               'Locked on: $lockedOn by: ${lockedByName ?? member.lockedBy ?? '—'}',
               style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
             ),
-            const Text('Contact Admin if changes are needed.'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -65,7 +66,7 @@ class LockedMemberBanner extends StatelessWidget {
                   FilledButton.tonalIcon(
                     onPressed: onEnterCode,
                     icon: const Icon(Icons.vpn_key),
-                    label: const Text('Enter Access Code'),
+                    label: const Text('Enter Temporary Access Code'),
                   ),
                 if (onRequestAccess != null)
                   OutlinedButton(
@@ -90,6 +91,7 @@ class AdminLockedBanner extends StatelessWidget {
     this.onUnlock,
     this.onGrantAccess,
     this.onRevokeAccess,
+    this.recentLogs,
   });
 
   final Member member;
@@ -97,15 +99,13 @@ class AdminLockedBanner extends StatelessWidget {
   final VoidCallback? onUnlock;
   final VoidCallback? onGrantAccess;
   final VoidCallback? onRevokeAccess;
+  final List<TemporaryAccessLog>? recentLogs;
 
   @override
   Widget build(BuildContext context) {
     final lockedOn = member.lockedDate == null
         ? '—'
         : DateFormat('yyyy-MM-dd').format(member.lockedDate!.toLocal());
-    final temp = member.hasActiveTemporaryAccess
-        ? 'Active (${member.temporaryAccessCode} — expires ${_dateFmt.format(member.temporaryAccessExpiry!.toLocal())})'
-        : 'None';
     return Card(
       color: AppTheme.forestGreen.withValues(alpha: 0.12),
       child: Padding(
@@ -114,7 +114,7 @@ class AdminLockedBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '🔓 LOCKED MEMBER',
+              '🔑 TEMPORARY ACCESS MANAGEMENT',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: AppTheme.forestGreen,
@@ -124,7 +124,9 @@ class AdminLockedBanner extends StatelessWidget {
               'This member is locked. You have full edit access as Admin.',
             ),
             Text('Locked by: ${lockedByName ?? member.lockedBy ?? '—'} on $lockedOn'),
-            Text('Temporary Access: $temp'),
+            Text(
+              'Current Status: ${member.hasActiveTemporaryAccess ? 'Active code ${member.temporaryAccessCode}' : 'No active temporary access'}',
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -150,6 +152,26 @@ class AdminLockedBanner extends StatelessWidget {
                   ),
               ],
             ),
+            if (recentLogs != null && recentLogs!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Recent Access History:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const Divider(height: 12),
+              ...recentLogs!.take(5).map((log) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${_dateFmt.format(log.grantedAt.toLocal())}  '
+                    'Code: ${log.accessCode}  '
+                    'Granted to: ${log.secretaryName}  '
+                    '(${log.computedStatus})',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                  ),
+                );
+              }),
+            ],
           ],
         ),
       ),
@@ -158,7 +180,7 @@ class AdminLockedBanner extends StatelessWidget {
 }
 
 /// Banner when temporary access is active for the current secretary.
-class TemporaryAccessActiveBanner extends StatelessWidget {
+class TemporaryAccessActiveBanner extends StatefulWidget {
   const TemporaryAccessActiveBanner({
     super.key,
     required this.member,
@@ -171,11 +193,41 @@ class TemporaryAccessActiveBanner extends StatelessWidget {
   final VoidCallback? onRevoke;
 
   @override
+  State<TemporaryAccessActiveBanner> createState() =>
+      _TemporaryAccessActiveBannerState();
+}
+
+class _TemporaryAccessActiveBannerState
+    extends State<TemporaryAccessActiveBanner> {
+  Timer? _timer;
+  Duration _remaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+  }
+
+  void _tick() {
+    final expiry = widget.member.temporaryAccessExpiry;
+    if (!mounted) return;
+    setState(() {
+      _remaining = expiry == null
+          ? Duration.zero
+          : expiry.difference(DateTime.now().toUtc());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final expiry = member.temporaryAccessExpiry;
-    final remaining = expiry == null
-        ? '—'
-        : _formatRemaining(expiry.difference(DateTime.now().toUtc()));
+    final expiry = widget.member.temporaryAccessExpiry;
     return Card(
       color: Colors.green.shade50,
       child: Padding(
@@ -184,7 +236,7 @@ class TemporaryAccessActiveBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '✅ TEMPORARY ACCESS ACTIVE',
+              '⏰ TEMPORARY ACCESS ACTIVE',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
@@ -194,13 +246,18 @@ class TemporaryAccessActiveBanner extends StatelessWidget {
               'You have temporary edit access until '
               '${expiry == null ? '—' : _dateFmt.format(expiry.toLocal())}.',
             ),
-            Text('Time remaining: $remaining'),
-            Text('Code: ${member.temporaryAccessCode ?? '—'}'),
-            Text('Granted by: ${grantedByName ?? member.temporaryAccessGrantedBy ?? 'Admin'}'),
-            if (onRevoke != null) ...[
+            Text(
+              'Time remaining: ${_formatRemaining(_remaining)}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text('Code: ${widget.member.temporaryAccessCode ?? '—'}'),
+            Text(
+              'Granted by: ${widget.grantedByName ?? widget.member.temporaryAccessGrantedBy ?? 'Admin'}',
+            ),
+            if (widget.onRevoke != null) ...[
               const SizedBox(height: 8),
               OutlinedButton(
-                onPressed: onRevoke,
+                onPressed: widget.onRevoke,
                 child: const Text('Revoke Access'),
               ),
             ],
@@ -212,9 +269,14 @@ class TemporaryAccessActiveBanner extends StatelessWidget {
 
   static String _formatRemaining(Duration d) {
     if (d.isNegative) return 'Expired';
-    if (d.inDays >= 1) return '${d.inDays}d ${d.inHours % 24}h';
-    if (d.inHours >= 1) return '${d.inHours}h ${d.inMinutes % 60}m';
-    return '${d.inMinutes} minutes';
+    if (d.inDays >= 1) {
+      return '${d.inDays}d ${d.inHours % 24}h ${d.inMinutes % 60}m';
+    }
+    if (d.inHours >= 1) {
+      return '${d.inHours}h ${d.inMinutes % 60}m ${d.inSeconds % 60}s';
+    }
+    if (d.inMinutes >= 1) return '${d.inMinutes}m ${d.inSeconds % 60}s';
+    return '${d.inSeconds}s';
   }
 }
 

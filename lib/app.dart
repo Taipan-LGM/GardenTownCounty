@@ -283,9 +283,6 @@ class _AppShellState extends ConsumerState<AppShell>
         return user.hasPermission(AppPermission.lro);
       case AppSection.lockedMembers:
         return user.isAdmin;
-      case AppSection.onboarding:
-        return user.isAdmin ||
-            user.hasPermission(AppPermission.onboarding);
     }
   }
 
@@ -315,8 +312,6 @@ class _AppShellState extends ConsumerState<AppShell>
         return 'LRO';
       case AppSection.lockedMembers:
         return 'Locked Members';
-      case AppSection.onboarding:
-        return 'Onboarding';
     }
   }
 
@@ -346,8 +341,6 @@ class _AppShellState extends ConsumerState<AppShell>
         return const PlaceholderScreen(title: 'LRO');
       case AppSection.lockedMembers:
         return const LockedMembersScreen();
-      case AppSection.onboarding:
-        return const MemberFormScreen();
     }
   }
 }

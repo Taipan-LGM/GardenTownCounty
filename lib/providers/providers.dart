@@ -229,7 +229,6 @@ enum AppSection {
   global928,
   lro,
   lockedMembers,
-  onboarding,
 }
 
 final appSectionProvider = StateProvider<AppSection>((ref) => AppSection.home);
