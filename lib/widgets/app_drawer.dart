@@ -185,6 +185,16 @@ class AppDrawer extends ConsumerWidget {
                       onTap: () =>
                           _go(context, ref, AppSection.lockedMembers),
                     ),
+                  if (isAdmin)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.copy_all_outlined,
+                      label: 'Duplicate Management',
+                      selected: section == AppSection.duplicateReport,
+                      onTap: () =>
+                          _go(context, ref, AppSection.duplicateReport),
+                    ),
                   if (showSos)
                     _item(
                       context,

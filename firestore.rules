@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Uniqueness lock docs — create fails if doc already exists (Firestore create).
+    match /members_unique_sa_id/{saId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['memberId'])
+        && request.resource.data.memberId is string
+        && saId.matches('^[0-9]{13}$');
+      allow update: if signedIn()
+        && resource.data.memberId == request.resource.data.memberId;
+      allow delete: if signedIn();
+    }
+
+    match /members_unique_global_record/{globalRecordNo} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['memberId'])
+        && request.resource.data.memberId is string
+        && globalRecordNo.matches('^[0-9]{1,14}$');
+      allow update: if signedIn()
+        && resource.data.memberId == request.resource.data.memberId;
+      allow delete: if signedIn();
+    }
+
+    match /members/{memberId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.saId is string
+        && request.resource.data.globalRecordNo is string
+        && request.resource.data.saId.matches('^[0-9]{13}$')
+        && request.resource.data.globalRecordNo.matches('^[0-9]{1,14}$');
+      allow delete: if signedIn();
+    }
+
+    match /notifications/{id} {
+      allow read, create: if signedIn();
+    }
+
+    // Other collections used by the offline-first sync engine.
+    match /{document=**} {
+      allow read, write: if signedIn();
+    }
+  }
+}

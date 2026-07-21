@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/exceptions/duplicate_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/lookup_item.dart';
 import '../../models/member.dart';
@@ -13,6 +15,10 @@ import '../../models/member_form_mode.dart';
 import '../../models/member_navigation_state.dart';
 import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
+import '../../services/sa_id_validator.dart';
+import '../../services/secure_screen_service.dart';
+import '../../services/temporary_access_service.dart';
+import '../../widgets/duplicate_warning_widget.dart';
 import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
 import '../../widgets/member_lock_banners.dart';
@@ -23,8 +29,6 @@ import '../../widgets/member_nav/profile_navigation_bar.dart';
 import '../../widgets/member_nav/unsaved_changes_dialog.dart';
 import '../../widgets/onboarding_checklist_card.dart';
 import '../../widgets/screenshot_protected_view.dart';
-import '../../services/temporary_access_service.dart';
-import '../../services/secure_screen_service.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
 
@@ -73,6 +77,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _hasUnsavedChanges = false;
   bool _suppressDirty = false;
   _FormSnapshot? _snapshot;
+
+  String? _saIdError;
+  String? _globalRecordError;
+  bool _isCheckingSaId = false;
+  bool _isCheckingGlobalRecord = false;
+  String? _duplicateSaIdMemberId;
+  String? _duplicateGlobalRecordMemberId;
+  Timer? _saIdDebounce;
+  Timer? _globalRecordDebounce;
 
   bool get _viewerIsSysAdmin =>
       ref.read(authUserProvider)?.isSystemAdministrator ?? false;
@@ -131,8 +144,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void initState() {
     super.initState();
     for (final c in [
-      _saId,
-      _globalRecordNo,
       _memberName,
       _surname,
       _address,
@@ -143,11 +154,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     ]) {
       c.addListener(_onFormFieldChanged);
     }
+    _saId.addListener(_onSaIdChanged);
+    _globalRecordNo.addListener(_onGlobalRecordChanged);
     _bootstrap();
   }
 
   @override
   void dispose() {
+    _saIdDebounce?.cancel();
+    _globalRecordDebounce?.cancel();
     _saId.dispose();
     _globalRecordNo.dispose();
     _memberName.dispose();
@@ -281,15 +296,23 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration(String label, {bool isDense = false}) {
+  InputDecoration _fieldDecoration(
+    String label, {
+    bool isDense = false,
+    String? errorText,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       labelText: label,
       isDense: isDense,
-      suffixIcon: Icon(
-        _isEditing && !_formReadOnly ? Icons.edit : Icons.lock,
-        size: 16,
-        color: _isEditing && !_formReadOnly ? Colors.blue : Colors.grey,
-      ),
+      errorText: errorText,
+      errorMaxLines: 3,
+      suffixIcon: suffixIcon ??
+          Icon(
+            _isEditing && !_formReadOnly ? Icons.edit : Icons.lock,
+            size: 16,
+            color: _isEditing && !_formReadOnly ? Colors.blue : Colors.grey,
+          ),
       enabledBorder: _isEditing && !_formReadOnly
           ? OutlineInputBorder(
               borderSide: BorderSide(color: Colors.blue.shade300),
@@ -301,6 +324,130 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             )
           : null,
     );
+  }
+
+  void _clearDuplicateState() {
+    _saIdDebounce?.cancel();
+    _globalRecordDebounce?.cancel();
+    _saIdError = null;
+    _globalRecordError = null;
+    _isCheckingSaId = false;
+    _isCheckingGlobalRecord = false;
+    _duplicateSaIdMemberId = null;
+    _duplicateGlobalRecordMemberId = null;
+  }
+
+  void _onSaIdChanged() {
+    _onFormFieldChanged();
+    if (!_isEditing || _formReadOnly || _fieldsMasked) return;
+    _saIdDebounce?.cancel();
+    _saIdDebounce = Timer(const Duration(milliseconds: 400), () {
+      _validateSaIdLive(_saId.text);
+    });
+  }
+
+  void _onGlobalRecordChanged() {
+    _onFormFieldChanged();
+    if (!_isEditing || _formReadOnly || _fieldsMasked) return;
+    _globalRecordDebounce?.cancel();
+    _globalRecordDebounce = Timer(const Duration(milliseconds: 400), () {
+      _validateGlobalRecordLive(_globalRecordNo.text);
+    });
+  }
+
+  Future<void> _validateSaIdLive(String value) async {
+    if (!mounted) return;
+    setState(() {
+      _isCheckingSaId = true;
+      _saIdError = null;
+      _duplicateSaIdMemberId = null;
+    });
+
+    final formatError = SaIdValidator.validate(value);
+    if (formatError != null) {
+      if (!mounted) return;
+      setState(() {
+        _saIdError = formatError;
+        _isCheckingSaId = false;
+      });
+      return;
+    }
+
+    final excludeId = _currentId ?? _draftId;
+    final result = await ref.read(memberDuplicateServiceProvider).checkSaId(
+          value.trim(),
+          excludeMemberId: excludeId,
+        );
+    if (!mounted) return;
+    setState(() {
+      _isCheckingSaId = false;
+      if (result.isDuplicate) {
+        _saIdError = result.errorMessage;
+        _duplicateSaIdMemberId = result.existingMember?.id;
+      } else if (result.errorMessage != null) {
+        _saIdError = result.errorMessage;
+      }
+    });
+  }
+
+  Future<void> _validateGlobalRecordLive(String value) async {
+    if (!mounted) return;
+    setState(() {
+      _isCheckingGlobalRecord = true;
+      _globalRecordError = null;
+      _duplicateGlobalRecordMemberId = null;
+    });
+
+    final formatError = GlobalRecordValidator.validate(value);
+    if (formatError != null) {
+      if (!mounted) return;
+      setState(() {
+        _globalRecordError = formatError;
+        _isCheckingGlobalRecord = false;
+      });
+      return;
+    }
+
+    final excludeId = _currentId ?? _draftId;
+    final result =
+        await ref.read(memberDuplicateServiceProvider).checkGlobalRecord(
+              value.trim(),
+              excludeMemberId: excludeId,
+            );
+    if (!mounted) return;
+    setState(() {
+      _isCheckingGlobalRecord = false;
+      if (result.isDuplicate) {
+        _globalRecordError = result.errorMessage;
+        _duplicateGlobalRecordMemberId = result.existingMember?.id;
+      } else if (result.errorMessage != null) {
+        _globalRecordError = result.errorMessage;
+      }
+    });
+  }
+
+  bool get _uniqueFieldsOk =>
+      _saIdError == null &&
+      _globalRecordError == null &&
+      !_isCheckingSaId &&
+      !_isCheckingGlobalRecord &&
+      _saId.text.trim().isNotEmpty &&
+      _globalRecordNo.text.trim().isNotEmpty;
+
+  Future<void> _openExistingDuplicate(String? memberId) async {
+    if (memberId == null) return;
+    if (!await _ensureCanNavigate()) return;
+    final idx = _members.indexWhere((m) => m.id == memberId);
+    if (idx < 0) {
+      await _bootstrap();
+    }
+    final refreshed = _members.indexWhere((m) => m.id == memberId);
+    if (refreshed < 0) return;
+    await ref.read(memberNavigationProvider.notifier).openMember(
+          _members[refreshed],
+          all: _members,
+        );
+    _loadMember(_members[refreshed], refreshed);
   }
 
   Widget _buildEditModeBanner() {
@@ -418,6 +565,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     setState(() {
       _isEditing = false;
       _hasUnsavedChanges = false;
+      _clearDuplicateState();
       _loadedMember = member;
       _currentId = member.id;
       _draftId = null;
@@ -511,6 +659,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     setState(() {
       _isEditing = false;
       _hasUnsavedChanges = false;
+      _clearDuplicateState();
       _loadedMember = null;
       _currentId = null;
       _draftId = const Uuid().v4();
@@ -728,6 +877,26 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return false;
     }
     if (!_formKey.currentState!.validate()) return false;
+    if (!_uniqueFieldsOk) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _saIdError ??
+                  _globalRecordError ??
+                  'Fix SA ID / Global Record before saving.',
+            ),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+      return false;
+    }
+    // Final uniqueness re-check before save.
+    await _validateSaIdLive(_saId.text);
+    await _validateGlobalRecordLive(_globalRecordNo.text);
+    if (!_uniqueFieldsOk) return false;
+
     setState(() => _saving = true);
 
     try {
@@ -803,6 +972,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
       }
       return true;
+    } on DuplicateException catch (e) {
+      if (mounted) {
+        await DuplicateErrorHandler.showDuplicateError(
+          context,
+          field: e.field ?? 'field',
+          value: e.value ?? '',
+          onViewExisting: e.existingMemberId == null
+              ? null
+              : () => _openExistingDuplicate(e.existingMemberId),
+        );
+      }
+      return false;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1357,7 +1538,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
-                  onPressed: _saving ? null : () => _save(),
+                  onPressed: (_saving || !_uniqueFieldsOk) ? null : () => _save(),
                   icon: const Icon(Icons.save),
                   label: const Text('Save'),
                 ),
@@ -1437,7 +1618,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
-                  onPressed: _saving ? null : () => _save(),
+                  onPressed: (_saving || !_uniqueFieldsOk) ? null : () => _save(),
                   icon: _saving
                       ? const SizedBox(
                           width: 16,
@@ -1495,59 +1676,118 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   const SizedBox(height: 8),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      const photoSize = 320.0;
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: SizedBox(
-                              height: photoSize,
-                              child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                                   TextFormField(
                                     controller: _saId,
                                     enabled: !_formReadOnly,
                                     decoration: _fieldDecoration(
-                                      'SA ID (max 13)',
+                                      'SA ID No.',
                                       isDense: true,
+                                      errorText: _saIdError,
+                                      suffixIcon: _isCheckingSaId
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                            )
+                                          : _saIdError == null &&
+                                                  _saId.text.isNotEmpty &&
+                                                  _isEditing
+                                              ? const Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 18,
+                                                )
+                                              : null,
                                     ),
                                     maxLength: AppConstants.saIdMaxLength,
+                                    keyboardType: TextInputType.number,
                                     inputFormatters: [
                                       FilteringTextInputFormatter.digitsOnly,
                                     ],
                                     validator: (v) {
-                                      if (v == null || v.trim().isEmpty) {
-                                        return 'Required';
-                                      }
-                                      if (v.length >
-                                          AppConstants.saIdMaxLength) {
-                                        return 'Max 13 characters';
-                                      }
-                                      return null;
+                                      final err = SaIdValidator.validate(
+                                        v ?? '',
+                                      );
+                                      if (err != null) return err;
+                                      return _saIdError;
                                     },
+                                  ),
+                                  DuplicateWarningWidget(
+                                    field: 'SA ID',
+                                    value: _saId.text.trim(),
+                                    isDuplicate: _duplicateSaIdMemberId != null,
+                                    onViewExisting: () =>
+                                        _openExistingDuplicate(
+                                      _duplicateSaIdMemberId,
+                                    ),
                                   ),
                                   TextFormField(
                                     controller: _globalRecordNo,
                                     enabled: !_formReadOnly,
                                     decoration: _fieldDecoration(
-                                      'Global Record No (max 14)',
+                                      'Global Record No.',
                                       isDense: true,
+                                      errorText: _globalRecordError,
+                                      suffixIcon: _isCheckingGlobalRecord
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                            )
+                                          : _globalRecordError == null &&
+                                                  _globalRecordNo
+                                                      .text.isNotEmpty &&
+                                                  _isEditing
+                                              ? const Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 18,
+                                                )
+                                              : null,
                                     ),
-                                    maxLength:
-                                        AppConstants.globalRecordNoMaxLength,
+                                    maxLength: AppConstants
+                                        .globalRecordNoMaxLength,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
                                     validator: (v) {
-                                      if (v == null || v.trim().isEmpty) {
-                                        return 'Required';
-                                      }
-                                      if (v.length >
-                                          AppConstants
-                                              .globalRecordNoMaxLength) {
-                                        return 'Max 14 characters';
-                                      }
-                                      return null;
+                                      final err =
+                                          GlobalRecordValidator.validate(
+                                        v ?? '',
+                                      );
+                                      if (err != null) return err;
+                                      return _globalRecordError;
                                     },
+                                  ),
+                                  DuplicateWarningWidget(
+                                    field: 'Global Record No.',
+                                    value: _globalRecordNo.text.trim(),
+                                    isDuplicate:
+                                        _duplicateGlobalRecordMemberId != null,
+                                    onViewExisting: () =>
+                                        _openExistingDuplicate(
+                                      _duplicateGlobalRecordMemberId,
+                                    ),
                                   ),
                                   TextFormField(
                                     controller: _memberName,
@@ -1561,6 +1801,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                             ? 'Required'
                                             : null,
                                   ),
+                                  const SizedBox(height: 8),
                                   TextFormField(
                                     controller: _surname,
                                     enabled: !_formReadOnly,
@@ -1573,8 +1814,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                             ? 'Required'
                                             : null,
                                   ),
-                                ],
-                              ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 16),

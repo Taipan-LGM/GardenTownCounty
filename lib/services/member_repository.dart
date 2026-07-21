@@ -1,13 +1,16 @@
+import '../core/exceptions/duplicate_exception.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import 'database_service.dart';
+import 'member_duplicate_service.dart';
 import 'sync_engine.dart';
 
 class MemberRepository {
-  MemberRepository(this._db, this._sync);
+  MemberRepository(this._db, this._sync, this._duplicates);
 
   final DatabaseService _db;
   final SyncEngine _sync;
+  final MemberDuplicateService _duplicates;
 
   Future<List<Member>> getAll() => _db.getAllMembers();
 
@@ -16,11 +19,16 @@ class MemberRepository {
   Future<List<Member>> search(String query) => _db.searchMembers(query);
 
   Future<Member> save(Member member) async {
+    await _duplicates.assertUnique(member);
     final stamped = member.copyWith(
       updatedAt: DateTime.now().toUtc(),
       pendingSync: true,
     );
-    await _db.upsertMember(stamped);
+    try {
+      await _db.upsertMember(stamped);
+    } on DuplicateException {
+      rethrow;
+    }
     await _sync.pushPending();
     return stamped;
   }

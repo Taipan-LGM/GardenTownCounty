@@ -10,6 +10,7 @@ import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
+import 'screens/member/duplicate_report_screen.dart';
 import 'screens/member/locked_members_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
@@ -274,6 +275,8 @@ class _AppShellState extends ConsumerState<AppShell>
         return user.hasPermission(AppPermission.activities);
       case AppSection.addUser:
       case AppSection.backupRestore:
+      case AppSection.lockedMembers:
+      case AppSection.duplicateReport:
         return user.isAdmin;
       case AppSection.global528:
         return user.hasPermission(AppPermission.global528);
@@ -281,8 +284,6 @@ class _AppShellState extends ConsumerState<AppShell>
         return user.hasPermission(AppPermission.global928);
       case AppSection.lro:
         return user.hasPermission(AppPermission.lro);
-      case AppSection.lockedMembers:
-        return user.isAdmin;
     }
   }
 
@@ -312,6 +313,8 @@ class _AppShellState extends ConsumerState<AppShell>
         return 'LRO';
       case AppSection.lockedMembers:
         return 'Locked Members';
+      case AppSection.duplicateReport:
+        return 'Duplicate Management';
     }
   }
 
@@ -341,6 +344,8 @@ class _AppShellState extends ConsumerState<AppShell>
         return const PlaceholderScreen(title: 'LRO');
       case AppSection.lockedMembers:
         return const LockedMembersScreen();
+      case AppSection.duplicateReport:
+        return const DuplicateReportScreen();
     }
   }
 }

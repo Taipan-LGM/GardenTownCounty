@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/exceptions/duplicate_exception.dart';
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
 import '../models/lookup_item.dart';
@@ -192,12 +193,16 @@ class SyncEngine {
       if (local == null ||
           remote.updatedAt.isAfter(local.updatedAt) ||
           (remote.deleted && !local.deleted)) {
-        await _db.upsertMember(
-          remote.copyWith(
-            pendingSync: false,
-            photoLocalPath: local?.photoLocalPath,
-          ),
-        );
+        try {
+          await _db.upsertMember(
+            remote.copyWith(
+              pendingSync: false,
+              photoLocalPath: local?.photoLocalPath,
+            ),
+          );
+        } on DuplicateException catch (e) {
+          debugPrint('Skipped remote member ${remote.id}: $e');
+        }
       }
     }
   }
@@ -345,8 +350,51 @@ class SyncEngine {
       ));
     }
     await _commitBatches(AppConstants.membersCollection, docs);
+    await _claimMemberUniquenessLocks(pending);
     for (final member in pending) {
       await _db.markMemberSynced(member.id);
+    }
+  }
+
+  /// Claim Firestore uniqueness lock docs (create fails if already owned elsewhere).
+  Future<void> _claimMemberUniquenessLocks(List<Member> members) async {
+    for (final member in members) {
+      if (member.deleted) continue;
+      try {
+        final saRef = _fs
+            .collection(AppConstants.membersUniqueSaIdCollection)
+            .doc(member.saId);
+        final grRef = _fs
+            .collection(AppConstants.membersUniqueGlobalRecordCollection)
+            .doc(member.globalRecordNo);
+
+        final saSnap = await saRef.get();
+        if (!saSnap.exists) {
+          await saRef.set({
+            'memberId': member.id,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        } else if (saSnap.data()?['memberId'] != member.id) {
+          debugPrint(
+            'Cloud uniqueness lock conflict for SA ID ${member.saId}',
+          );
+        }
+
+        final grSnap = await grRef.get();
+        if (!grSnap.exists) {
+          await grRef.set({
+            'memberId': member.id,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        } else if (grSnap.data()?['memberId'] != member.id) {
+          debugPrint(
+            'Cloud uniqueness lock conflict for Global Record '
+            '${member.globalRecordNo}',
+          );
+        }
+      } catch (e) {
+        debugPrint('Uniqueness lock claim failed for ${member.id}: $e');
+      }
     }
   }
 

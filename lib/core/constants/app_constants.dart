@@ -2,7 +2,7 @@ class AppConstants {
   static const String appName = 'Garden Town County';
   /// Keep in sync with pubspec.yaml `version:`.
   /// Scheme: v1.1.8 → v1.1.9 … v1.1.99 → v1.2.0
-  static const String appVersion = '1.8.3';
+  static const String appVersion = '1.9.0';
   static String get versionLabel => 'v$appVersion';
 
   static const String logoAsset = 'assets/images/county_logo.png';
@@ -10,6 +10,9 @@ class AppConstants {
   static const String logoAltAsset = 'assets/images/county_logo_alt.png';
 
   static const String membersCollection = 'members';
+  static const String membersUniqueSaIdCollection = 'members_unique_sa_id';
+  static const String membersUniqueGlobalRecordCollection =
+      'members_unique_global_record';
   static const String lookupsCollection = 'lookups';
   static const String memberFilesCollection = 'member_files';
   static const String activitiesCollection = 'activities';

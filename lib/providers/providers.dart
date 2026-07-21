@@ -17,10 +17,12 @@ import '../services/auth_service.dart';
 import '../services/auto_backup_scheduler.dart';
 import '../services/backup_auth_service.dart';
 import '../services/backup_service.dart';
+import '../services/bulk_import_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
+import '../services/member_duplicate_service.dart';
 import '../services/member_repository.dart';
 import '../services/member_lock_service.dart';
 import '../services/temporary_access_service.dart';
@@ -115,10 +117,22 @@ final syncStatusProvider = StreamProvider<SyncState>((ref) async* {
   yield* engine.statusStream;
 });
 
+final memberDuplicateServiceProvider = Provider<MemberDuplicateService>((ref) {
+  return MemberDuplicateService(ref.watch(databaseServiceProvider));
+});
+
+final bulkImportServiceProvider = Provider<BulkImportService>((ref) {
+  return BulkImportService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(memberDuplicateServiceProvider),
+  );
+});
+
 final memberRepositoryProvider = Provider<MemberRepository>((ref) {
   return MemberRepository(
     ref.watch(databaseServiceProvider),
     ref.watch(syncEngineProvider),
+    ref.watch(memberDuplicateServiceProvider),
   );
 });
 
@@ -229,6 +243,7 @@ enum AppSection {
   global928,
   lro,
   lockedMembers,
+  duplicateReport,
 }
 
 final appSectionProvider = StateProvider<AppSection>((ref) => AppSection.home);

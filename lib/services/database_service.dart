@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/exceptions/duplicate_exception.dart';
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
 import '../models/lookup_item.dart';
@@ -55,6 +56,30 @@ class DatabaseService {
     return database;
   }
 
+  /// Force in-memory mode for unit tests (no SQLite file).
+  Future<void> initForTests() async {
+    _memoryMode = true;
+    _initialized = true;
+    _db = null;
+    await clearAllForTests();
+  }
+
+  Future<void> clearAllForTests() async {
+    _members.clear();
+    _lookups.clear();
+    _files.clear();
+    _activities.clear();
+    _presets.clear();
+    _appUsers.clear();
+    _roles.clear();
+    _lroCases.clear();
+    _lroNotices.clear();
+    _lroDocuments.clear();
+    _lroHistory.clear();
+    _reminders.clear();
+    _tempAccessLogs.clear();
+  }
+
   Future<void> init() async {
     if (_initialized) return;
 
@@ -78,7 +103,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 9,
+      version: 10,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -273,6 +298,15 @@ class DatabaseService {
         'temporary_access_logs',
         'revokedReason',
         'TEXT',
+      );
+    }
+    if (oldVersion < 10) {
+      await database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_members_saId ON members(saId)',
+      );
+      await database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_members_globalRecordNo '
+        'ON members(globalRecordNo)',
       );
     }
   }
@@ -524,6 +558,13 @@ class DatabaseService {
         deleted INTEGER NOT NULL DEFAULT 0
       )
     ''');
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_members_saId ON members(saId)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_members_globalRecordNo '
+      'ON members(globalRecordNo)',
+    );
 
     await database.execute('''
       CREATE TABLE lookups (
@@ -989,22 +1030,106 @@ class DatabaseService {
   }
 
   Future<Member?> getMemberBySaId(String saId) async {
+    return findMemberBySaId(saId);
+  }
+
+  /// Find active member by SA ID, optionally excluding one member (edit mode).
+  Future<Member?> findMemberBySaId(
+    String saId, {
+    String? excludeMemberId,
+  }) async {
     final key = saId.trim();
     if (key.isEmpty) return null;
     if (_memoryMode) {
       for (final m in _members.values) {
-        if (!m.deleted && m.saId == key) return m;
+        if (m.deleted) continue;
+        if (excludeMemberId != null && m.id == excludeMemberId) continue;
+        if (m.saId == key) return m;
       }
       return null;
     }
     final rows = await db.query(
       'members',
-      where: 'saId = ? AND deleted = 0',
-      whereArgs: [key],
+      where: excludeMemberId == null
+          ? 'saId = ? AND deleted = 0'
+          : 'saId = ? AND deleted = 0 AND id != ?',
+      whereArgs: excludeMemberId == null ? [key] : [key, excludeMemberId],
       limit: 1,
     );
     if (rows.isEmpty) return null;
     return Member.fromMap(rows.first);
+  }
+
+  Future<Member?> getMemberByGlobalRecordNo(String globalRecordNo) async {
+    return findMemberByGlobalRecordNo(globalRecordNo);
+  }
+
+  /// Find active member by Global Record No., optionally excluding one member.
+  Future<Member?> findMemberByGlobalRecordNo(
+    String globalRecordNo, {
+    String? excludeMemberId,
+  }) async {
+    final key = globalRecordNo.trim();
+    if (key.isEmpty) return null;
+    if (_memoryMode) {
+      for (final m in _members.values) {
+        if (m.deleted) continue;
+        if (excludeMemberId != null && m.id == excludeMemberId) continue;
+        if (m.globalRecordNo == key) return m;
+      }
+      return null;
+    }
+    final rows = await db.query(
+      'members',
+      where: excludeMemberId == null
+          ? 'globalRecordNo = ? AND deleted = 0'
+          : 'globalRecordNo = ? AND deleted = 0 AND id != ?',
+      whereArgs: excludeMemberId == null ? [key] : [key, excludeMemberId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Member.fromMap(rows.first);
+  }
+
+  Future<bool> checkSaIdExists(
+    String saId, {
+    String? excludeMemberId,
+  }) async {
+    final found = await findMemberBySaId(saId, excludeMemberId: excludeMemberId);
+    return found != null;
+  }
+
+  Future<bool> checkGlobalRecordExists(
+    String globalRecordNo, {
+    String? excludeMemberId,
+  }) async {
+    final found = await findMemberByGlobalRecordNo(
+      globalRecordNo,
+      excludeMemberId: excludeMemberId,
+    );
+    return found != null;
+  }
+
+  /// Groups of members sharing the same SA ID or Global Record (data repair).
+  Future<List<({String field, String value, List<Member> members})>>
+      findDuplicateMemberGroups() async {
+    final all = await getAllMembers();
+    final bySa = <String, List<Member>>{};
+    final byGr = <String, List<Member>>{};
+    for (final m in all) {
+      bySa.putIfAbsent(m.saId, () => []).add(m);
+      byGr.putIfAbsent(m.globalRecordNo, () => []).add(m);
+    }
+    final groups = <({String field, String value, List<Member> members})>[];
+    for (final e in bySa.entries) {
+      if (e.key.isEmpty || e.value.length < 2) continue;
+      groups.add((field: 'SA ID', value: e.key, members: e.value));
+    }
+    for (final e in byGr.entries) {
+      if (e.key.isEmpty || e.value.length < 2) continue;
+      groups.add((field: 'Global Record No.', value: e.key, members: e.value));
+    }
+    return groups;
   }
 
   Future<AppUser?> getAppUserByMemberId(String memberId) async {
@@ -1063,15 +1188,53 @@ class DatabaseService {
   }
 
   Future<void> upsertMember(Member member) async {
+    // Pre-check uniqueness (memory + SQLite) so ConflictAlgorithm.replace
+    // cannot silently delete another member on saId/globalRecord clash.
+    final saClash = await findMemberBySaId(
+      member.saId,
+      excludeMemberId: member.id,
+    );
+    if (saClash != null) {
+      throw DuplicateException(
+        'SA ID already exists',
+        field: 'SA ID',
+        value: member.saId,
+        existingMemberId: saClash.id,
+      );
+    }
+    final grClash = await findMemberByGlobalRecordNo(
+      member.globalRecordNo,
+      excludeMemberId: member.id,
+    );
+    if (grClash != null) {
+      throw DuplicateException(
+        'Global Record No. already exists',
+        field: 'Global Record No.',
+        value: member.globalRecordNo,
+        existingMemberId: grClash.id,
+      );
+    }
+
     if (_memoryMode) {
       _members[member.id] = member;
       return;
     }
-    await db.insert(
-      'members',
-      member.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+
+    final existing = await getMemberById(member.id);
+    if (existing == null) {
+      await db.insert(
+        'members',
+        member.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+    } else {
+      await db.update(
+        'members',
+        member.toMap(),
+        where: 'id = ?',
+        whereArgs: [member.id],
+      );
+    }
   }
 
   Future<void> softDeleteMember(String id) async {
