@@ -1,14 +1,18 @@
 import 'package:uuid/uuid.dart';
 
-import '../core/constants/app_constants.dart';
+import 'user_role.dart';
 
 class AppUser {
   final String id;
   final String username;
   final String displayName;
   final String passwordHash;
-  /// Rights / Role name (e.g. Admin, Manager, Supervisor, User, or custom).
+  /// Storage: Admin | Recording Secretary | Member
   final String role;
+  /// Linked member profile id (optional).
+  final String? memberId;
+  /// Recording Secretary module rights (comma-separated AppPermission codes).
+  final String permissionsRaw;
   final DateTime updatedAt;
   final bool pendingSync;
   final bool deleted;
@@ -20,22 +24,43 @@ class AppUser {
     required this.displayName,
     required this.passwordHash,
     required this.role,
+    this.memberId,
+    this.permissionsRaw = '',
     required this.updatedAt,
     this.pendingSync = true,
     this.deleted = false,
     this.active = true,
   });
 
-  bool get isAdmin => role.trim().toLowerCase() == 'admin';
+  UserRole get userRole => UserRole.fromStorage(role);
 
-  /// Stable System Administrator account (id demo-admin). Username may change.
+  List<AppPermission> get permissions =>
+      AppPermission.parseList(permissionsRaw);
+
+  bool get isAdmin => userRole.isAdmin;
+
+  bool get isSecretary => userRole.isSecretary;
+
+  bool get isMemberRole => userRole.isMember;
+
+  /// Stable System Administrator account (id demo-admin).
   bool get isSystemAdministrator => id == 'demo-admin';
+
+  bool hasPermission(AppPermission permission) {
+    if (isAdmin) return true;
+    if (isMemberRole) {
+      return permission == AppPermission.memberInfo;
+    }
+    return permissions.contains(permission);
+  }
 
   factory AppUser.create({
     required String username,
     required String displayName,
     required String passwordHash,
     required String role,
+    String? memberId,
+    List<AppPermission> permissions = const [],
   }) {
     return AppUser(
       id: const Uuid().v4(),
@@ -43,6 +68,8 @@ class AppUser {
       displayName: displayName.trim(),
       passwordHash: passwordHash,
       role: role.trim(),
+      memberId: memberId,
+      permissionsRaw: AppPermission.encodeList(permissions),
       updatedAt: DateTime.now().toUtc(),
     );
   }
@@ -53,10 +80,14 @@ class AppUser {
     String? displayName,
     String? passwordHash,
     String? role,
+    String? memberId,
+    String? permissionsRaw,
+    List<AppPermission>? permissions,
     DateTime? updatedAt,
     bool? pendingSync,
     bool? deleted,
     bool? active,
+    bool clearMemberId = false,
   }) {
     return AppUser(
       id: id ?? this.id,
@@ -64,6 +95,10 @@ class AppUser {
       displayName: displayName ?? this.displayName,
       passwordHash: passwordHash ?? this.passwordHash,
       role: role ?? this.role,
+      memberId: clearMemberId ? null : (memberId ?? this.memberId),
+      permissionsRaw: permissions != null
+          ? AppPermission.encodeList(permissions)
+          : (permissionsRaw ?? this.permissionsRaw),
       updatedAt: updatedAt ?? this.updatedAt,
       pendingSync: pendingSync ?? this.pendingSync,
       deleted: deleted ?? this.deleted,
@@ -78,6 +113,8 @@ class AppUser {
       'displayName': displayName,
       'passwordHash': passwordHash,
       'role': role,
+      'memberId': memberId,
+      'permissions': permissionsRaw,
       'updatedAt': updatedAt.toIso8601String(),
       'pendingSync': pendingSync ? 1 : 0,
       'deleted': deleted ? 1 : 0,
@@ -92,6 +129,8 @@ class AppUser {
       'displayName': displayName,
       'passwordHash': passwordHash,
       'role': role,
+      'memberId': memberId,
+      'permissions': permissionsRaw,
       'updatedAt': updatedAt.toIso8601String(),
       'deleted': deleted,
       'active': active,
@@ -104,7 +143,9 @@ class AppUser {
       username: map['username'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
       passwordHash: map['passwordHash'] as String? ?? '',
-      role: map['role'] as String? ?? 'User',
+      role: map['role'] as String? ?? UserRole.member.storageName,
+      memberId: map['memberId'] as String?,
+      permissionsRaw: map['permissions'] as String? ?? '',
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: (map['pendingSync'] as int? ?? 0) == 1,
@@ -119,7 +160,9 @@ class AppUser {
       username: map['username'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
       passwordHash: map['passwordHash'] as String? ?? '',
-      role: map['role'] as String? ?? 'User',
+      role: map['role'] as String? ?? UserRole.member.storageName,
+      memberId: map['memberId'] as String?,
+      permissionsRaw: map['permissions'] as String? ?? '',
       updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       pendingSync: false,

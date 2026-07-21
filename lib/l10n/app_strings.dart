@@ -22,6 +22,9 @@ class AppStrings {
   String get backupRestore =>
       isAf ? 'Rugsteun & Herstel' : 'Backup & Restore';
   String get addUser => isAf ? 'Voeg Gebruiker By' : 'Add User';
+  String get userManagement =>
+      isAf ? 'Gebruikerbestuur' : 'User Management';
+  String get reminders => isAf ? 'Herinnerings' : 'Reminders';
   String get activities => isAf ? 'Aktiwiteite' : 'Activities';
   String get signOut => isAf ? 'Teken uit' : 'Sign out';
 

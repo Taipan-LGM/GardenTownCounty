@@ -3,13 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'models/user_role.dart';
 import 'providers/providers.dart';
+import 'services/auth_service.dart';
 import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
+import 'screens/reminders/reminders_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
@@ -124,13 +127,8 @@ class _AppShellState extends ConsumerState<AppShell>
   Widget build(BuildContext context) {
     final section = ref.watch(appSectionProvider);
     final refreshTick = ref.watch(appRefreshTickProvider);
-    final isAdmin = ref.watch(isAdminProvider);
-    final landingComplete = ref.watch(landingCompleteProvider);
-
-    final effectiveSection = (!isAdmin &&
-            (section == AppSection.activities ||
-                section == AppSection.addUser ||
-                section == AppSection.backupRestore))
+    final user = ref.watch(authUserProvider);
+    final effectiveSection = !_canAccessSection(section, user)
         ? AppSection.home
         : section;
 
@@ -139,6 +137,8 @@ class _AppShellState extends ConsumerState<AppShell>
         ref.read(appSectionProvider.notifier).state = AppSection.home;
       });
     }
+
+    final landingComplete = ref.watch(landingCompleteProvider);
 
     final showLandingChrome = effectiveSection == AppSection.home;
 
@@ -254,6 +254,32 @@ class _AppShellState extends ConsumerState<AppShell>
     );
   }
 
+  bool _canAccessSection(AppSection section, AuthUser? user) {
+    if (user == null) return section == AppSection.home;
+    switch (section) {
+      case AppSection.home:
+      case AppSection.settings:
+        return true;
+      case AppSection.memberInfo:
+        return user.hasPermission(AppPermission.memberInfo);
+      case AppSection.sos:
+        return user.hasPermission(AppPermission.sos);
+      case AppSection.reminders:
+        return user.hasPermission(AppPermission.reminders);
+      case AppSection.activities:
+        return user.hasPermission(AppPermission.activities);
+      case AppSection.addUser:
+      case AppSection.backupRestore:
+        return user.isAdmin;
+      case AppSection.global528:
+        return user.hasPermission(AppPermission.global528);
+      case AppSection.global928:
+        return user.hasPermission(AppPermission.global928);
+      case AppSection.lro:
+        return user.hasPermission(AppPermission.lro);
+    }
+  }
+
   String _titleFor(AppSection section) {
     switch (section) {
       case AppSection.home:
@@ -264,10 +290,12 @@ class _AppShellState extends ConsumerState<AppShell>
         return 'Member Info';
       case AppSection.sos:
         return 'SOS';
+      case AppSection.reminders:
+        return 'Reminders';
       case AppSection.activities:
         return 'Activities';
       case AppSection.addUser:
-        return 'Add User';
+        return 'User Management';
       case AppSection.backupRestore:
         return 'Backup & Restore';
       case AppSection.global528:
@@ -289,6 +317,8 @@ class _AppShellState extends ConsumerState<AppShell>
         return const MemberFormScreen();
       case AppSection.sos:
         return const SosScreen();
+      case AppSection.reminders:
+        return const RemindersScreen();
       case AppSection.activities:
         return const ActivitiesScreen();
       case AppSection.addUser:

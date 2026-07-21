@@ -136,8 +136,10 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
+    final size = MediaQuery.sizeOf(context);
+    // Top-right, opposite the hamburger (top-left). Arrow still points left.
     final top = padding.top + 32;
-    const left = 52.0;
+    final left = size.width - 210;
 
     return SizedBox.expand(
       child: IgnorePointer(

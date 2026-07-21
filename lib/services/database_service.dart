@@ -13,6 +13,7 @@ import '../models/lro_history.dart';
 import '../models/lro_notice.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
+import '../models/reminder.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
 import 'password_hasher.dart';
@@ -42,6 +43,7 @@ class DatabaseService {
   final Map<String, LroNotice> _lroNotices = {};
   final Map<String, LroDocument> _lroDocuments = {};
   final Map<String, LroHistory> _lroHistory = {};
+  final Map<String, Reminder> _reminders = {};
 
   Database get db {
     final database = _db;
@@ -74,7 +76,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 5,
+      version: 6,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -107,6 +109,44 @@ class DatabaseService {
     if (oldVersion < 5) {
       await _createLroTables(database);
     }
+    if (oldVersion < 6) {
+      await _addColumnIfMissing(database, 'app_users', 'permissions', 'TEXT');
+      await _addColumnIfMissing(database, 'app_users', 'memberId', 'TEXT');
+      await _createRemindersTable(database);
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database database,
+    String table,
+    String column,
+    String type,
+  ) async {
+    final info = await database.rawQuery('PRAGMA table_info($table)');
+    final exists = info.any((row) => row['name'] == column);
+    if (!exists) {
+      await database.execute('ALTER TABLE $table ADD COLUMN $column $type');
+    }
+  }
+
+  Future<void> _createRemindersTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS reminders (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        memberId TEXT NOT NULL,
+        createdBy TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        reminderDateTime TEXT NOT NULL,
+        priority TEXT NOT NULL DEFAULT 'Medium',
+        isCompleted INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
   }
 
   Future<void> _createAppUsersTable(Database database) async {
@@ -117,6 +157,8 @@ class DatabaseService {
         displayName TEXT NOT NULL,
         passwordHash TEXT NOT NULL,
         role TEXT NOT NULL,
+        memberId TEXT,
+        permissions TEXT,
         updatedAt TEXT NOT NULL,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0,
@@ -326,6 +368,7 @@ class DatabaseService {
     await _createAppUsersTable(database);
     await _createRolesTable(database);
     await _createLroTables(database);
+    await _createRemindersTable(database);
   }
 
   Future<void> ensureSeedAdmin() async {
@@ -349,16 +392,15 @@ class DatabaseService {
   Future<void> ensureSeedRoles() async {
     const seeds = <({String name, bool admin, bool system})>[
       (name: 'Admin', admin: true, system: true),
-      (name: 'Manager', admin: false, system: true),
-      (name: 'Supervisor', admin: false, system: true),
-      (name: 'User', admin: false, system: true),
+      (name: 'Recording Secretary', admin: false, system: true),
+      (name: 'Member', admin: false, system: true),
     ];
     for (final seed in seeds) {
       final existing = await getRoleByName(seed.name);
       if (existing != null) continue;
       await upsertRole(
         RoleDefinition(
-          id: 'role-${seed.name.toLowerCase()}',
+          id: 'role-${seed.name.toLowerCase().replaceAll(' ', '-')}',
           name: seed.name,
           isSystem: seed.system,
           grantsAdmin: seed.admin,
@@ -584,6 +626,105 @@ class DatabaseService {
     }
     await db.update(
       'app_users',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ── Reminders ──────────────────────────────────────────────────────────
+
+  Future<List<Reminder>> getReminders({bool includeCompleted = true}) async {
+    if (_memoryMode) {
+      final list = _reminders.values
+          .where((r) => !r.deleted && (includeCompleted || !r.isCompleted))
+          .toList()
+        ..sort(
+          (a, b) => a.reminderDateTime.compareTo(b.reminderDateTime),
+        );
+      return list;
+    }
+    final where = includeCompleted
+        ? 'deleted = 0'
+        : 'deleted = 0 AND isCompleted = 0';
+    final rows = await db.query(
+      'reminders',
+      where: where,
+      orderBy: 'reminderDateTime ASC',
+    );
+    return rows.map(Reminder.fromMap).toList();
+  }
+
+  Future<Reminder?> getReminderById(String id) async {
+    if (_memoryMode) {
+      final reminder = _reminders[id];
+      if (reminder == null || reminder.deleted) return null;
+      return reminder;
+    }
+    final rows = await db.query(
+      'reminders',
+      where: 'id = ? AND deleted = 0',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Reminder.fromMap(rows.first);
+  }
+
+  Future<List<Reminder>> getPendingReminders() async {
+    if (_memoryMode) {
+      return _reminders.values.where((r) => r.pendingSync).toList();
+    }
+    final rows = await db.query('reminders', where: 'pendingSync = 1');
+    return rows.map(Reminder.fromMap).toList();
+  }
+
+  Future<void> upsertReminder(Reminder reminder) async {
+    if (_memoryMode) {
+      _reminders[reminder.id] = reminder;
+      return;
+    }
+    await db.insert(
+      'reminders',
+      reminder.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> softDeleteReminder(String id) async {
+    if (_memoryMode) {
+      final reminder = _reminders[id];
+      if (reminder != null) {
+        _reminders[id] = reminder.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
+    await db.update(
+      'reminders',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markReminderSynced(String id) async {
+    if (_memoryMode) {
+      final reminder = _reminders[id];
+      if (reminder != null) {
+        _reminders[id] = reminder.copyWith(pendingSync: false);
+      }
+      return;
+    }
+    await db.update(
+      'reminders',
       {'pendingSync': 0},
       where: 'id = ?',
       whereArgs: [id],
@@ -1463,6 +1604,7 @@ class DatabaseService {
       'lro_notices': _lroNotices.values.map((n) => n.toMap()).toList(),
       'lro_documents': _lroDocuments.values.map((d) => d.toMap()).toList(),
       'lro_history': _lroHistory.values.map((h) => h.toMap()).toList(),
+      'reminders': _reminders.values.map((r) => r.toMap()).toList(),
     };
   }
 
@@ -1544,6 +1686,13 @@ class DatabaseService {
             .cast<Map<String, dynamic>>()
             .map((m) => MapEntry(m['id'] as String, LroHistory.fromMap(m))),
       );
+    _reminders
+      ..clear()
+      ..addEntries(
+        ((snapshot['reminders'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, Reminder.fromMap(m))),
+      );
   }
 
   /// Mark all non-deleted rows pending so restore can push to cloud.
@@ -1589,6 +1738,10 @@ class DatabaseService {
         final h = _lroHistory[id];
         if (h != null) _lroHistory[id] = h.copyWith(pendingSync: true);
       }
+      for (final id in _reminders.keys.toList()) {
+        final r = _reminders[id];
+        if (r != null) _reminders[id] = r.copyWith(pendingSync: true);
+      }
       return;
     }
     await db.update('members', {'pendingSync': 1});
@@ -1602,5 +1755,6 @@ class DatabaseService {
     await db.update('lro_notices', {'pendingSync': 1});
     await db.update('lro_documents', {'pendingSync': 1});
     await db.update('lro_history', {'pendingSync': 1});
+    await db.update('reminders', {'pendingSync': 1});
   }
 }

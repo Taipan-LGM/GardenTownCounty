@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_constants.dart';
 import '../models/app_user.dart';
 import '../models/role_definition.dart';
+import '../models/user_role.dart';
 import 'database_service.dart';
 import 'firebase_bootstrap.dart';
 import 'password_hasher.dart';
@@ -15,6 +16,8 @@ class AuthUser {
   final String? email;
   final String username;
   final String role;
+  final String? memberId;
+  final List<AppPermission> permissions;
 
   const AuthUser({
     required this.id,
@@ -22,11 +25,39 @@ class AuthUser {
     this.email,
     required this.username,
     required this.role,
+    this.memberId,
+    this.permissions = const [],
   });
 
-  bool get isAdmin => role.trim().toLowerCase() == 'admin';
+  UserRole get userRole => UserRole.fromStorage(role);
+
+  bool get isAdmin => userRole.isAdmin;
+
+  bool get isSecretary => userRole.isSecretary;
+
+  bool get isMemberRole => userRole.isMember;
 
   bool get isSystemAdministrator => id == 'demo-admin';
+
+  bool hasPermission(AppPermission permission) {
+    if (isAdmin) return true;
+    if (isMemberRole) {
+      return permission == AppPermission.memberInfo;
+    }
+    return permissions.contains(permission);
+  }
+
+  factory AuthUser.fromAppUser(AppUser user, {String? email}) {
+    return AuthUser(
+      id: user.id,
+      displayName: user.displayName,
+      email: email,
+      username: user.username,
+      role: user.role,
+      memberId: user.memberId,
+      permissions: user.permissions,
+    );
+  }
 }
 
 class AuthService {
@@ -38,6 +69,8 @@ class AuthService {
   static const _prefsNameKey = 'gtc_display_name';
   static const _prefsRoleKey = 'gtc_role';
   static const _prefsUsernameKey = 'gtc_username';
+  static const _prefsPermissionsKey = 'gtc_permissions';
+  static const _prefsMemberIdKey = 'gtc_member_id';
 
   AuthUser? _currentUser;
   AuthUser? get currentUser => _currentUser;
@@ -48,12 +81,25 @@ class AuthService {
     final id = prefs.getString(_prefsUserKey);
     final role = prefs.getString(_prefsRoleKey);
     final username = prefs.getString(_prefsUsernameKey);
+    final permissionsRaw = prefs.getString(_prefsPermissionsKey);
+    final memberId = prefs.getString(_prefsMemberIdKey);
     if (name != null && id != null) {
+      var perms = AppPermission.parseList(permissionsRaw);
+      var resolvedMemberId = memberId;
+      var resolvedRole = role ?? UserRole.member.storageName;
+      final local = await _db.getAppUserById(id);
+      if (local != null) {
+        resolvedRole = local.role;
+        perms = local.permissions;
+        resolvedMemberId = local.memberId;
+      }
       _currentUser = AuthUser(
         id: id,
         displayName: name,
         username: username ?? name,
-        role: role ?? 'User',
+        role: resolvedRole,
+        memberId: resolvedMemberId,
+        permissions: perms,
       );
     }
   }
@@ -79,13 +125,15 @@ class AuthService {
         final displayName = user.displayName?.trim().isNotEmpty == true
             ? user.displayName!.trim()
             : (local?.displayName ?? user.email ?? trimmed);
-        final authUser = AuthUser(
-          id: user.uid,
-          displayName: displayName,
-          email: user.email,
-          username: local?.username ?? trimmed.toLowerCase(),
-          role: local?.role ?? 'User',
-        );
+        final authUser = local != null
+            ? AuthUser.fromAppUser(local, email: user.email)
+            : AuthUser(
+                id: user.uid,
+                displayName: displayName,
+                email: user.email,
+                username: trimmed.toLowerCase(),
+                role: UserRole.member.storageName,
+              );
         await _persist(authUser);
         return authUser;
       } on FirebaseAuthException catch (error) {
@@ -98,13 +146,7 @@ class AuthService {
         operator.active &&
         !operator.deleted &&
         PasswordHasher.verify(password, operator.passwordHash)) {
-      final authUser = AuthUser(
-        id: operator.id,
-        displayName: operator.displayName,
-        email: null,
-        username: operator.username,
-        role: operator.role,
-      );
+      final authUser = AuthUser.fromAppUser(operator);
       await _persist(authUser);
       return authUser;
     }
@@ -114,12 +156,7 @@ class AuthService {
       await _db.ensureSeedAdmin();
       final seeded = await _db.getAppUserByUsername(AppConstants.demoUsername);
       if (seeded != null) {
-        final authUser = AuthUser(
-          id: seeded.id,
-          displayName: seeded.displayName,
-          username: seeded.username,
-          role: seeded.role,
-        );
+        final authUser = AuthUser.fromAppUser(seeded);
         await _persist(authUser);
         return authUser;
       }
@@ -130,11 +167,16 @@ class AuthService {
     );
   }
 
+  String _normalizeRole(String role) =>
+      UserRole.fromStorage(role).storageName;
+
   Future<AppUser> createOperator({
     required String username,
     required String displayName,
     required String password,
     required String role,
+    List<AppPermission> permissions = const [],
+    String? memberId,
   }) async {
     _requireAdmin();
     final normalized = username.trim().toLowerCase();
@@ -144,9 +186,11 @@ class AuthService {
     if (password.trim().length < 6) {
       throw Exception('Password must be at least 6 characters.');
     }
-    final roleName = role.trim();
-    if (roleName.isEmpty) {
-      throw Exception('Rights / Role is required.');
+    final roleName = _normalizeRole(role);
+    if (roleName == UserRole.admin.storageName) {
+      throw Exception(
+        'Cannot create another Admin. Only one System Administrator exists.',
+      );
     }
 
     final existing = await _db.getAppUserByUsername(normalized);
@@ -159,6 +203,10 @@ class AuthService {
       displayName: displayName.trim().isEmpty ? normalized : displayName.trim(),
       passwordHash: PasswordHasher.hash(password),
       role: roleName,
+      memberId: memberId,
+      permissions: roleName == UserRole.secretary.storageName
+          ? permissions
+          : const [],
     );
     await _db.upsertAppUser(user);
     return user;
@@ -170,6 +218,9 @@ class AuthService {
     required String role,
     String? newPassword,
     String? username,
+    List<AppPermission>? permissions,
+    String? memberId,
+    bool clearMemberId = false,
   }) async {
     _requireAdmin();
     final user = await _db.getAppUserById(id);
@@ -201,14 +252,14 @@ class AuthService {
       }
     }
 
-    var roleName = role.trim();
+    var roleName = _normalizeRole(role);
     if (roleName.isEmpty) {
       throw Exception('Rights / Role is required.');
     }
 
     // System Administrator must remain Admin.
     if (editingSysAdmin) {
-      roleName = 'Admin';
+      roleName = UserRole.admin.storageName;
     }
 
     // Password change on System Administrator: only the SysAdmin themselves.
@@ -246,10 +297,17 @@ class AuthService {
         ? (user.displayName.isEmpty ? nextUsername : user.displayName)
         : displayName.trim();
 
+    final resolvedPermissions = roleName == UserRole.secretary.storageName
+        ? (permissions ?? user.permissions)
+        : const <AppPermission>[];
+
     var updated = user.copyWith(
       username: nextUsername,
       displayName: resolvedName.isEmpty ? nextUsername : resolvedName,
       role: roleName,
+      memberId: memberId,
+      clearMemberId: clearMemberId,
+      permissions: resolvedPermissions,
       pendingSync: true,
       updatedAt: DateTime.now().toUtc(),
     );
@@ -260,15 +318,7 @@ class AuthService {
 
     // Keep live session in sync when editing self.
     if (actor != null && actor.id == updated.id) {
-      await _persist(
-        AuthUser(
-          id: updated.id,
-          displayName: updated.displayName,
-          email: actor.email,
-          username: updated.username,
-          role: updated.role,
-        ),
-      );
+      await _persist(AuthUser.fromAppUser(updated, email: actor.email));
     }
 
     return updated;
@@ -302,7 +352,12 @@ class AuthService {
       throw Exception('You cannot delete your own account.');
     }
     final user = await _db.getAppUserById(id);
-    if (user != null && (user.isAdmin || user.isSystemAdministrator)) {
+    if (user != null && user.isSystemAdministrator) {
+      throw Exception(
+        'The System Administrator cannot be deleted. This account is protected.',
+      );
+    }
+    if (user != null && user.isAdmin) {
       throw Exception(
         'Admin / System Administrator cannot be deleted.',
       );
@@ -412,6 +467,8 @@ class AuthService {
     await prefs.remove(_prefsNameKey);
     await prefs.remove(_prefsRoleKey);
     await prefs.remove(_prefsUsernameKey);
+    await prefs.remove(_prefsPermissionsKey);
+    await prefs.remove(_prefsMemberIdKey);
     _currentUser = null;
   }
 
@@ -421,6 +478,15 @@ class AuthService {
     await prefs.setString(_prefsNameKey, user.displayName);
     await prefs.setString(_prefsRoleKey, user.role);
     await prefs.setString(_prefsUsernameKey, user.username);
+    await prefs.setString(
+      _prefsPermissionsKey,
+      AppPermission.encodeList(user.permissions),
+    );
+    if (user.memberId != null) {
+      await prefs.setString(_prefsMemberIdKey, user.memberId!);
+    } else {
+      await prefs.remove(_prefsMemberIdKey);
+    }
     _currentUser = user;
   }
 }

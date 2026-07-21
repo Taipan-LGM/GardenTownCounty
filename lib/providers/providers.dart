@@ -6,8 +6,10 @@ import '../models/app_user.dart';
 import '../models/county_profile.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
+import '../models/reminder.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
+import '../models/user_role.dart';
 import '../services/activity_service.dart';
 import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
@@ -38,6 +40,16 @@ final authUserProvider = StateProvider<AuthUser?>((ref) => null);
 
 final isAdminProvider = Provider<bool>((ref) {
   return ref.watch(authUserProvider)?.isAdmin ?? false;
+});
+
+final isSecretaryProvider = Provider<bool>((ref) {
+  return ref.watch(authUserProvider)?.isSecretary ?? false;
+});
+
+final hasPermissionProvider = Provider.family<bool, AppPermission>((ref, permission) {
+  final user = ref.watch(authUserProvider);
+  if (user == null) return false;
+  return user.hasPermission(permission);
 });
 
 final appPreferencesServiceProvider = Provider<AppPreferencesService>((ref) {
@@ -156,12 +168,18 @@ final rolesProvider =
   return ref.watch(authServiceProvider).listRoles();
 });
 
+final remindersProvider =
+    FutureProvider.autoDispose<List<Reminder>>((ref) async {
+  return ref.watch(databaseServiceProvider).getReminders();
+});
+
 /// Navigation target shown inside the shell after login.
 enum AppSection {
   home,
   settings,
   memberInfo,
   sos,
+  reminders,
   activities,
   addUser,
   backupRestore,
@@ -185,6 +203,7 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);
   ref.invalidate(rolesProvider);
+  ref.invalidate(remindersProvider);
   ref.invalidate(backupAuthProvider);
   ref.invalidate(lastBackupAtProvider);
   ref.invalidate(countyProfileProvider);

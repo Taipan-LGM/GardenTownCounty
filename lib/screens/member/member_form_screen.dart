@@ -23,6 +23,8 @@ class MemberFormScreen extends ConsumerStatefulWidget {
 }
 
 class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
+  static const _maskValue = '********';
+
   final _formKey = GlobalKey<FormState>();
   final _saId = TextEditingController();
   final _globalRecordNo = TextEditingController();
@@ -48,6 +50,34 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _loading = true;
   bool _saving = false;
   bool _photoBusy = false;
+  String? _adminLinkedMemberId;
+
+  bool get _viewerIsSysAdmin =>
+      ref.read(authUserProvider)?.isSystemAdministrator ?? false;
+
+  bool get _isMemberOnly =>
+      ref.read(authUserProvider)?.isMemberRole ?? false;
+
+  String? get _viewerMemberId => ref.read(authUserProvider)?.memberId;
+
+  bool _isProtectedAdminMember(String? memberId) {
+    if (memberId == null || _adminLinkedMemberId == null) return false;
+    return memberId == _adminLinkedMemberId;
+  }
+
+  bool get _fieldsMasked =>
+      _isProtectedAdminMember(_currentId) && !_viewerIsSysAdmin;
+
+  bool get _canBrowseMembers => !_isMemberOnly;
+
+  bool get _canAddMembers => !_isMemberOnly && !_fieldsMasked;
+
+  bool get _formReadOnly =>
+      _fieldsMasked ||
+      (_isMemberOnly &&
+          _viewerMemberId != null &&
+          _currentId != null &&
+          _currentId != _viewerMemberId);
 
   @override
   void initState() {
@@ -70,13 +100,46 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final members = await ref.read(memberRepositoryProvider).getAll();
+    final dbUsers = await ref.read(databaseServiceProvider).getAppUsers();
+    String? adminMemberId;
+    for (final u in dbUsers) {
+      if (u.isSystemAdministrator) {
+        adminMemberId = u.memberId;
+        break;
+      }
+    }
+
+    var members = await ref.read(memberRepositoryProvider).getAll();
+    final auth = ref.read(authUserProvider);
+    if (auth?.isMemberRole == true) {
+      final linked = auth!.memberId;
+      if (linked != null) {
+        members = members.where((m) => m.id == linked).toList();
+      } else {
+        members = [];
+      }
+    }
+
     final selectedId = ref.read(selectedMemberIdProvider);
     if (!mounted) return;
     setState(() {
       _members = members;
+      _adminLinkedMemberId = adminMemberId;
       _loading = false;
     });
+
+    if (auth?.isMemberRole == true) {
+      final linked = auth!.memberId;
+      if (linked != null) {
+        final index = members.indexWhere((m) => m.id == linked);
+        if (index >= 0) {
+          _loadMember(members[index], index);
+          return;
+        }
+      }
+      _clearForm(newMember: false);
+      return;
+    }
 
     if (selectedId != null) {
       final index = members.indexWhere((m) => m.id == selectedId);
@@ -93,28 +156,37 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   void _loadMember(Member member, int index) {
+    final masked = _isProtectedAdminMember(member.id) && !_viewerIsSysAdmin;
     setState(() {
       _currentId = member.id;
       _draftId = null;
       _browseIndex = index;
-      _saId.text = member.saId;
-      _globalRecordNo.text = member.globalRecordNo;
-      _memberName.text = member.memberName;
-      _surname.text = member.surname;
-      _address.text = member.address;
-      _suburb = member.suburb.isEmpty ? null : member.suburb;
-      _townCity = member.townCity.isEmpty ? null : member.townCity;
-      _postalCode = member.postalCode.isEmpty ? null : member.postalCode;
-      _contactNo1.text = member.contactNo1;
-      _contactNo2.text = member.contactNo2;
-      _email.text = member.emailAddress;
-      _comment.text = member.comment;
+      _saId.text = masked ? _maskValue : member.saId;
+      _globalRecordNo.text = masked ? _maskValue : member.globalRecordNo;
+      _memberName.text = masked ? _maskValue : member.memberName;
+      _surname.text = masked ? _maskValue : member.surname;
+      _address.text = masked ? _maskValue : member.address;
+      _suburb = masked
+          ? _maskValue
+          : (member.suburb.isEmpty ? null : member.suburb);
+      _townCity = masked
+          ? _maskValue
+          : (member.townCity.isEmpty ? null : member.townCity);
+      _postalCode = masked
+          ? _maskValue
+          : (member.postalCode.isEmpty ? null : member.postalCode);
+      _contactNo1.text = masked ? _maskValue : member.contactNo1;
+      _contactNo2.text = masked ? _maskValue : member.contactNo2;
+      _email.text = masked ? _maskValue : member.emailAddress;
+      _comment.text = masked ? _maskValue : member.comment;
       _photoLocalPath = member.photoLocalPath;
       _photoUrl = member.photoUrl;
       _photoBytes = null;
     });
     ref.read(selectedMemberIdProvider.notifier).state = member.id;
-    _loadPhotoBytes(member.id, member.photoLocalPath, member.photoUrl);
+    if (!masked) {
+      _loadPhotoBytes(member.id, member.photoLocalPath, member.photoUrl);
+    }
   }
 
   Future<void> _loadPhotoBytes(
@@ -324,6 +396,32 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   Future<void> _save() async {
+    if (_isMemberOnly && _currentId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Members cannot create new member profiles.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (_formReadOnly || _fieldsMasked) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This member profile is protected and cannot be edited.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (_isMemberOnly &&
+        _viewerMemberId != null &&
+        _currentId != null &&
+        _currentId != _viewerMemberId) {
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
@@ -397,6 +495,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   Future<void> _delete() async {
+    if (!_canBrowseMembers || _fieldsMasked) return;
     if (_currentId == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -435,6 +534,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     required String? value,
     required ValueChanged<String?> onChanged,
   }) {
+    if (_fieldsMasked) {
+      return TextFormField(
+        initialValue: _maskValue,
+        decoration: InputDecoration(labelText: label),
+        enabled: false,
+      );
+    }
     final asyncItems = ref.watch(lookupsProvider(type));
     return asyncItems.when(
       data: (items) {
@@ -459,13 +565,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     (v) => DropdownMenuItem<String?>(value: v, child: Text(v)),
                   ),
                 ],
-                onChanged: onChanged,
+                onChanged: _formReadOnly ? null : onChanged,
               ),
             ),
             IconButton(
               tooltip: 'Manage $label',
               icon: const Icon(Icons.edit_note),
-              onPressed: () async {
+              onPressed: _formReadOnly
+                  ? null
+                  : () async {
                 await showLookupManagerDialog(context, ref, type);
                 ref.invalidate(lookupsProvider(type));
               },
@@ -500,19 +608,20 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
               ),
               const Spacer(),
-              FilledButton.tonalIcon(
-                onPressed: () {
-                  _clearForm(newMember: true);
-                },
-                icon: const Icon(Icons.person_add),
-                label: const Text('Add New Member'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.gold,
-                  foregroundColor: AppTheme.forestGreen,
+              if (_canAddMembers)
+                FilledButton.tonalIcon(
+                  onPressed: () {
+                    _clearForm(newMember: true);
+                  },
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Add New Member'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.gold,
+                    foregroundColor: AppTheme.forestGreen,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              if (_currentId != null)
+              if (_canAddMembers) const SizedBox(width: 8),
+              if (_currentId != null && !_fieldsMasked)
                 OutlinedButton.icon(
                   onPressed: () {
                     final member = _members
@@ -530,23 +639,27 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              IconButton(
-                tooltip: 'Previous',
-                onPressed: _members.isEmpty ? null : () => _browse(-1),
-                icon: const Icon(Icons.chevron_left),
-              ),
+              if (_canBrowseMembers)
+                IconButton(
+                  tooltip: 'Previous',
+                  onPressed: _members.isEmpty ? null : () => _browse(-1),
+                  icon: const Icon(Icons.chevron_left),
+                ),
               Text(
                 _browseIndex < 0
                     ? 'New member'
-                    : 'Browse ${_browseIndex + 1} / ${_members.length}',
+                    : _canBrowseMembers
+                        ? 'Browse ${_browseIndex + 1} / ${_members.length}'
+                        : 'Your member profile',
               ),
-              IconButton(
-                tooltip: 'Next',
-                onPressed: _members.isEmpty ? null : () => _browse(1),
-                icon: const Icon(Icons.chevron_right),
-              ),
+              if (_canBrowseMembers)
+                IconButton(
+                  tooltip: 'Next',
+                  onPressed: _members.isEmpty ? null : () => _browse(1),
+                  icon: const Icon(Icons.chevron_right),
+                ),
               const Spacer(),
-              if (_currentId != null)
+              if (_currentId != null && _canBrowseMembers && !_fieldsMasked)
                 TextButton.icon(
                   onPressed: _delete,
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -554,7 +667,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
               const SizedBox(width: 8),
               FilledButton.icon(
-                onPressed: _saving ? null : _save,
+                onPressed: (_saving || _formReadOnly || (_isMemberOnly && _currentId == null))
+                    ? null
+                    : _save,
                 icon: _saving
                     ? const SizedBox(
                         width: 16,
@@ -589,6 +704,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 children: [
                                   TextFormField(
                                     controller: _saId,
+                                    enabled: !_formReadOnly,
                                     decoration: const InputDecoration(
                                       labelText: 'SA ID (max 13)',
                                       isDense: true,
@@ -610,6 +726,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   ),
                                   TextFormField(
                                     controller: _globalRecordNo,
+                                    enabled: !_formReadOnly,
                                     decoration: const InputDecoration(
                                       labelText: 'Global Record No (max 14)',
                                       isDense: true,
@@ -630,6 +747,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   ),
                                   TextFormField(
                                     controller: _memberName,
+                                    enabled: !_formReadOnly,
                                     decoration: const InputDecoration(
                                       labelText: 'Member Name',
                                       isDense: true,
@@ -641,6 +759,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   ),
                                   TextFormField(
                                     controller: _surname,
+                                    enabled: !_formReadOnly,
                                     decoration: const InputDecoration(
                                       labelText: 'Surname',
                                       isDense: true,
@@ -665,6 +784,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _address,
+                    enabled: !_formReadOnly,
                     decoration: const InputDecoration(labelText: 'Address'),
                     maxLines: 2,
                   ),
@@ -695,6 +815,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _contactNo1,
+                          enabled: !_formReadOnly,
                           decoration: const InputDecoration(
                             labelText: 'Contact No 1 (max 12)',
                           ),
@@ -711,6 +832,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _contactNo2,
+                          enabled: !_formReadOnly,
                           decoration: const InputDecoration(
                             labelText: 'Contact No 2 (max 12)',
                           ),
@@ -728,6 +850,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _email,
+                    enabled: !_formReadOnly,
                     decoration:
                         const InputDecoration(labelText: 'Email Address'),
                     keyboardType: TextInputType.emailAddress,
@@ -735,6 +858,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _comment,
+                    enabled: !_formReadOnly,
                     decoration: const InputDecoration(labelText: 'Comment'),
                     maxLines: 4,
                   ),

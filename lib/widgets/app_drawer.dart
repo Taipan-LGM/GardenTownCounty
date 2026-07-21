@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../l10n/app_strings.dart';
+import '../models/user_role.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
 import 'county_logo.dart';
@@ -22,6 +23,18 @@ class AppDrawer extends ConsumerWidget {
     final countyAddress = profile?.countyAddress.trim() ?? '';
     final countyRegNo = profile?.countyRegNo.trim() ?? '';
 
+    bool can(AppPermission p) =>
+        user?.hasPermission(p) ?? false;
+
+    final showSearch = isAdmin || can(AppPermission.search);
+    final showMemberInfo = isAdmin || can(AppPermission.memberInfo);
+    final show528 = isAdmin || can(AppPermission.global528);
+    final show928 = isAdmin || can(AppPermission.global928);
+    final showLro = isAdmin || can(AppPermission.lro);
+    final showSos = isAdmin || can(AppPermission.sos);
+    final showReminders = isAdmin || can(AppPermission.reminders);
+    final showActivities = isAdmin || can(AppPermission.activities);
+
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -33,7 +46,6 @@ class AppDrawer extends ConsumerWidget {
               decoration: const BoxDecoration(color: AppTheme.forestGreen),
               child: Stack(
                 children: [
-                  // Settings cork — top right of left bar header.
                   Positioned(
                     top: 0,
                     right: 0,
@@ -72,7 +84,7 @@ class AppDrawer extends ConsumerWidget {
                         ),
                         if (user != null)
                           Text(
-                            user.role,
+                            user.userRole.label,
                             style: const TextStyle(
                               color: AppTheme.gold,
                               fontSize: 12,
@@ -96,49 +108,54 @@ class AppDrawer extends ConsumerWidget {
                     selected: section == AppSection.home,
                     onTap: () => _go(context, ref, AppSection.home),
                   ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.search,
-                    label: strings.search,
-                    selected: false,
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await showGlobalSearchDialog(context, ref);
-                    },
-                  ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.badge_outlined,
-                    label: strings.memberInfo,
-                    selected: section == AppSection.memberInfo,
-                    onTap: () => _go(context, ref, AppSection.memberInfo),
-                  ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.public,
-                    label: strings.global528,
-                    selected: section == AppSection.global528,
-                    onTap: () => _go(context, ref, AppSection.global528),
-                  ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.public_outlined,
-                    label: strings.global928,
-                    selected: section == AppSection.global928,
-                    onTap: () => _go(context, ref, AppSection.global928),
-                  ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.account_balance,
-                    label: strings.lro,
-                    selected: section == AppSection.lro,
-                    onTap: () => _go(context, ref, AppSection.lro),
-                  ),
+                  if (showSearch)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.search,
+                      label: strings.search,
+                      selected: false,
+                      onTap: () async {
+                        Navigator.of(context).pop();
+                        await showGlobalSearchDialog(context, ref);
+                      },
+                    ),
+                  if (showMemberInfo)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.badge_outlined,
+                      label: strings.memberInfo,
+                      selected: section == AppSection.memberInfo,
+                      onTap: () => _go(context, ref, AppSection.memberInfo),
+                    ),
+                  if (show528)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.public,
+                      label: strings.global528,
+                      selected: section == AppSection.global528,
+                      onTap: () => _go(context, ref, AppSection.global528),
+                    ),
+                  if (show928)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.public_outlined,
+                      label: strings.global928,
+                      selected: section == AppSection.global928,
+                      onTap: () => _go(context, ref, AppSection.global928),
+                    ),
+                  if (showLro)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.account_balance,
+                      label: strings.lro,
+                      selected: section == AppSection.lro,
+                      onTap: () => _go(context, ref, AppSection.lro),
+                    ),
                   if (isAdmin)
                     _item(
                       context,
@@ -153,20 +170,30 @@ class AppDrawer extends ConsumerWidget {
                     _item(
                       context,
                       ref,
-                      icon: Icons.person_add_alt_1,
-                      label: strings.addUser,
+                      icon: Icons.manage_accounts_outlined,
+                      label: strings.userManagement,
                       selected: section == AppSection.addUser,
                       onTap: () => _go(context, ref, AppSection.addUser),
                     ),
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.sos_outlined,
-                    label: strings.sos,
-                    selected: section == AppSection.sos,
-                    onTap: () => _go(context, ref, AppSection.sos),
-                  ),
-                  if (isAdmin)
+                  if (showSos)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.sos_outlined,
+                      label: strings.sos,
+                      selected: section == AppSection.sos,
+                      onTap: () => _go(context, ref, AppSection.sos),
+                    ),
+                  if (showReminders)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.notifications_outlined,
+                      label: strings.reminders,
+                      selected: section == AppSection.reminders,
+                      onTap: () => _go(context, ref, AppSection.reminders),
+                    ),
+                  if (showActivities)
                     _item(
                       context,
                       ref,
@@ -176,7 +203,6 @@ class AppDrawer extends ConsumerWidget {
                       onTap: () =>
                           _go(context, ref, AppSection.activities),
                     ),
-                  // Sign out — just below Activities.
                   ListTile(
                     leading:
                         const Icon(Icons.logout, color: Colors.white70),
@@ -197,7 +223,6 @@ class AppDrawer extends ConsumerWidget {
                 ],
               ),
             ),
-            // County Information — centered, white band.
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: Container(
@@ -214,10 +239,10 @@ class AppDrawer extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text(
-                      'County Information',
+                    Text(
+                      strings.countyInfo,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.gold,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -225,17 +250,17 @@ class AppDrawer extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     _countyField(
-                      label: 'County Name',
+                      label: strings.countyName,
                       value: countyName,
                     ),
                     const SizedBox(height: 6),
                     _countyField(
-                      label: 'County Address',
+                      label: strings.countyAddress,
                       value: countyAddress.isEmpty ? '—' : countyAddress,
                     ),
                     const SizedBox(height: 6),
                     _countyField(
-                      label: 'County reg. no.',
+                      label: strings.countyRegNo,
                       value: countyRegNo.isEmpty ? '—' : countyRegNo,
                     ),
                   ],

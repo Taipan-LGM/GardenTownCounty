@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/app_user.dart';
+import '../../models/user_role.dart';
 import '../../providers/providers.dart';
 import '../../services/auth_service.dart';
-import 'role_manager_dialog.dart';
 
 class AddUserScreen extends ConsumerStatefulWidget {
   const AddUserScreen({super.key});
@@ -20,9 +20,15 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
   final _displayName = TextEditingController();
   final _password = TextEditingController();
   String? _role;
+  final Set<AppPermission> _selectedPermissions = {};
   AppUser? _editingUser;
   bool _saving = false;
   bool _obscure = true;
+
+  static const _creatableRoles = [
+    UserRole.secretary,
+    UserRole.member,
+  ];
 
   @override
   void dispose() {
@@ -38,6 +44,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     _password.clear();
     _editingUser = null;
     _role = null;
+    _selectedPermissions.clear();
     setState(() {});
   }
 
@@ -47,7 +54,10 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       _username.text = user.username;
       _displayName.text = user.displayName;
       _password.clear();
-      _role = user.role;
+      _role = user.userRole.storageName;
+      _selectedPermissions
+        ..clear()
+        ..addAll(user.permissions);
     });
   }
 
@@ -55,7 +65,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_role == null || _role!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a Rights / Role.')),
+        const SnackBar(content: Text('Select a role.')),
       );
       return;
     }
@@ -64,12 +74,17 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     try {
       final auth = ref.read(authServiceProvider);
       final admin = ref.read(authUserProvider);
+      final perms = _role == UserRole.secretary.storageName
+          ? _selectedPermissions.toList()
+          : const <AppPermission>[];
+
       if (_editingUser == null) {
         final created = await auth.createOperator(
           username: _username.text,
           displayName: _displayName.text,
           password: _password.text,
           role: _role!,
+          permissions: perms,
         );
         if (admin != null) {
           await ref.read(activityServiceProvider).record(
@@ -91,17 +106,12 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           displayName: _displayName.text,
           role: _role!,
           newPassword: _password.text.trim().isEmpty ? null : _password.text,
+          permissions: perms,
         );
-        // Refresh session chip if SysAdmin updated own display name.
         final loggedIn = ref.read(authUserProvider);
         if (loggedIn != null && loggedIn.id == updated.id) {
-          ref.read(authUserProvider.notifier).state = AuthUser(
-            id: updated.id,
-            displayName: updated.displayName,
-            email: loggedIn.email,
-            username: updated.username,
-            role: updated.role,
-          );
+          ref.read(authUserProvider.notifier).state =
+              AuthUser.fromAppUser(updated, email: loggedIn.email);
         }
         if (admin != null) {
           await ref.read(activityServiceProvider).record(
@@ -133,10 +143,51 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     }
   }
 
+  Widget _permissionCheckboxes() {
+    if (_role != UserRole.secretary.storageName) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          'Module permissions',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 4,
+          runSpacing: 0,
+          children: AppPermission.assignable.map((perm) {
+            final checked = _selectedPermissions.contains(perm);
+            return SizedBox(
+              width: 220,
+              child: CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(perm.label, style: const TextStyle(fontSize: 13)),
+                value: checked,
+                onChanged: (v) {
+                  setState(() {
+                    if (v == true) {
+                      _selectedPermissions.add(perm);
+                    } else {
+                      _selectedPermissions.remove(perm);
+                    }
+                  });
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(appUsersProvider);
-    final rolesAsync = ref.watch(rolesProvider);
     final current = ref.watch(authUserProvider);
 
     if (current == null || !current.isAdmin) {
@@ -147,9 +198,26 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     final canEditSysAdminSecrets = current.isSystemAdministrator;
     final lockRole = editingSysAdmin;
     final lockPassword = editingSysAdmin && !canEditSysAdminSecrets;
-    // SysAdmin may set their own login username; others may not.
     final lockUsername = _editingUser != null &&
         !(editingSysAdmin && canEditSysAdminSecrets);
+
+    final roleItems = <DropdownMenuItem<String>>[
+      if (editingSysAdmin)
+        DropdownMenuItem(
+          value: UserRole.admin.storageName,
+          child: Text(UserRole.admin.label),
+        ),
+      ..._creatableRoles.map(
+        (r) => DropdownMenuItem(
+          value: r.storageName,
+          child: Text(r.label),
+        ),
+      ),
+    ];
+
+    final roleValues = roleItems.map((i) => i.value!).toList();
+    final effectiveRole =
+        _role != null && roleValues.contains(_role) ? _role : null;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -157,7 +225,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            _editingUser == null ? 'Add User' : 'Edit User',
+            _editingUser == null ? 'User Management' : 'Edit User',
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -271,66 +339,33 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: rolesAsync.when(
-                            data: (roles) {
-                              final names = roles.map((r) => r.name).toList();
-                              final effective =
-                                  _role != null && names.contains(_role)
-                                      ? _role
-                                      : null;
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      key: ValueKey(
-                                        'role-${_editingUser?.id ?? 'new'}-$effective-$lockRole',
-                                      ),
-                                      initialValue: effective,
-                                      decoration: InputDecoration(
-                                        labelText: lockRole
-                                            ? 'Rights / Role (locked)'
-                                            : 'Rights / Role',
-                                      ),
-                                      items: names
-                                          .map(
-                                            (n) => DropdownMenuItem(
-                                              value: n,
-                                              child: Text(n),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: lockRole
-                                          ? null
-                                          : (value) =>
-                                              setState(() => _role = value),
-                                      validator: (v) =>
-                                          (v == null || v.isEmpty)
-                                              ? 'Required'
-                                              : null,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Add / Edit / Delete roles',
-                                    icon: const Icon(Icons.edit_note),
-                                    onPressed: lockRole
-                                        ? null
-                                        : () async {
-                                            await showRoleManagerDialog(
-                                              context,
-                                              ref,
-                                            );
-                                            ref.invalidate(rolesProvider);
-                                          },
-                                  ),
-                                ],
-                              );
-                            },
-                            loading: () => const LinearProgressIndicator(),
-                            error: (e, _) => Text('Roles error: $e'),
+                          child: DropdownButtonFormField<String>(
+                            key: ValueKey(
+                              'role-${_editingUser?.id ?? 'new'}-$effectiveRole-$lockRole',
+                            ),
+                            initialValue: effectiveRole,
+                            decoration: InputDecoration(
+                              labelText: lockRole
+                                  ? 'Role (locked)'
+                                  : 'Role',
+                            ),
+                            items: roleItems,
+                            onChanged: lockRole
+                                ? null
+                                : (value) => setState(() {
+                                      _role = value;
+                                      if (value !=
+                                          UserRole.secretary.storageName) {
+                                        _selectedPermissions.clear();
+                                      }
+                                    }),
+                            validator: (v) =>
+                                (v == null || v.isEmpty) ? 'Required' : null,
                           ),
                         ),
                       ],
                     ),
+                    _permissionCheckboxes(),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -386,8 +421,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final user = users[index];
-                    final protected =
-                        user.isAdmin || user.isSystemAdministrator;
+                    final isSysAdmin = user.isSystemAdministrator;
+                    final protectedDeactivate =
+                        user.isAdmin || isSysAdmin;
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: AppTheme.forestGreen,
@@ -400,9 +436,10 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                       ),
                       title: Text(user.displayName),
                       subtitle: Text(
-                        '${user.username} · ${user.role}'
+                        '${user.username} · ${user.userRole.label}'
                         '${user.active ? '' : ' · Inactive'}'
-                        '${user.isSystemAdministrator ? ' · System Administrator' : ''}',
+                        '${isSysAdmin ? ' · System Administrator' : ''}'
+                        '${user.permissions.isNotEmpty ? ' · ${user.permissions.length} modules' : ''}',
                       ),
                       trailing: Wrap(
                         spacing: 4,
@@ -413,20 +450,20 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                             onPressed: () => _loadForEdit(user),
                           ),
                           IconButton(
-                            tooltip: protected
+                            tooltip: protectedDeactivate
                                 ? 'Admin cannot be deactivated'
                                 : (user.active ? 'Deactivate' : 'Activate'),
                             icon: Icon(
                               user.active
                                   ? Icons.toggle_on
                                   : Icons.toggle_off_outlined,
-                              color: protected
+                              color: protectedDeactivate
                                   ? Colors.grey
                                   : (user.active
                                       ? AppTheme.forestGreen
                                       : Colors.grey),
                             ),
-                            onPressed: protected
+                            onPressed: protectedDeactivate
                                 ? null
                                 : () async {
                                     try {
@@ -459,14 +496,18 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                           ),
                           if (user.id != current.id)
                             IconButton(
-                              tooltip: protected
-                                  ? 'Admin cannot be deleted'
-                                  : 'Delete',
+                              tooltip: isSysAdmin
+                                  ? 'System Administrator is protected'
+                                  : (protectedDeactivate
+                                      ? 'Admin cannot be deleted'
+                                      : 'Delete'),
                               icon: Icon(
                                 Icons.delete_outline,
-                                color: protected ? Colors.grey : Colors.red,
+                                color: (isSysAdmin || protectedDeactivate)
+                                    ? Colors.grey
+                                    : Colors.red,
                               ),
-                              onPressed: protected
+                              onPressed: (isSysAdmin || protectedDeactivate)
                                   ? null
                                   : () async {
                                       try {
