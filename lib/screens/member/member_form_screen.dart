@@ -15,7 +15,6 @@ import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
 import '../../widgets/member_lock_banners.dart';
 import '../../widgets/screenshot_protected_view.dart';
-import '../../services/member_lock_service.dart';
 import '../../services/temporary_access_service.dart';
 import '../../services/secure_screen_service.dart';
 import 'lookup_manager_dialog.dart';
