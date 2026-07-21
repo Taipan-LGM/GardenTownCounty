@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_town_county/models/member.dart';
+import 'package:garden_town_county/models/temporary_access_log.dart';
 import 'package:garden_town_county/models/user_role.dart';
 import 'package:garden_town_county/services/auth_service.dart';
-import 'package:garden_town_county/services/member_lock_service.dart';
+import 'package:garden_town_county/services/temporary_access_service.dart';
 
 void main() {
   group('Member lock & temporary access', () {
@@ -142,6 +143,49 @@ void main() {
           sessionVerifiedTempAccess: false,
         ),
         isTrue,
+      );
+    });
+    test('TemporaryAccessLog.computedStatus prefers revoked/expired/used', () {
+      final base = TemporaryAccessLog.create(
+        memberId: 'm1',
+        adminId: 'a1',
+        adminName: 'Admin',
+        secretaryId: 's1',
+        secretaryName: 'Sec',
+        accessCode: '11111',
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        duration: '1h',
+      );
+      expect(base.computedStatus, 'active');
+      expect(base.copyWith(isUsed: true, status: 'used').computedStatus, 'used');
+      expect(
+        base.copyWith(isRevoked: true, status: 'revoked').computedStatus,
+        'revoked',
+      );
+      expect(
+        base
+            .copyWith(
+              expiresAt: DateTime.now().toUtc().subtract(
+                    const Duration(minutes: 1),
+                  ),
+            )
+            .computedStatus,
+        'expired',
+      );
+    });
+
+    test('TemporaryAccessService.parseDurationLabel maps 1h/24h/7d', () {
+      expect(
+        TemporaryAccessService.parseDurationLabel('1h'),
+        const Duration(hours: 1),
+      );
+      expect(
+        TemporaryAccessService.parseDurationLabel('24h'),
+        const Duration(hours: 24),
+      );
+      expect(
+        TemporaryAccessService.parseDurationLabel('7d'),
+        const Duration(days: 7),
       );
     });
   });

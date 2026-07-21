@@ -78,7 +78,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 8,
+      version: 9,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -235,6 +235,46 @@ class DatabaseService {
       await _addColumnIfMissing(database, 'members', 'createdAt', 'TEXT');
       await _createTemporaryAccessLogsTable(database);
     }
+    if (oldVersion < 9) {
+      await _addColumnIfMissing(database, 'members', 'completedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'completedDate', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'temporary_access_logs',
+        'adminName',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'temporary_access_logs',
+        'secretaryName',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'temporary_access_logs',
+        'duration',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'temporary_access_logs',
+        'status',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'temporary_access_logs',
+        'revokedBy',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'temporary_access_logs',
+        'revokedReason',
+        'TEXT',
+      );
+    }
   }
 
   Future<void> _addColumnIfMissing(
@@ -277,15 +317,21 @@ class DatabaseService {
         firestoreId TEXT,
         memberId TEXT NOT NULL,
         adminId TEXT NOT NULL,
+        adminName TEXT NOT NULL DEFAULT '',
         secretaryId TEXT NOT NULL,
+        secretaryName TEXT NOT NULL DEFAULT '',
         accessCode TEXT NOT NULL,
         grantedAt TEXT NOT NULL,
         expiresAt TEXT NOT NULL,
+        duration TEXT NOT NULL DEFAULT '1h',
         isUsed INTEGER NOT NULL DEFAULT 0,
         usedAt TEXT,
         reason TEXT,
         revoked INTEGER NOT NULL DEFAULT 0,
         revokedAt TEXT,
+        revokedBy TEXT,
+        revokedReason TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0
       )
@@ -463,6 +509,8 @@ class DatabaseService {
         lockedDate TEXT,
         lockedBy TEXT,
         lockedReason TEXT,
+        completedBy TEXT,
+        completedDate TEXT,
         temporaryAccessCode TEXT,
         temporaryAccessExpiry TEXT,
         temporaryAccessGrantedBy TEXT,
@@ -1123,6 +1171,30 @@ class DatabaseService {
     return rows.map(Member.fromMap).toList();
   }
 
+  Future<List<Member>> getMembersWithTempAccess() async {
+    final all = await getAllMembers();
+    return all
+        .where(
+          (m) =>
+              m.temporaryAccessCode != null &&
+              m.temporaryAccessCode!.isNotEmpty,
+        )
+        .toList();
+  }
+
+  Future<List<TemporaryAccessLog>> getAllTemporaryAccessLogs() async {
+    if (_memoryMode) {
+      return _tempAccessLogs.values.where((l) => !l.deleted).toList()
+        ..sort((a, b) => b.grantedAt.compareTo(a.grantedAt));
+    }
+    final rows = await db.query(
+      'temporary_access_logs',
+      where: 'deleted = 0',
+      orderBy: 'grantedAt DESC',
+    );
+    return rows.map(TemporaryAccessLog.fromMap).toList();
+  }
+
   // ── Temporary Access Logs ──────────────────────────────────────────────
 
   Future<void> upsertTemporaryAccessLog(TemporaryAccessLog log) async {
@@ -1185,7 +1257,7 @@ class DatabaseService {
   Future<bool> temporaryAccessCodeExists(String code) async {
     if (_memoryMode) {
       return _tempAccessLogs.values.any(
-        (l) => !l.deleted && !l.revoked && l.accessCode == code,
+        (l) => !l.deleted && !l.isRevoked && l.accessCode == code,
       );
     }
     final rows = await db.query(

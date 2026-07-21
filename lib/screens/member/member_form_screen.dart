@@ -16,6 +16,7 @@ import '../../widgets/file_image_stub.dart'
 import '../../widgets/member_lock_banners.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import '../../services/member_lock_service.dart';
+import '../../services/temporary_access_service.dart';
 import '../../services/secure_screen_service.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
@@ -1028,6 +1029,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             setState(() => _loadedMember = unlocked);
             ref.invalidate(membersProvider);
             ref.invalidate(lockedMembersProvider);
+            ref.invalidate(temporaryAccessLogsProvider);
           },
           onGrantAccess: () async {
             await showGrantTemporaryAccessDialog(
@@ -1041,6 +1043,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               setState(() => _loadedMember = refreshed);
             }
             ref.invalidate(lockedMembersProvider);
+            ref.invalidate(temporaryAccessLogsProvider);
           },
           onRevokeAccess: () async {
             if (user == null) return;
@@ -1052,6 +1055,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             ref.read(verifiedTempAccessIdsProvider.notifier).state = next;
             setState(() => _loadedMember = cleared);
             ref.invalidate(lockedMembersProvider);
+            ref.invalidate(temporaryAccessLogsProvider);
           },
         ),
       );

@@ -9,6 +9,7 @@ import '../models/member.dart';
 import '../models/reminder.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
+import '../models/temporary_access_log.dart';
 import '../models/user_role.dart';
 import '../services/activity_service.dart';
 import '../services/app_preferences_service.dart';
@@ -22,8 +23,10 @@ import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/member_repository.dart';
 import '../services/member_lock_service.dart';
+import '../services/temporary_access_service.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
+import '../services/temp_access_expiry_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
   return DatabaseService.instance;
@@ -151,6 +154,19 @@ final temporaryAccessServiceProvider = Provider<TemporaryAccessService>((ref) {
     ref.watch(syncEngineProvider),
     ref.watch(activityServiceProvider),
   );
+});
+
+final tempAccessExpiryServiceProvider = Provider<TempAccessExpiryService>((ref) {
+  final service = TempAccessExpiryService(
+    ref.watch(temporaryAccessServiceProvider),
+  );
+  ref.onDispose(service.stop);
+  return service;
+});
+
+final temporaryAccessLogsProvider =
+    FutureProvider.autoDispose<List<TemporaryAccessLog>>((ref) async {
+  return ref.watch(databaseServiceProvider).getAllTemporaryAccessLogs();
 });
 
 /// Session-verified temporary access member IDs (after code entry).

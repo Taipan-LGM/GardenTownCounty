@@ -63,6 +63,7 @@ class LockedMembersScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Expanded(
+                flex: 3,
                 child: Card(
                   child: locked.isEmpty
                       ? const Center(child: Text('No locked members yet.'))
@@ -100,6 +101,20 @@ class LockedMembersScreen extends ConsumerWidget {
                           ),
                         ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Temporary Access Management',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.forestGreen,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                flex: 2,
+                child: _TempAccessPanel(members: all),
               ),
             ],
           );
@@ -230,6 +245,156 @@ class _StatCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TempAccessPanel extends ConsumerWidget {
+  const _TempAccessPanel({required this.members});
+
+  final List<Member> members;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logsAsync = ref.watch(temporaryAccessLogsProvider);
+    final dateFmt = DateFormat('yyyy-MM-dd HH:mm');
+    final memberName = {
+      for (final m in members) m.id: m.fullName,
+    };
+
+    return Card(
+      child: logsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Text('Error: $e'),
+        data: (logs) {
+          final active = logs.where((l) => l.computedStatus == 'active').length;
+          final used = logs.where((l) => l.computedStatus == 'used').length;
+          final expired =
+              logs.where((l) => l.computedStatus == 'expired').length;
+          final revoked =
+              logs.where((l) => l.computedStatus == 'revoked').length;
+          final recent = logs.take(40).toList();
+
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniStat('Active', active, Colors.green),
+                    _MiniStat('Used', used, Colors.blue),
+                    _MiniStat('Expired', expired, Colors.orange),
+                    _MiniStat('Revoked', revoked, Colors.red),
+                    TextButton.icon(
+                      onPressed: () =>
+                          ref.invalidate(temporaryAccessLogsProvider),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: recent.isEmpty
+                      ? const Center(
+                          child: Text('No temporary access codes yet.'),
+                        )
+                      : ListView.builder(
+                          itemCount: recent.length,
+                          itemBuilder: (context, i) {
+                            final log = recent[i];
+                            final status = log.computedStatus;
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                status == 'active'
+                                    ? Icons.vpn_key
+                                    : status == 'used'
+                                        ? Icons.check_circle
+                                        : status == 'revoked'
+                                            ? Icons.block
+                                            : Icons.timer_off,
+                              ),
+                              title: Text(
+                                memberName[log.memberId] ?? log.memberId,
+                              ),
+                              subtitle: Text(
+                                '${log.secretaryName} · Code ${log.accessCode} · '
+                                '${log.duration} · Expires '
+                                '${dateFmt.format(log.expiresAt.toLocal())} · '
+                                '$status',
+                              ),
+                              trailing: status == 'active'
+                                  ? TextButton(
+                                      onPressed: () async {
+                                        final member = members
+                                            .where((m) => m.id == log.memberId)
+                                            .cast<Member?>()
+                                            .firstWhere(
+                                              (m) => m != null,
+                                              orElse: () => null,
+                                            );
+                                        final admin =
+                                            ref.read(authUserProvider);
+                                        if (member == null || admin == null) {
+                                          return;
+                                        }
+                                        await ref
+                                            .read(
+                                              temporaryAccessServiceProvider,
+                                            )
+                                            .revoke(
+                                              member: member,
+                                              actor: admin,
+                                              reason:
+                                                  'Revoked from Locked Members dashboard',
+                                            );
+                                        ref.invalidate(
+                                          temporaryAccessLogsProvider,
+                                        );
+                                        ref.invalidate(membersProvider);
+                                        ref.invalidate(lockedMembersProvider);
+                                      },
+                                      child: const Text(
+                                        'Revoke',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    )
+                                  : null,
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat(this.label, this.count, this.color);
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: CircleAvatar(
+        backgroundColor: color.withValues(alpha: 0.2),
+        child: Text(
+          '$count',
+          style: TextStyle(color: color, fontSize: 11),
+        ),
+      ),
+      label: Text(label),
     );
   }
 }

@@ -43,6 +43,8 @@ Future<void> main() async {
   final autoBackup = container.read(autoBackupSchedulerProvider);
   autoBackup.start();
 
+  container.read(tempAccessExpiryServiceProvider).start();
+
   runApp(
     UncontrolledProviderScope(
       container: container,

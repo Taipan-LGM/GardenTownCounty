@@ -45,6 +45,8 @@ class Member {
   final DateTime? lockedDate;
   final String? lockedBy;
   final String? lockedReason;
+  final String? completedBy;
+  final DateTime? completedDate;
 
   // Temporary access (5-digit code)
   final String? temporaryAccessCode;
@@ -99,6 +101,8 @@ class Member {
     this.lockedDate,
     this.lockedBy,
     this.lockedReason,
+    this.completedBy,
+    this.completedDate,
     this.temporaryAccessCode,
     this.temporaryAccessExpiry,
     this.temporaryAccessGrantedBy,
@@ -124,6 +128,9 @@ class Member {
     if (code == null || code.isEmpty || expiry == null) return false;
     return expiry.isAfter(DateTime.now().toUtc());
   }
+
+  /// Spec convenience flag — same as [hasActiveTemporaryAccess].
+  bool get isTemporaryAccessActive => hasActiveTemporaryAccess;
 
   factory Member.create({
     required String saId,
@@ -206,6 +213,8 @@ class Member {
     DateTime? lockedDate,
     String? lockedBy,
     String? lockedReason,
+    String? completedBy,
+    DateTime? completedDate,
     String? temporaryAccessCode,
     DateTime? temporaryAccessExpiry,
     String? temporaryAccessGrantedBy,
@@ -264,6 +273,8 @@ class Member {
       lockedDate: clearLock ? null : (lockedDate ?? this.lockedDate),
       lockedBy: clearLock ? null : (lockedBy ?? this.lockedBy),
       lockedReason: clearLock ? null : (lockedReason ?? this.lockedReason),
+      completedBy: completedBy ?? this.completedBy,
+      completedDate: completedDate ?? this.completedDate,
       temporaryAccessCode: clearTemporaryAccess
           ? null
           : (temporaryAccessCode ?? this.temporaryAccessCode),
@@ -328,6 +339,8 @@ class Member {
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
       'lockedReason': lockedReason,
+      'completedBy': completedBy,
+      'completedDate': completedDate?.toIso8601String(),
       'temporaryAccessCode': temporaryAccessCode,
       'temporaryAccessExpiry': temporaryAccessExpiry?.toIso8601String(),
       'temporaryAccessGrantedBy': temporaryAccessGrantedBy,
@@ -382,6 +395,8 @@ class Member {
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
       'lockedReason': lockedReason,
+      'completedBy': completedBy,
+      'completedDate': completedDate?.toIso8601String(),
       'temporaryAccessCode': temporaryAccessCode,
       'temporaryAccessExpiry': temporaryAccessExpiry?.toIso8601String(),
       'temporaryAccessGrantedBy': temporaryAccessGrantedBy,
@@ -434,6 +449,8 @@ class Member {
       lockedDate: _asDate(map['lockedDate']),
       lockedBy: map['lockedBy'] as String?,
       lockedReason: map['lockedReason'] as String?,
+      completedBy: map['completedBy'] as String?,
+      completedDate: _asDate(map['completedDate']),
       temporaryAccessCode: map['temporaryAccessCode'] as String?,
       temporaryAccessExpiry: _asDate(map['temporaryAccessExpiry']),
       temporaryAccessGrantedBy: map['temporaryAccessGrantedBy'] as String?,

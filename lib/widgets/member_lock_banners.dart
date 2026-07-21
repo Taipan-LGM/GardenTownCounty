@@ -235,7 +235,7 @@ Future<void> showGrantTemporaryAccessDialog({
   }
 
   String? secretaryId = secretaries.first.id;
-  var duration = const Duration(hours: 1);
+  var durationLabel = '1h';
   final reasonCtrl = TextEditingController();
 
   final granted = await showDialog<({String code, DateTime expiry, AppUser sec})>(
@@ -270,41 +270,31 @@ Future<void> showGrantTemporaryAccessDialog({
                     onChanged: (v) => setLocal(() => secretaryId = v),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<Duration>(
-                    initialValue: duration,
-                    decoration: const InputDecoration(
-                      labelText: 'Access Duration',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: Duration(hours: 1),
-                        child: Text('1 Hour'),
-                      ),
-                      DropdownMenuItem(
-                        value: Duration(hours: 24),
-                        child: Text('24 Hours'),
-                      ),
-                      DropdownMenuItem(
-                        value: Duration(days: 7),
-                        child: Text('7 Days'),
-                      ),
+                  const Text('Access Duration:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: '1h', label: Text('1 Hour')),
+                      ButtonSegment(value: '24h', label: Text('24 Hours')),
+                      ButtonSegment(value: '7d', label: Text('7 Days')),
                     ],
-                    onChanged: (v) {
-                      if (v != null) setLocal(() => duration = v);
-                    },
+                    selected: {durationLabel},
+                    onSelectionChanged: (sel) =>
+                        setLocal(() => durationLabel = sel.first),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: reasonCtrl,
+                    maxLines: 2,
                     decoration: const InputDecoration(
-                      labelText: 'Reason for Access',
+                      labelText: 'Reason for Access *',
+                      hintText: 'Why does the Secretary need access?',
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '⚠️ A 5-digit code will be generated. Provide it to the Secretary separately.',
+                    '⚠️ A unique 5-digit code will be generated. Provide it to the Secretary separately.',
                     style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
                   ),
                 ],
@@ -319,23 +309,29 @@ Future<void> showGrantTemporaryAccessDialog({
                 onPressed: () async {
                   final admin = ref.read(authUserProvider);
                   if (admin == null || secretaryId == null) return;
+                  if (reasonCtrl.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text('⚠️ Please provide a reason for access.'),
+                      ),
+                    );
+                    return;
+                  }
                   try {
                     final result =
                         await ref.read(temporaryAccessServiceProvider).grant(
                               member: member,
                               admin: admin,
                               secretaryId: secretaryId!,
-                              duration: duration,
-                              reason: reasonCtrl.text.trim().isEmpty
-                                  ? null
-                                  : reasonCtrl.text.trim(),
+                              duration: durationLabel,
+                              reason: reasonCtrl.text.trim(),
                             );
-                    final sec = secretaries
-                        .firstWhere((s) => s.id == secretaryId);
+                    final sec =
+                        secretaries.firstWhere((s) => s.id == secretaryId);
                     if (ctx.mounted) {
                       Navigator.pop(ctx, (
                         code: result.code,
-                        expiry: result.member.temporaryAccessExpiry!,
+                        expiry: result.expiresAt,
                         sec: sec,
                       ));
                     }
@@ -351,7 +347,7 @@ Future<void> showGrantTemporaryAccessDialog({
                     }
                   }
                 },
-                child: const Text('Generate Code & Grant Access'),
+                child: const Text('🔑 Generate Code & Grant Access'),
               ),
             ],
           );
@@ -433,6 +429,8 @@ Future<void> showGrantTemporaryAccessDialog({
     },
   );
   ref.invalidate(membersProvider);
+  ref.invalidate(lockedMembersProvider);
+  ref.invalidate(temporaryAccessLogsProvider);
 }
 
 Future<bool> showEnterTemporaryAccessCodeDialog({
@@ -442,66 +440,85 @@ Future<bool> showEnterTemporaryAccessCodeDialog({
   required AuthUser secretary,
 }) async {
   final codeCtrl = TextEditingController();
+  var attempts = 0;
+  String? errorMessage;
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) {
-      return AlertDialog(
-        title: const Text('🔑 Temporary Access Required'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'This member is locked. Enter the 5-digit temporary access '
-              'code provided by the Administrator.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: codeCtrl,
-              maxLength: 5,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Enter 5-digit code',
-                border: OutlineInputBorder(),
-                counterText: '',
-              ),
-            ),
-            if (member.temporaryAccessExpiry != null)
-              Text(
-                '⏰ Code expires: ${_dateFmt.format(member.temporaryAccessExpiry!.toLocal())}',
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              try {
-                await ref.read(temporaryAccessServiceProvider).verify(
-                      member: member,
-                      secretary: secretary,
-                      code: codeCtrl.text,
-                    );
-                if (ctx.mounted) Navigator.pop(ctx, true);
-              } catch (e) {
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        e.toString().replaceFirst('Exception: ', ''),
-                      ),
+      return StatefulBuilder(
+        builder: (ctx, setLocal) {
+          return AlertDialog(
+            title: const Text('🔑 Temporary Access Required'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'This member is locked. Enter the 5-digit temporary access '
+                  'code provided by the Administrator.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: codeCtrl,
+                  maxLength: 5,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: 'Enter 5-digit code',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.vpn_key),
+                    counterText: '',
+                    errorText: errorMessage,
+                  ),
+                  onChanged: (_) => setLocal(() => errorMessage = null),
+                ),
+                if (attempts >= 3)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      '⚠️ Multiple failed attempts. Please contact the Administrator.',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
                     ),
-                  );
-                }
-              }
-            },
-            child: const Text('Verify Code'),
-          ),
-        ],
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: attempts >= 3
+                    ? null
+                    : () async {
+                        final result = await ref
+                            .read(temporaryAccessServiceProvider)
+                            .verify(
+                              member: member,
+                              secretary: secretary,
+                              code: codeCtrl.text,
+                            );
+                        if (!ctx.mounted) return;
+                        if (result.success) {
+                          Navigator.pop(ctx, true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result.message),
+                              backgroundColor: Colors.green.shade700,
+                            ),
+                          );
+                        } else {
+                          setLocal(() {
+                            attempts++;
+                            errorMessage = result.message;
+                          });
+                        }
+                      },
+                child: const Text('🔓 Verify Code'),
+              ),
+            ],
+          );
+        },
       );
     },
   );
