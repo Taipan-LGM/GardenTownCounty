@@ -14,6 +14,7 @@ import '../models/user_role.dart';
 import '../services/activity_service.dart';
 import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
+import '../services/auto_assignment_service.dart';
 import '../services/auto_backup_scheduler.dart';
 import '../services/backup_auth_service.dart';
 import '../services/backup_service.dart';
@@ -24,10 +25,12 @@ import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/reminder_notification_service.dart';
 import '../services/reminder_service.dart';
+import '../services/remuneration_service.dart';
 import '../services/member_duplicate_service.dart';
 import '../services/member_repository.dart';
 import '../services/member_lock_service.dart';
 import '../services/temporary_access_service.dart';
+import '../services/test_data_service.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
 import '../services/temp_access_expiry_service.dart';
@@ -161,6 +164,8 @@ final memberLockServiceProvider = Provider<MemberLockService>((ref) {
     ref.watch(databaseServiceProvider),
     ref.watch(syncEngineProvider),
     ref.watch(activityServiceProvider),
+    // NEW ADDITION - wire remuneration on step complete
+    remunerationService: ref.watch(remunerationServiceProvider),
   );
 });
 
@@ -243,6 +248,25 @@ final reminderServiceProvider = Provider<ReminderService>((ref) {
     ref.watch(reminderNotificationServiceProvider),
     activityService: ref.watch(activityServiceProvider),
   );
+});
+
+// NEW ADDITION - RS services (Delete providers to revert)
+final autoAssignmentServiceProvider = Provider<AutoAssignmentService>((ref) {
+  return AutoAssignmentService(
+    ref.watch(databaseServiceProvider),
+    notifications: ref.watch(reminderNotificationServiceProvider),
+  );
+});
+
+final remunerationServiceProvider = Provider<RemunerationService>((ref) {
+  return RemunerationService(
+    ref.watch(databaseServiceProvider),
+    notifications: ref.watch(reminderNotificationServiceProvider),
+  );
+});
+
+final testDataServiceProvider = Provider<TestDataService>((ref) {
+  return TestDataService(ref.watch(databaseServiceProvider));
 });
 
 final activeOnboardingRemindersProvider =

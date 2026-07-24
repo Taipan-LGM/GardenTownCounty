@@ -99,6 +99,12 @@ class Reminder {
   final DateTime? completedDate;
   final String? completedBy;
 
+  // NEW ADDITION - RS assignment on reminder (Delete fields + usages to revert)
+  final String? assignedSecretaryId;
+  final String? assignedSecretaryName;
+  final DateTime? assignedDate;
+  final String? assignmentMethod; // manual | auto
+
   const Reminder({
     required this.id,
     this.firestoreId,
@@ -123,6 +129,11 @@ class Reminder {
     this.status = 'active',
     this.completedDate,
     this.completedBy,
+    // NEW ADDITION - RS assignment
+    this.assignedSecretaryId,
+    this.assignedSecretaryName,
+    this.assignedDate,
+    this.assignmentMethod,
   });
 
   bool get isOnboarding => kind == 'onboarding';
@@ -227,7 +238,13 @@ class Reminder {
     String? status,
     DateTime? completedDate,
     String? completedBy,
+    // NEW ADDITION - RS assignment
+    String? assignedSecretaryId,
+    String? assignedSecretaryName,
+    DateTime? assignedDate,
+    String? assignmentMethod,
     bool clearCompleted = false,
+    bool clearSecretaryAssignment = false,
   }) {
     return Reminder(
       id: id ?? this.id,
@@ -254,6 +271,19 @@ class Reminder {
       completedDate:
           clearCompleted ? null : (completedDate ?? this.completedDate),
       completedBy: clearCompleted ? null : (completedBy ?? this.completedBy),
+      // NEW ADDITION - RS assignment
+      assignedSecretaryId: clearSecretaryAssignment
+          ? null
+          : (assignedSecretaryId ?? this.assignedSecretaryId),
+      assignedSecretaryName: clearSecretaryAssignment
+          ? null
+          : (assignedSecretaryName ?? this.assignedSecretaryName),
+      assignedDate: clearSecretaryAssignment
+          ? null
+          : (assignedDate ?? this.assignedDate),
+      assignmentMethod: clearSecretaryAssignment
+          ? null
+          : (assignmentMethod ?? this.assignmentMethod),
     );
   }
 
@@ -281,6 +311,11 @@ class Reminder {
         'status': status,
         'completedDate': completedDate?.toIso8601String(),
         'completedBy': completedBy,
+        // NEW ADDITION - RS assignment
+        'assignedSecretaryId': assignedSecretaryId,
+        'assignedSecretaryName': assignedSecretaryName,
+        'assignedDate': assignedDate?.toIso8601String(),
+        'assignmentMethod': assignmentMethod,
       };
 
   Map<String, dynamic> toFirestore() => {
@@ -306,6 +341,11 @@ class Reminder {
         'status': status,
         'completedDate': completedDate?.toIso8601String(),
         'completedBy': completedBy,
+        // NEW ADDITION - RS assignment
+        'assignedSecretaryId': assignedSecretaryId,
+        'assignedSecretaryName': assignedSecretaryName,
+        'assignedDate': assignedDate?.toIso8601String(),
+        'assignmentMethod': assignmentMethod,
       };
 
   static bool _asBool(dynamic v) {
@@ -354,6 +394,11 @@ class Reminder {
           (_asBool(map['isCompleted']) ? 'completed' : 'active'),
       completedDate: _asDate(map['completedDate']),
       completedBy: map['completedBy'] as String?,
+      // NEW ADDITION - RS assignment
+      assignedSecretaryId: map['assignedSecretaryId'] as String?,
+      assignedSecretaryName: map['assignedSecretaryName'] as String?,
+      assignedDate: _asDate(map['assignedDate']),
+      assignmentMethod: map['assignmentMethod'] as String?,
     );
   }
 

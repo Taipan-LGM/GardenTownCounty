@@ -29,6 +29,7 @@ import '../../widgets/member_nav/member_list_panel.dart';
 import '../../widgets/member_nav/profile_navigation_bar.dart';
 import '../../widgets/member_nav/unsaved_changes_dialog.dart';
 import '../../widgets/onboarding_checklist_card.dart';
+import '../../widgets/member/recording_secretary_assignment.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
@@ -1696,6 +1697,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               child: ListView(
                 key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
+                  // NEW ADDITION - Admin RS assignment (Delete block to revert)
+                  if (_loadedMember != null && _viewerIsAdmin)
+                    RecordingSecretaryAssignment(
+                      member: _loadedMember!,
+                      isAdmin: true,
+                      onAssigned: () async {
+                        await _bootstrap();
+                      },
+                    ),
                   Container(
                     width: double.infinity,
                     color: AppTheme.forestGreen,

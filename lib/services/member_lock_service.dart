@@ -3,16 +3,24 @@ import '../models/user_role.dart';
 import 'activity_service.dart';
 import 'auth_service.dart';
 import 'database_service.dart';
+import 'remuneration_service.dart';
 import 'sync_engine.dart';
 import 'temporary_access_service.dart';
 
 /// Lock / unlock members once onboarding is complete.
 class MemberLockService {
-  MemberLockService(this._db, this._sync, this._activity);
+  MemberLockService(
+    this._db,
+    this._sync,
+    this._activity, {
+    RemunerationService? remunerationService,
+  }) : _remuneration = remunerationService;
 
   final DatabaseService _db;
   final SyncEngine _sync;
   final ActivityService _activity;
+  // NEW ADDITION - optional remuneration hook (pass null to disable)
+  final RemunerationService? _remuneration;
 
   bool _canManageOnboarding(AuthUser actor) =>
       actor.isAdmin ||
@@ -109,6 +117,21 @@ class MemberLockService {
             'by ${actor.displayName}',
         captureGps: false,
       );
+      // NEW ADDITION - auto remuneration for steps 2–4 (Delete block to revert)
+      if (step >= 2 && step <= 4) {
+        final secretaryId = updated.assignedSecretaryId;
+        if (secretaryId != null && secretaryId.isNotEmpty) {
+          try {
+            await _remuneration?.calculateStepRemuneration(
+              memberId: updated.id,
+              stepNumber: step,
+              secretaryId: secretaryId,
+            );
+          } catch (_) {
+            // Non-fatal: step completion must not fail on pay calc.
+          }
+        }
+      }
     }
     await _sync.pushPending();
     return updated;

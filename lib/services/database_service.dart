@@ -15,7 +15,9 @@ import '../models/lro_notice.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
 import '../models/reminder.dart';
+import '../models/remuneration_settings.dart';
 import '../models/role_definition.dart';
+import '../models/secretary_remuneration.dart';
 import '../models/sos_preset.dart';
 import '../models/temporary_access_log.dart';
 import 'password_hasher.dart';
@@ -47,6 +49,9 @@ class DatabaseService {
   final Map<String, LroHistory> _lroHistory = {};
   final Map<String, Reminder> _reminders = {};
   final Map<String, TemporaryAccessLog> _tempAccessLogs = {};
+  // NEW ADDITION - RS remuneration memory maps (Delete maps + methods to revert)
+  final Map<String, RemunerationSettings> _remunerationSettings = {};
+  final Map<String, SecretaryRemuneration> _secretaryRemunerations = {};
 
   Database get db {
     final database = _db;
@@ -78,6 +83,9 @@ class DatabaseService {
     _lroHistory.clear();
     _reminders.clear();
     _tempAccessLogs.clear();
+    // NEW ADDITION - RS remuneration
+    _remunerationSettings.clear();
+    _secretaryRemunerations.clear();
   }
 
   Future<void> init() async {
@@ -103,7 +111,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 11,
+      version: 12,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -328,6 +336,96 @@ class DatabaseService {
         'ON reminders(memberId)',
       );
     }
+    // NEW ADDITION - RS assignment + remuneration (Delete block to revert v12)
+    if (oldVersion < 12) {
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'assignedSecretaryId',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'assignedSecretaryName',
+        'TEXT',
+      );
+      await _addColumnIfMissing(database, 'members', 'assignedDate', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'assignedBy', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'assignmentMethod',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'reminders',
+        'assignedSecretaryId',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'reminders',
+        'assignedSecretaryName',
+        'TEXT',
+      );
+      await _addColumnIfMissing(database, 'reminders', 'assignedDate', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'reminders',
+        'assignmentMethod',
+        'TEXT',
+      );
+      await _createRemunerationTables(database);
+    }
+  }
+
+  // NEW ADDITION - Delete method to revert remuneration tables helper
+  Future<void> _createRemunerationTables(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS remuneration_settings (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        step2Amount REAL NOT NULL DEFAULT 200,
+        step3Amount REAL NOT NULL DEFAULT 300,
+        step4Amount REAL NOT NULL DEFAULT 250,
+        extraServicesJson TEXT NOT NULL DEFAULT '[]',
+        lastUpdated TEXT NOT NULL,
+        syncStatus TEXT NOT NULL DEFAULT 'pending'
+      )
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS secretary_remuneration (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        secretaryId TEXT NOT NULL,
+        secretaryName TEXT NOT NULL DEFAULT '',
+        memberId TEXT NOT NULL,
+        memberName TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        amount REAL NOT NULL DEFAULT 0,
+        extraServiceId TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        dateEarned TEXT NOT NULL,
+        dateApproved TEXT,
+        datePaid TEXT,
+        notes TEXT,
+        approvedBy TEXT,
+        paidBy TEXT,
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        isDeleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sec_remun_secretary '
+      'ON secretary_remuneration(secretaryId)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sec_remun_status '
+      'ON secretary_remuneration(status)',
+    );
   }
 
   Future<void> _addColumnIfMissing(
@@ -368,7 +466,11 @@ class DatabaseService {
         expiryDate TEXT,
         status TEXT NOT NULL DEFAULT 'active',
         completedDate TEXT,
-        completedBy TEXT
+        completedBy TEXT,
+        assignedSecretaryId TEXT,
+        assignedSecretaryName TEXT,
+        assignedDate TEXT,
+        assignmentMethod TEXT
       )
     ''');
     await database.execute(
@@ -585,6 +687,11 @@ class DatabaseService {
         temporaryAccessGrantedBy TEXT,
         temporaryAccessGrantedTo TEXT,
         temporaryAccessReason TEXT,
+        assignedSecretaryId TEXT,
+        assignedSecretaryName TEXT,
+        assignedDate TEXT,
+        assignedBy TEXT,
+        assignmentMethod TEXT,
         createdBy TEXT,
         lastModifiedBy TEXT,
         createdAt TEXT,
@@ -666,6 +773,8 @@ class DatabaseService {
     await _createLroTables(database);
     await _createRemindersTable(database);
     await _createTemporaryAccessLogsTable(database);
+    // NEW ADDITION - RS remuneration tables on fresh create
+    await _createRemunerationTables(database);
   }
 
   Future<void> ensureSeedAdmin() async {
@@ -2373,5 +2482,239 @@ class DatabaseService {
     await db.update('lro_documents', {'pendingSync': 1});
     await db.update('lro_history', {'pendingSync': 1});
     await db.update('reminders', {'pendingSync': 1});
+  }
+
+  // ===========================================================================
+  // NEW ADDITION - Recording Secretary assignment + remuneration (v12)
+  // Delete from this banner to end of class (before final `}`) to revert.
+  // ===========================================================================
+
+  Future<List<AppUser>> getRecordingSecretaries({bool activeOnly = false}) async {
+    final users = await getAppUsers();
+    return users
+        .where(
+          (u) =>
+              !u.deleted &&
+              u.isSecretary &&
+              (!activeOnly || u.active),
+        )
+        .toList()
+      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+  }
+
+  Future<List<AppUser>> getActiveRecordingSecretaries() =>
+      getRecordingSecretaries(activeOnly: true);
+
+  Future<int> countAssignedMembers(String secretaryId) async {
+    if (_memoryMode) {
+      return _members.values
+          .where(
+            (m) =>
+                !m.deleted &&
+                m.assignedSecretaryId == secretaryId,
+          )
+          .length;
+    }
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM members '
+      'WHERE deleted = 0 AND assignedSecretaryId = ?',
+      [secretaryId],
+    );
+    return (rows.first['c'] as int?) ?? 0;
+  }
+
+  Future<Member> assignSecretaryToMember({
+    required String memberId,
+    String? secretaryId,
+    String? assignedBy,
+    String assignmentMethod = 'manual',
+  }) async {
+    final member = await getMemberById(memberId);
+    if (member == null) {
+      throw StateError('Member not found: $memberId');
+    }
+
+    String? name;
+    if (secretaryId != null) {
+      final users = await getAppUsers();
+      for (final u in users) {
+        if (u.id == secretaryId) {
+          name = u.displayName;
+          break;
+        }
+      }
+    }
+
+    final updated = secretaryId == null
+        ? member.copyWith(
+            clearSecretaryAssignment: true,
+            lastModifiedBy: assignedBy,
+            updatedAt: DateTime.now().toUtc(),
+            pendingSync: true,
+          )
+        : member.copyWith(
+            assignedSecretaryId: secretaryId,
+            assignedSecretaryName: name,
+            assignedDate: DateTime.now().toUtc(),
+            assignedBy: assignedBy,
+            assignmentMethod: assignmentMethod,
+            lastModifiedBy: assignedBy,
+            updatedAt: DateTime.now().toUtc(),
+            pendingSync: true,
+          );
+    await upsertMember(updated);
+    return updated;
+  }
+
+  Future<Reminder> assignSecretaryToReminder({
+    required String reminderId,
+    String? secretaryId,
+    String assignmentMethod = 'manual',
+  }) async {
+    final reminder = await getReminderById(reminderId);
+    if (reminder == null) {
+      throw StateError('Reminder not found: $reminderId');
+    }
+
+    String? name;
+    if (secretaryId != null) {
+      final users = await getAppUsers();
+      for (final u in users) {
+        if (u.id == secretaryId) {
+          name = u.displayName;
+          break;
+        }
+      }
+    }
+
+    final updated = secretaryId == null
+        ? reminder.copyWith(
+            clearSecretaryAssignment: true,
+            updatedAt: DateTime.now().toUtc(),
+            pendingSync: true,
+          )
+        : reminder.copyWith(
+            assignedSecretaryId: secretaryId,
+            assignedSecretaryName: name,
+            assignedDate: DateTime.now().toUtc(),
+            assignmentMethod: assignmentMethod,
+            updatedAt: DateTime.now().toUtc(),
+            pendingSync: true,
+          );
+    await upsertReminder(updated);
+    return updated;
+  }
+
+  Future<RemunerationSettings> getRemunerationSettings() async {
+    if (_memoryMode) {
+      if (_remunerationSettings.isEmpty) {
+        final defaults = RemunerationSettings.defaults();
+        _remunerationSettings[defaults.id] = defaults;
+      }
+      return _remunerationSettings.values.first;
+    }
+    final rows = await db.query('remuneration_settings', limit: 1);
+    if (rows.isEmpty) {
+      final defaults = RemunerationSettings.defaults();
+      await db.insert('remuneration_settings', defaults.toMap());
+      return defaults;
+    }
+    return RemunerationSettings.fromMap(rows.first);
+  }
+
+  Future<void> saveRemunerationSettings(RemunerationSettings settings) async {
+    final saved = settings.copyWith(
+      lastUpdated: DateTime.now().toUtc(),
+      syncStatus: 'pending',
+    );
+    if (_memoryMode) {
+      _remunerationSettings
+        ..clear()
+        ..[saved.id] = saved;
+      return;
+    }
+    await db.insert(
+      'remuneration_settings',
+      saved.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> saveRemuneration(SecretaryRemuneration record) async {
+    if (_memoryMode) {
+      _secretaryRemunerations[record.id] = record;
+      return;
+    }
+    await db.insert(
+      'secretary_remuneration',
+      record.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> updateRemuneration(SecretaryRemuneration record) =>
+      saveRemuneration(record);
+
+  Future<SecretaryRemuneration?> getRemuneration(String id) async {
+    if (_memoryMode) return _secretaryRemunerations[id];
+    final rows = await db.query(
+      'secretary_remuneration',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return SecretaryRemuneration.fromMap(rows.first);
+  }
+
+  Future<List<SecretaryRemuneration>> getSecretaryRemuneration(
+    String secretaryId,
+  ) async {
+    if (_memoryMode) {
+      return _secretaryRemunerations.values
+          .where((r) => !r.isDeleted && r.secretaryId == secretaryId)
+          .toList()
+        ..sort((a, b) => b.dateEarned.compareTo(a.dateEarned));
+    }
+    final rows = await db.query(
+      'secretary_remuneration',
+      where: 'isDeleted = 0 AND secretaryId = ?',
+      whereArgs: [secretaryId],
+      orderBy: 'dateEarned DESC',
+    );
+    return rows.map(SecretaryRemuneration.fromMap).toList();
+  }
+
+  Future<List<SecretaryRemuneration>> getAllRemunerationRecords() async {
+    if (_memoryMode) {
+      return _secretaryRemunerations.values
+          .where((r) => !r.isDeleted)
+          .toList()
+        ..sort((a, b) => b.dateEarned.compareTo(a.dateEarned));
+    }
+    final rows = await db.query(
+      'secretary_remuneration',
+      where: 'isDeleted = 0',
+      orderBy: 'dateEarned DESC',
+    );
+    return rows.map(SecretaryRemuneration.fromMap).toList();
+  }
+
+  Future<bool> hasStepRemuneration({
+    required String memberId,
+    required String type,
+  }) async {
+    if (_memoryMode) {
+      return _secretaryRemunerations.values.any(
+        (r) => !r.isDeleted && r.memberId == memberId && r.type == type,
+      );
+    }
+    final rows = await db.query(
+      'secretary_remuneration',
+      where: 'isDeleted = 0 AND memberId = ? AND type = ?',
+      whereArgs: [memberId, type],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 }

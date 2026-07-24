@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
 import '../../widgets/form_dialog_title.dart';
+import '../../widgets/reminders/reminder_rs_assignment_row.dart';
 
 /// Onboarding reminder dashboard (steps 1–4 + 24h expiry).
 class RemindersScreen extends ConsumerStatefulWidget {
@@ -283,84 +284,99 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               ? Border.all(color: Colors.red.shade300, width: 2)
               : null,
         ),
-        child: ListTile(
-          onTap: () => _openMember(reminder.memberId),
-          onLongPress: () => _showOptions(reminder),
-          leading: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.15),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: color, size: 18),
-                Text(
-                  '${ReminderStep.getEmoji(step)} $step',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          title: Text(
-            reminder.displayName,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Step $step: ${reminder.stepDescription ?? ReminderStep.getDescription(step)}',
-                style: TextStyle(color: color, fontWeight: FontWeight.w600),
-              ),
-              Text(
-                'SA ID: ${reminder.saId ?? '—'} · '
-                '${_dateFormat.format(reminder.createdAt.toLocal())}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-          isThreeLine: true,
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              onTap: () => _openMember(reminder.memberId),
+              onLongPress: () => _showOptions(reminder),
+              leading: Container(
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: urgent ? Colors.red.shade50 : Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.15),
                 ),
-                child: Text(
-                  _formatTimeRemaining(remaining),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: urgent
-                        ? Colors.red.shade700
-                        : Colors.green.shade700,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: color, size: 18),
+                    Text(
+                      '${ReminderStep.getEmoji(step)} $step',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              if (urgent) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '⚠️ EXPIRING SOON',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: Colors.red.shade700,
-                    fontWeight: FontWeight.bold,
+              title: Text(
+                reminder.displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Step $step: ${reminder.stepDescription ?? ReminderStep.getDescription(step)}',
+                    style: TextStyle(color: color, fontWeight: FontWeight.w600),
                   ),
-                ),
-              ],
-            ],
-          ),
+                  Text(
+                    'SA ID: ${reminder.saId ?? '—'} · '
+                    '${_dateFormat.format(reminder.createdAt.toLocal())}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              isThreeLine: true,
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color:
+                          urgent ? Colors.red.shade50 : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _formatTimeRemaining(remaining),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: urgent
+                            ? Colors.red.shade700
+                            : Colors.green.shade700,
+                      ),
+                    ),
+                  ),
+                  if (urgent) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '⚠️ EXPIRING SOON',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // NEW ADDITION - RS assignment row (Delete block to revert)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: ReminderRsAssignmentRow(
+                reminder: reminder,
+                onChanged: _reload,
+              ),
+            ),
+          ],
         ),
       ),
     );

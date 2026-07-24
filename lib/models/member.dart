@@ -55,6 +55,13 @@ class Member {
   final String? temporaryAccessGrantedTo;
   final String? temporaryAccessReason;
 
+  // NEW ADDITION - RS assignment (Delete fields + usages to revert)
+  final String? assignedSecretaryId;
+  final String? assignedSecretaryName;
+  final DateTime? assignedDate;
+  final String? assignedBy;
+  final String? assignmentMethod; // manual | auto
+
   // Audit
   final String? createdBy;
   final String? lastModifiedBy;
@@ -108,6 +115,12 @@ class Member {
     this.temporaryAccessGrantedBy,
     this.temporaryAccessGrantedTo,
     this.temporaryAccessReason,
+    // NEW ADDITION - RS assignment
+    this.assignedSecretaryId,
+    this.assignedSecretaryName,
+    this.assignedDate,
+    this.assignedBy,
+    this.assignmentMethod,
     this.createdBy,
     this.lastModifiedBy,
     this.createdAt,
@@ -220,6 +233,12 @@ class Member {
     String? temporaryAccessGrantedBy,
     String? temporaryAccessGrantedTo,
     String? temporaryAccessReason,
+    // NEW ADDITION - RS assignment
+    String? assignedSecretaryId,
+    String? assignedSecretaryName,
+    DateTime? assignedDate,
+    String? assignedBy,
+    String? assignmentMethod,
     String? createdBy,
     String? lastModifiedBy,
     DateTime? createdAt,
@@ -231,6 +250,7 @@ class Member {
     bool clearUserId = false,
     bool clearTemporaryAccess = false,
     bool clearLock = false,
+    bool clearSecretaryAssignment = false,
   }) {
     return Member(
       id: id ?? this.id,
@@ -290,6 +310,21 @@ class Member {
       temporaryAccessReason: clearTemporaryAccess
           ? null
           : (temporaryAccessReason ?? this.temporaryAccessReason),
+      // NEW ADDITION - RS assignment
+      assignedSecretaryId: clearSecretaryAssignment
+          ? null
+          : (assignedSecretaryId ?? this.assignedSecretaryId),
+      assignedSecretaryName: clearSecretaryAssignment
+          ? null
+          : (assignedSecretaryName ?? this.assignedSecretaryName),
+      assignedDate: clearSecretaryAssignment
+          ? null
+          : (assignedDate ?? this.assignedDate),
+      assignedBy:
+          clearSecretaryAssignment ? null : (assignedBy ?? this.assignedBy),
+      assignmentMethod: clearSecretaryAssignment
+          ? null
+          : (assignmentMethod ?? this.assignmentMethod),
       createdBy: createdBy ?? this.createdBy,
       lastModifiedBy: lastModifiedBy ?? this.lastModifiedBy,
       createdAt: createdAt ?? this.createdAt,
@@ -346,6 +381,12 @@ class Member {
       'temporaryAccessGrantedBy': temporaryAccessGrantedBy,
       'temporaryAccessGrantedTo': temporaryAccessGrantedTo,
       'temporaryAccessReason': temporaryAccessReason,
+      // NEW ADDITION - RS assignment
+      'assignedSecretaryId': assignedSecretaryId,
+      'assignedSecretaryName': assignedSecretaryName,
+      'assignedDate': assignedDate?.toIso8601String(),
+      'assignedBy': assignedBy,
+      'assignmentMethod': assignmentMethod,
       'createdBy': createdBy,
       'lastModifiedBy': lastModifiedBy,
       'createdAt': createdAt?.toIso8601String(),
@@ -402,6 +443,12 @@ class Member {
       'temporaryAccessGrantedBy': temporaryAccessGrantedBy,
       'temporaryAccessGrantedTo': temporaryAccessGrantedTo,
       'temporaryAccessReason': temporaryAccessReason,
+      // NEW ADDITION - RS assignment
+      'assignedSecretaryId': assignedSecretaryId,
+      'assignedSecretaryName': assignedSecretaryName,
+      'assignedDate': assignedDate?.toIso8601String(),
+      'assignedBy': assignedBy,
+      'assignmentMethod': assignmentMethod,
       'createdBy': createdBy,
       'lastModifiedBy': lastModifiedBy,
       'createdAt': createdAt?.toIso8601String(),
@@ -456,6 +503,12 @@ class Member {
       temporaryAccessGrantedBy: map['temporaryAccessGrantedBy'] as String?,
       temporaryAccessGrantedTo: map['temporaryAccessGrantedTo'] as String?,
       temporaryAccessReason: map['temporaryAccessReason'] as String?,
+      // NEW ADDITION - RS assignment
+      assignedSecretaryId: map['assignedSecretaryId'] as String?,
+      assignedSecretaryName: map['assignedSecretaryName'] as String?,
+      assignedDate: _asDate(map['assignedDate']),
+      assignedBy: map['assignedBy'] as String?,
+      assignmentMethod: map['assignmentMethod'] as String?,
       createdBy: map['createdBy'] as String?,
       lastModifiedBy: map['lastModifiedBy'] as String?,
       createdAt: _asDate(map['createdAt']),

@@ -58,10 +58,66 @@ class ReminderNotificationService {
     );
   }
 
+  // NEW ADDITION - RS assignment / remuneration notices (Delete methods to revert)
+  Future<void> notifySecretaryAssigned({
+    required String secretaryId,
+    required String memberName,
+    required int step,
+  }) async {
+    await _send(
+      title: '👤 Member Assigned',
+      body: '$memberName assigned to you (Step $step)',
+      type: 'secretary_assigned',
+      audienceSecretaryId: secretaryId,
+    );
+  }
+
+  Future<void> notifyRemunerationEarned({
+    required String secretaryId,
+    required double amount,
+    required String description,
+    required String memberName,
+  }) async {
+    await _send(
+      title: '💰 Remuneration Earned',
+      body:
+          'R ${amount.toStringAsFixed(2)} — $description ($memberName)',
+      type: 'remuneration_earned',
+      audienceSecretaryId: secretaryId,
+    );
+  }
+
+  Future<void> notifyRemunerationApproved({
+    required String secretaryId,
+    required double amount,
+    required String description,
+  }) async {
+    await _send(
+      title: '✅ Remuneration Approved',
+      body: 'R ${amount.toStringAsFixed(2)} — $description',
+      type: 'remuneration_approved',
+      audienceSecretaryId: secretaryId,
+    );
+  }
+
+  Future<void> notifyRemunerationPaid({
+    required String secretaryId,
+    required double amount,
+    required String description,
+  }) async {
+    await _send(
+      title: '💵 Remuneration Paid',
+      body: 'R ${amount.toStringAsFixed(2)} — $description',
+      type: 'remuneration_paid',
+      audienceSecretaryId: secretaryId,
+    );
+  }
+
   Future<void> _send({
     required String title,
     required String body,
     required String type,
+    String? audienceSecretaryId,
   }) async {
     _inbox.add(
       ReminderNotice(
@@ -75,9 +131,16 @@ class ReminderNotificationService {
 
     try {
       final users = await _db.getAppUsers();
-      final targets = users.where((u) => !u.deleted && u.active && u.isAdmin);
+      final targets = users.where((u) {
+        if (u.deleted || !u.active) return false;
+        if (u.isAdmin) return true;
+        if (audienceSecretaryId != null && u.id == audienceSecretaryId) {
+          return true;
+        }
+        return false;
+      });
       debugPrint(
-        'Reminder notice audience: ${targets.length} admin user(s)',
+        'Reminder notice audience: ${targets.length} user(s)',
       );
     } catch (e) {
       debugPrint('Reminder notify recipient lookup failed: $e');
