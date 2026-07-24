@@ -28,8 +28,8 @@ import '../../widgets/member_nav/member_filter_panel.dart';
 import '../../widgets/member_nav/member_list_panel.dart';
 import '../../widgets/member_nav/profile_navigation_bar.dart';
 import '../../widgets/member_nav/unsaved_changes_dialog.dart';
+import '../../widgets/member/promote_to_recording_secretary_widget.dart';
 import '../../widgets/onboarding_checklist_card.dart';
-import '../../widgets/member/recording_secretary_assignment.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
@@ -1473,125 +1473,93 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (idx > 0 && idx < filtered.length) {
       prevName = filtered[idx - 1].fullName;
     }
-    if (idx >= 0 && idx < filtered.length - 1) {
+    // MODIFIED - from draft, Next targets first filtered member
+    if (idx < 0 && filtered.isNotEmpty) {
+      nextName = filtered.first.fullName;
+      prevName = filtered.first.fullName;
+    } else if (idx >= 0 && idx < filtered.length - 1) {
       nextName = filtered[idx + 1].fullName;
     }
 
     final modeLabel = _isEditing ? 'EDIT MODE' : 'VIEW MODE';
 
     Widget buildNavHeader() {
-      if (member != null) {
-        return ProfileNavigationBar(
-          currentMember: member,
-          currentIndex: idx,
-          totalMembers: filtered.length,
-          previousName: prevName,
-          nextName: nextName,
-          onBack: () => onBack(),
-          onPrevious: () => onPrev(),
-          onNext: () => onNext(),
-          canEdit: _canEnterEditMode && !_isEditing,
-          canDelete: !_isEditing &&
-              !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
-              !_isMemberOnly,
-          onEdit: (_canEnterEditMode && !_isEditing) ? _enterEditMode : null,
-          onNew: _canAddMembers
-              ? () async {
-                  if (!await _ensureCanNavigate()) return;
-                  openMemberDraft();
-                }
-              : null,
-          canNew: _canAddMembers,
-          onUpload: () async {
-            if (_isEditing && _hasUnsavedChanges) {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('⚠️ Unsaved Changes'),
-                  content: const Text(
-                    'You have unsaved changes. Please save before uploading files.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('💾 Save First'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm == true) {
-                final ok = await _save();
-                if (!ok || !mounted) return;
-              } else {
-                return;
+      // MODIFIED - always show ProfileNavigationBar (incl. New Member draft)
+      // so Previous/Next stay visible.
+      final displayMember = member ??
+          Member(
+            id: 'draft',
+            saId: '',
+            globalRecordNo: '',
+            memberName: 'New',
+            surname: 'Member',
+            updatedAt: DateTime.now().toUtc(),
+          );
+      return ProfileNavigationBar(
+        currentMember: displayMember,
+        currentIndex: idx,
+        totalMembers: filtered.length,
+        previousName: prevName,
+        nextName: nextName,
+        onBack: () => onBack(),
+        onPrevious: () => onPrev(),
+        onNext: () => onNext(),
+        canEdit: member != null && _canEnterEditMode && !_isEditing,
+        canDelete: member != null &&
+            !_isEditing &&
+            !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
+            !_isMemberOnly,
+        onEdit: (member != null && _canEnterEditMode && !_isEditing)
+            ? _enterEditMode
+            : null,
+        onNew: _canAddMembers
+            ? () async {
+                if (!await _ensureCanNavigate()) return;
+                openMemberDraft();
               }
-            }
-            if (!mounted) return;
-            await showMemberFilesDialog(context, ref, member);
-          },
-          onDelete: (!_isEditing &&
-                  !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
-                  !_isMemberOnly)
-              ? _delete
-              : null,
-        );
-      }
-      return Material(
-        color: AppTheme.forestGreen,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () => onBack(),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                tooltip: 'Back to List (Esc)',
-              ),
-              Expanded(
-                child: Text(
-                  'New Member ($modeLabel)',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.labelText,
-                  ),
-                ),
-              ),
-              if (_canAddMembers)
-                TextButton.icon(
-                  onPressed: () async {
-                    if (!await _ensureCanNavigate()) return;
-                    openMemberDraft();
-                  },
-                  style: TextButton.styleFrom(foregroundColor: Colors.white),
-                  icon: const Icon(Icons.person_add_outlined, size: 18),
-                  label: const Text('New'),
-                ),
-              if (_isEditing) ...[
-                TextButton(
-                  onPressed: _cancelEdit,
-                  style: TextButton.styleFrom(foregroundColor: Colors.white),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _canPressSave ? () => _save() : null,
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save'),
-                ),
-              ],
-              IconButton(
-                tooltip: 'Close',
-                onPressed: () => onBack(),
-                icon: const Icon(Icons.close, color: Colors.white),
-              ),
-            ],
-          ),
-        ),
+            : null,
+        canNew: _canAddMembers,
+        onUpload: member == null
+            ? null
+            : () async {
+                if (_isEditing && _hasUnsavedChanges) {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('⚠️ Unsaved Changes'),
+                      content: const Text(
+                        'You have unsaved changes. Please save before uploading files.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('💾 Save First'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    final ok = await _save();
+                    if (!ok || !mounted) return;
+                  } else {
+                    return;
+                  }
+                }
+                if (!mounted) return;
+                final m = member;
+                if (m == null) return;
+                await showMemberFilesDialog(context, ref, m);
+              },
+        onDelete: (member != null &&
+                !_isEditing &&
+                !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
+                !_isMemberOnly)
+            ? _delete
+            : null,
       );
     }
 
@@ -1697,12 +1665,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               child: ListView(
                 key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
-                  // NEW ADDITION - Admin RS assignment (Delete block to revert)
+                  // NEW ADDITION - promote Member → RS (replaces assign-RS radios)
+                  // Old: RecordingSecretaryAssignment — still in widgets/member/
                   if (_loadedMember != null && _viewerIsAdmin)
-                    RecordingSecretaryAssignment(
+                    PromoteToRecordingSecretaryWidget(
                       member: _loadedMember!,
                       isAdmin: true,
-                      onAssigned: () async {
+                      onChanged: () async {
                         await _bootstrap();
                       },
                     ),

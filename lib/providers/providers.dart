@@ -23,6 +23,7 @@ import '../services/connectivity_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
+import '../services/promotion_service.dart';
 import '../services/reminder_notification_service.dart';
 import '../services/reminder_service.dart';
 import '../services/remuneration_service.dart';
@@ -267,6 +268,16 @@ final remunerationServiceProvider = Provider<RemunerationService>((ref) {
 
 final testDataServiceProvider = Provider<TestDataService>((ref) {
   return TestDataService(ref.watch(databaseServiceProvider));
+});
+
+// NEW ADDITION - promotion service (Delete to revert)
+final promotionServiceProvider = Provider<PromotionService>((ref) {
+  return PromotionService(
+    ref.watch(authServiceProvider),
+    ref.watch(databaseServiceProvider),
+    ref.watch(activityServiceProvider),
+    notifications: ref.watch(reminderNotificationServiceProvider),
+  );
 });
 
 final activeOnboardingRemindersProvider =

@@ -113,6 +113,29 @@ class ReminderNotificationService {
     );
   }
 
+  // NEW ADDITION - promotion notices (Delete methods to revert)
+  Future<void> notifyPromotionToSecretary({
+    required String memberName,
+    required String adminName,
+  }) async {
+    await _send(
+      title: '👑 Promoted to Recording Secretary',
+      body: '$memberName promoted by $adminName',
+      type: 'promote_secretary',
+    );
+  }
+
+  Future<void> notifyDemotionToMember({
+    required String memberName,
+    required String adminName,
+  }) async {
+    await _send(
+      title: '👤 Demoted to Member',
+      body: '$memberName demoted by $adminName',
+      type: 'demote_member',
+    );
+  }
+
   Future<void> _send({
     required String title,
     required String body,

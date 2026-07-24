@@ -42,11 +42,15 @@ class ProfileNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPrev = currentIndex > 0;
-    final hasNext = currentIndex >= 0 && currentIndex < totalMembers - 1;
+    // MODIFIED - enable Prev/Next from New Member draft (index < 0)
+    final fromDraft = currentIndex < 0;
+    final hasPrev =
+        (currentIndex > 0) || (fromDraft && totalMembers > 0);
+    final hasNext = (currentIndex >= 0 && currentIndex < totalMembers - 1) ||
+        (fromDraft && totalMembers > 0);
     final counter = totalMembers == 0
         ? '—'
-        : '${currentIndex < 0 ? '—' : currentIndex + 1} of $totalMembers';
+        : '${currentIndex < 0 ? 'New' : currentIndex + 1} of $totalMembers';
 
     return Material(
       elevation: 2,

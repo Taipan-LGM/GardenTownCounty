@@ -175,7 +175,11 @@ class MemberNavigationController extends StateNotifier<MemberNavigationState> {
     if (idx < 0 && state.selectedMemberId != null) {
       idx = list.indexWhere((m) => m.id == state.selectedMemberId);
     }
-    if (idx < 0) idx = 0;
+    // MODIFIED - from New Member draft, Next/Prev open first member
+    if (idx < 0) {
+      await openMember(list[0], all: all);
+      return;
+    }
     final next = (idx + delta).clamp(0, list.length - 1);
     if (next == idx && state.selectedMemberId == list[next].id) return;
     await openMember(list[next], all: all);
