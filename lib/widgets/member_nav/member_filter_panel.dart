@@ -26,13 +26,23 @@ class MemberFilterPanel extends ConsumerWidget {
       return ListTile(
         dense: true,
         selected: isSelected,
-        selectedTileColor: AppTheme.forestGreen.withValues(alpha: 0.12),
-        leading: Text(f.iconLabel, style: const TextStyle(fontSize: 16)),
+        selectedTileColor: AppTheme.forestGreen,
+        selectedColor: Colors.white,
+        iconColor: isSelected ? Colors.white : null,
+        textColor: isSelected ? Colors.white : null,
+        leading: Text(
+          f.iconLabel,
+          style: TextStyle(
+            fontSize: 16,
+            color: isSelected ? Colors.white : null,
+          ),
+        ),
         title: Text(
           '${f.label} ($count)',
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.forestGreen : null,
+            // MODIFIED - selected filter labels (incl. All) white on green
+            color: isSelected ? Colors.white : null,
           ),
         ),
         onTap: () => nav.setFilter(f),
@@ -48,7 +58,18 @@ class MemberFilterPanel extends ConsumerWidget {
           final isSelected = selected == f;
           return FilterChip(
             selected: isSelected,
-            label: Text('${f.iconLabel} ${f.label} ($count)'),
+            label: Text(
+              '${f.iconLabel} ${f.label} ($count)',
+              style: TextStyle(
+                color: isSelected ? Colors.white : null,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            selectedColor: AppTheme.forestGreen,
+            checkmarkColor: Colors.white,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : null,
+            ),
             onSelected: (_) => nav.setFilter(f),
           );
         }).toList(),
@@ -70,7 +91,7 @@ class MemberFilterPanel extends ConsumerWidget {
                   'FILTERS',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.labelText,
+                    color: Colors.white,
                   ),
                 ),
               ),

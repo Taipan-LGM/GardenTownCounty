@@ -28,7 +28,6 @@ import '../../widgets/member_nav/member_filter_panel.dart';
 import '../../widgets/member_nav/member_list_panel.dart';
 import '../../widgets/member_nav/profile_navigation_bar.dart';
 import '../../widgets/member_nav/unsaved_changes_dialog.dart';
-import '../../widgets/member/promote_to_recording_secretary_widget.dart';
 import '../../widgets/onboarding_checklist_card.dart';
 import '../../widgets/screenshot_protected_view.dart';
 import 'lookup_manager_dialog.dart';
@@ -70,6 +69,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _photoBusy = false;
   String? _adminLinkedMemberId;
   Member? _loadedMember;
+  // NEW ADDITION - RS radio in nav bar (always OFF until Admin activates)
+  bool _rsRadioOn = false;
+  bool _rsRadioBusy = false;
   String? _lastLoggedSecureViewId;
   final _searchFocusNode = FocusNode();
   bool _navForward = true;
@@ -588,6 +590,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _loadedMember = member;
       _currentId = member.id;
       _draftId = null;
+      // RS radio always OFF when opening a member — Admin must activate
+      _rsRadioOn = false;
+      _rsRadioBusy = false;
       _saId.text = masked ? _maskValue : member.saId;
       _globalRecordNo.text = masked ? _maskValue : member.globalRecordNo;
       _memberName.text = masked ? _maskValue : member.memberName;
@@ -682,6 +687,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _loadedMember = null;
       _currentId = null;
       _draftId = const Uuid().v4();
+      _rsRadioOn = false;
+      _rsRadioBusy = false;
       _saId.clear();
       _globalRecordNo.clear();
       _memberName.clear();
@@ -1456,7 +1463,120 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _isEditing = true;
       _hasUnsavedChanges = false;
       _snapshot = _takeSnapshot();
+      _rsRadioOn = false;
     });
+  }
+
+  // NEW ADDITION - nav-bar RS radio promote/demote (Delete method to revert)
+  Future<void> _onRsRadioChanged(bool turnOn) async {
+    if (_rsRadioBusy) return;
+    final isAdmin = ref.read(isAdminProvider);
+    if (!isAdmin) return;
+
+    final member = _loadedMember;
+    if (member == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Save or open a member before activating RS.'),
+        ),
+      );
+      return;
+    }
+
+    final admin = ref.read(authUserProvider);
+    if (admin == null) return;
+
+    setState(() => _rsRadioBusy = true);
+    try {
+      if (turnOn) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Activate Recording Secretary?'),
+            content: Text(
+              'Promote ${member.fullName} to Recording Secretary?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Activate RS'),
+              ),
+            ],
+          ),
+        );
+        if (confirm != true) return;
+
+        await ref.read(promotionServiceProvider).promoteToRecordingSecretary(
+              member: member,
+              admin: admin,
+            );
+        if (!mounted) return;
+        setState(() => _rsRadioOn = true);
+        ref.invalidate(appUsersProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${member.fullName} is now a Recording Secretary'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Deactivate Recording Secretary?'),
+            content: Text(
+              'Demote ${member.fullName} to Regular Member?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Deactivate RS'),
+              ),
+            ],
+          ),
+        );
+        if (confirm != true) return;
+
+        await ref.read(promotionServiceProvider).demoteToMember(
+              member: member,
+              admin: admin,
+            );
+        if (!mounted) return;
+        setState(() => _rsRadioOn = false);
+        ref.invalidate(appUsersProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${member.fullName} is now a Regular Member'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _rsRadioBusy = false);
+    }
   }
 
   Widget _buildProfilePane({
@@ -1550,9 +1670,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   }
                 }
                 if (!mounted) return;
-                final m = member;
-                if (m == null) return;
-                await showMemberFilesDialog(context, ref, m);
+                await showMemberFilesDialog(context, ref, member);
               },
         onDelete: (member != null &&
                 !_isEditing &&
@@ -1560,6 +1678,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 !_isMemberOnly)
             ? _delete
             : null,
+        // NEW ADDITION - permanent Admin RS radio
+        showRsRadio: ref.watch(isAdminProvider),
+        rsRadioOn: _rsRadioOn,
+        rsRadioEnabled: ref.watch(isAdminProvider) &&
+            member != null &&
+            !_rsRadioBusy,
+        onRsRadioChanged: _onRsRadioChanged,
       );
     }
 
@@ -1578,13 +1703,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 visualDensity: VisualDensity.compact,
                 backgroundColor: _isEditing
                     ? Colors.orange.withValues(alpha: 0.15)
-                    : Colors.grey.withValues(alpha: 0.15),
+                    : AppTheme.forestGreen,
                 label: Text(
                   modeLabel,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
-                    color: _isEditing ? Colors.orange.shade800 : Colors.black54,
+                    // MODIFIED - View Mode text white
+                    color: _isEditing ? Colors.orange.shade800 : Colors.white,
                   ),
                 ),
               ),
@@ -1606,8 +1732,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     }
                     await showMemberFilesDialog(context, ref, m);
                   },
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text('Upload Files'),
+                  icon: const Icon(Icons.attach_file, color: Colors.white),
+                  // MODIFIED - Upload Files text white
+                  label: const Text(
+                    'Upload Files',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.forestGreen,
+                    side: const BorderSide(color: Colors.white, width: 1.5),
+                  ),
                 ),
               const SizedBox(width: 8),
               if (!_isEditing && _canEnterEditMode)
@@ -1659,43 +1794,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 onComplete: _completeAndLock,
               ),
             ),
-          // NEW ADDITION - RS promote radios (fixed above form scroll — always visible)
-          // Was inside ListView + required _loadedMember; draft hid the panel.
-          if (ref.watch(isAdminProvider)) ...[
-            if (_loadedMember != null)
-              PromoteToRecordingSecretaryWidget(
-                key: ValueKey('promote-${_loadedMember!.id}'),
-                member: _loadedMember!,
-                isAdmin: true,
-                onChanged: () async {
-                  final id = _loadedMember?.id;
-                  if (id == null) return;
-                  final refreshed =
-                      await ref.read(memberRepositoryProvider).getById(id);
-                  if (refreshed != null && mounted) {
-                    final idx = _members.indexWhere((m) => m.id == id);
-                    _loadMember(refreshed, idx >= 0 ? idx : 0);
-                  }
-                  ref.invalidate(appUsersProvider);
-                },
-              )
-            else
-              Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                color: Colors.blue.shade50,
-                child: const ListTile(
-                  leading: Icon(Icons.admin_panel_settings, color: Colors.blue),
-                  title: Text(
-                    'Promote to Recording Secretary (Admin)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    'Open an existing member (Previous/Next or list) to promote '
-                    'them to Recording Secretary. Save a new member first if needed.',
-                  ),
-                ),
-              ),
-          ],
           Expanded(
             child: Form(
               key: _formKey,
