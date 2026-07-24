@@ -1659,22 +1659,49 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 onComplete: _completeAndLock,
               ),
             ),
+          // NEW ADDITION - RS promote radios (fixed above form scroll — always visible)
+          // Was inside ListView + required _loadedMember; draft hid the panel.
+          if (ref.watch(isAdminProvider)) ...[
+            if (_loadedMember != null)
+              PromoteToRecordingSecretaryWidget(
+                key: ValueKey('promote-${_loadedMember!.id}'),
+                member: _loadedMember!,
+                isAdmin: true,
+                onChanged: () async {
+                  final id = _loadedMember?.id;
+                  if (id == null) return;
+                  final refreshed =
+                      await ref.read(memberRepositoryProvider).getById(id);
+                  if (refreshed != null && mounted) {
+                    final idx = _members.indexWhere((m) => m.id == id);
+                    _loadMember(refreshed, idx >= 0 ? idx : 0);
+                  }
+                  ref.invalidate(appUsersProvider);
+                },
+              )
+            else
+              Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: Colors.blue.shade50,
+                child: const ListTile(
+                  leading: Icon(Icons.admin_panel_settings, color: Colors.blue),
+                  title: Text(
+                    'Promote to Recording Secretary (Admin)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Open an existing member (Previous/Next or list) to promote '
+                    'them to Recording Secretary. Save a new member first if needed.',
+                  ),
+                ),
+              ),
+          ],
           Expanded(
             child: Form(
               key: _formKey,
               child: ListView(
                 key: ValueKey<String>(_currentId ?? 'new-member'),
                 children: [
-                  // NEW ADDITION - promote Member → RS (replaces assign-RS radios)
-                  // Old: RecordingSecretaryAssignment — still in widgets/member/
-                  if (_loadedMember != null && _viewerIsAdmin)
-                    PromoteToRecordingSecretaryWidget(
-                      member: _loadedMember!,
-                      isAdmin: true,
-                      onChanged: () async {
-                        await _bootstrap();
-                      },
-                    ),
                   Container(
                     width: double.infinity,
                     color: AppTheme.forestGreen,
