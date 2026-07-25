@@ -90,3 +90,25 @@ class GlobalRecordValidator {
     return null;
   }
 }
+
+/// LRO Record No. format helpers (optional; max 14 alphanumeric + hyphen).
+///
+/// // NEW ADDITION - Delete class to revert LRO Record validation.
+class LroRecordValidator {
+  LroRecordValidator._();
+
+  static final RegExp _allowed = RegExp(r'^[A-Za-z0-9-]+$');
+
+  /// Returns null if valid (including empty); otherwise an error message.
+  static String? validate(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    if (value.length > AppConstants.lroRecordNoMaxLength) {
+      return 'LRO Record No. must not exceed 14 characters';
+    }
+    if (!_allowed.hasMatch(value)) {
+      return 'Only letters, numbers, and hyphens allowed';
+    }
+    return null;
+  }
+}

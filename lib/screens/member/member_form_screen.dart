@@ -16,6 +16,7 @@ import '../../models/member_form_mode.dart';
 import '../../models/member_navigation_state.dart';
 import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
+import '../../services/record_field_policy.dart';
 import '../../services/sa_id_validator.dart';
 import '../../services/secure_screen_service.dart';
 import '../../services/temporary_access_service.dart';
@@ -29,7 +30,9 @@ import '../../widgets/member_nav/member_list_panel.dart';
 import '../../widgets/member_nav/profile_navigation_bar.dart';
 import '../../widgets/member_nav/unsaved_changes_dialog.dart';
 import '../../widgets/onboarding_checklist_card.dart';
+import '../../widgets/record_visibility_dialog.dart';
 import '../../widgets/screenshot_protected_view.dart';
+import '../../widgets/smart_record_field.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
 
@@ -46,6 +49,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _saId = TextEditingController();
   final _globalRecordNo = TextEditingController();
+  // NEW ADDITION - LRO Record No. (Delete controller + usages to revert)
+  final _lroRecordNo = TextEditingController();
   final _memberName = TextEditingController();
   final _surname = TextEditingController();
   final _address = TextEditingController();
@@ -85,6 +90,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   String? _saIdError;
   String? _saIdWarning;
   String? _globalRecordError;
+  String? _lroRecordError;
   bool _isCheckingSaId = false;
   bool _isCheckingGlobalRecord = false;
   String? _duplicateSaIdMemberId;
@@ -97,8 +103,28 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   bool get _viewerIsAdmin => ref.read(authUserProvider)?.isAdmin ?? false;
 
+  bool get _viewerIsSecretary =>
+      ref.read(authUserProvider)?.isSecretary ?? false;
+
   bool get _isMemberOnly =>
       ref.read(authUserProvider)?.isMemberRole ?? false;
+
+  String? get _persistedGlobalRecord => _loadedMember?.globalRecordNo;
+
+  String? get _persistedLroRecord => _loadedMember?.lroRecordNo;
+
+  bool get _showGlobalRecordField => RecordFieldPolicy.shouldShow(
+        isAdmin: _viewerIsAdmin,
+        isSecretary: _viewerIsSecretary,
+        value: _persistedGlobalRecord ?? _globalRecordNo.text,
+      );
+
+  bool get _globalRecordReadOnly => RecordFieldPolicy.isReadOnly(
+        isAdmin: _viewerIsAdmin,
+        isSecretary: _viewerIsSecretary,
+        persistedValue: _persistedGlobalRecord,
+        formReadOnly: _formReadOnly,
+      );
 
   String? get _viewerMemberId => ref.read(authUserProvider)?.memberId;
 
@@ -161,6 +187,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
     _saId.addListener(_onSaIdChanged);
     _globalRecordNo.addListener(_onGlobalRecordChanged);
+    _lroRecordNo.addListener(_onFormFieldChanged);
     _bootstrap();
   }
 
@@ -170,6 +197,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _globalRecordDebounce?.cancel();
     _saId.dispose();
     _globalRecordNo.dispose();
+    _lroRecordNo.dispose();
     _memberName.dispose();
     _surname.dispose();
     _address.dispose();
@@ -200,6 +228,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     return _FormSnapshot(
       saId: _saId.text,
       globalRecordNo: _globalRecordNo.text,
+      lroRecordNo: _lroRecordNo.text,
       memberName: _memberName.text,
       surname: _surname.text,
       address: _address.text,
@@ -219,6 +248,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _suppressDirty = true;
     _saId.text = snap.saId;
     _globalRecordNo.text = snap.globalRecordNo;
+    _lroRecordNo.text = snap.lroRecordNo;
     _memberName.text = snap.memberName;
     _surname.text = snap.surname;
     _address.text = snap.address;
@@ -595,6 +625,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _rsRadioBusy = false;
       _saId.text = masked ? _maskValue : member.saId;
       _globalRecordNo.text = masked ? _maskValue : member.globalRecordNo;
+      _lroRecordNo.text = masked ? _maskValue : (member.lroRecordNo ?? '');
+      _lroRecordError = null;
       _memberName.text = masked ? _maskValue : member.memberName;
       _surname.text = masked ? _maskValue : member.surname;
       _address.text = masked ? _maskValue : member.address;
@@ -691,6 +723,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _rsRadioBusy = false;
       _saId.clear();
       _globalRecordNo.clear();
+      _lroRecordNo.clear();
+      _lroRecordError = null;
       _memberName.clear();
       _surname.clear();
       _address.clear();
@@ -908,14 +942,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       await _validateSaIdLive(_saId.text);
       await _validateGlobalRecordLive(_globalRecordNo.text);
     }
-    if (_saIdError != null || _globalRecordError != null) {
+    if (_saIdError != null ||
+        _globalRecordError != null ||
+        _lroRecordError != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               _saIdError ??
                   _globalRecordError ??
-                  'Fix SA ID / Global Record before saving.',
+                  _lroRecordError ??
+                  'Fix SA ID / Record fields before saving.',
             ),
             backgroundColor: Colors.red.shade700,
           ),
@@ -923,7 +960,33 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
       return false;
     }
-    if (_saId.text.trim().isEmpty || _globalRecordNo.text.trim().isEmpty) {
+    final nextGlobal = _globalRecordReadOnly
+        ? (_persistedGlobalRecord ?? _globalRecordNo.text).trim()
+        : _globalRecordNo.text.trim();
+    final nextLroRaw = RecordFieldPolicy.isReadOnly(
+      isAdmin: _viewerIsAdmin,
+      isSecretary: _viewerIsSecretary,
+      persistedValue: _persistedLroRecord,
+      formReadOnly: _formReadOnly,
+    )
+        ? (_persistedLroRecord ?? _lroRecordNo.text)
+        : _lroRecordNo.text;
+    final nextLro = nextLroRaw.trim().isEmpty ? null : nextLroRaw.trim();
+    if (_saId.text.trim().isEmpty ||
+        (!_isMemberOnly && nextGlobal.isEmpty)) {
+      return false;
+    }
+    if (_isMemberOnly && nextGlobal.isEmpty) {
+      // Members never enter Global Record; require Admin to set it first.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Global Record No. has not been assigned yet. Contact Admin.',
+            ),
+          ),
+        );
+      }
       return false;
     }
 
@@ -934,16 +997,27 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ? null
           : await ref.read(memberRepositoryProvider).getById(_currentId!);
 
+      RecordFieldPolicy.assertCanSave(
+        isAdmin: _viewerIsAdmin,
+        existingGlobalRecordNo: existing?.globalRecordNo,
+        nextGlobalRecordNo: nextGlobal,
+        existingLroRecordNo: existing?.lroRecordNo,
+        nextLroRecordNo: nextLro,
+      );
+
       final member = (existing ??
               Member.create(
                 saId: _saId.text.trim(),
-                globalRecordNo: _globalRecordNo.text.trim(),
+                globalRecordNo: nextGlobal,
                 memberName: _memberName.text.trim(),
                 surname: _surname.text.trim(),
+                lroRecordNo: nextLro,
               ))
           .copyWith(
         saId: _saId.text.trim(),
-        globalRecordNo: _globalRecordNo.text.trim(),
+        globalRecordNo: nextGlobal,
+        lroRecordNo: nextLro,
+        clearLroRecordNo: nextLro == null,
         memberName: _memberName.text.trim(),
         surname: _surname.text.trim(),
         address: _address.text.trim(),
@@ -976,6 +1050,20 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   : 'Updated member ${saved.fullName}',
               captureGps: false,
             );
+        // NEW ADDITION - audit record number entry/changes
+        for (final line in RecordFieldPolicy.auditLines(
+          memberName: saved.fullName,
+          oldGlobal: existing?.globalRecordNo,
+          newGlobal: saved.globalRecordNo,
+          oldLro: existing?.lroRecordNo,
+          newLro: saved.lroRecordNo,
+        )) {
+          await ref.read(activityServiceProvider).record(
+                userName: user.displayName,
+                action: line,
+                captureGps: false,
+              );
+        }
       }
 
       // Automated onboarding reminders (step 1–4, 24h expiry).
@@ -1880,64 +1968,137 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       _duplicateSaIdMemberId,
                                     ),
                                   ),
-                                  TextFormField(
-                                    controller: _globalRecordNo,
-                                    enabled: !_formReadOnly,
-                                    decoration: _fieldDecoration(
-                                      'Global Record No.',
-                                      isDense: true,
-                                      errorText: _globalRecordError,
-                                      suffixIcon: _isCheckingGlobalRecord
-                                          ? const Padding(
-                                              padding: EdgeInsets.all(12),
-                                              child: SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                              ),
-                                            )
-                                          : _globalRecordError == null &&
-                                                  _globalRecordNo
-                                                      .text.isNotEmpty &&
-                                                  _isEditing
-                                              ? const Icon(
-                                                  Icons.check_circle,
-                                                  color: Colors.green,
-                                                  size: 18,
-                                                )
-                                              : null,
+                                  // NEW ADDITION - Global/LRO visibility rules
+                                  if (_viewerIsAdmin || _viewerIsSecretary)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        onPressed: () =>
+                                            RecordVisibilityDialog.show(
+                                          context,
+                                        ),
+                                        icon: const Icon(Icons.info_outline,
+                                            size: 16),
+                                        label: const Text(
+                                          'Record visibility',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
                                     ),
-                                    maxLength: AppConstants
-                                        .globalRecordNoMaxLength,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    validator: (v) {
-                                      final err =
-                                          GlobalRecordValidator.validate(
-                                        v ?? '',
-                                      );
-                                      if (err != null) return err;
-                                      if (_globalRecordError != null &&
+                                  if (_isMemberOnly)
+                                    RecordVisibilityBanner(
+                                      globalRecordNo: _persistedGlobalRecord ??
+                                          _globalRecordNo.text,
+                                      lroRecordNo: _persistedLroRecord ??
+                                          _lroRecordNo.text,
+                                    ),
+                                  if (_showGlobalRecordField) ...[
+                                    TextFormField(
+                                      controller: _globalRecordNo,
+                                      enabled: !_globalRecordReadOnly,
+                                      decoration: _fieldDecoration(
+                                        'Global Record No.',
+                                        isDense: true,
+                                        errorText: _globalRecordError,
+                                        suffixIcon: _isCheckingGlobalRecord
+                                            ? const Padding(
+                                                padding: EdgeInsets.all(12),
+                                                child: SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                ),
+                                              )
+                                            : _globalRecordReadOnly
+                                                ? Icon(
+                                                    Icons.lock,
+                                                    color: Colors.grey.shade600,
+                                                    size: 18,
+                                                  )
+                                                : _globalRecordError == null &&
+                                                        _globalRecordNo
+                                                            .text.isNotEmpty &&
+                                                        _isEditing
+                                                    ? const Icon(
+                                                        Icons.check_circle,
+                                                        color: Colors.green,
+                                                        size: 18,
+                                                      )
+                                                    : Icon(
+                                                        Icons.lock_outline,
+                                                        color: Colors
+                                                            .grey.shade400,
+                                                        size: 18,
+                                                      ),
+                                      ),
+                                      maxLength: AppConstants
+                                          .globalRecordNoMaxLength,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      validator: (v) {
+                                        if (_globalRecordReadOnly) return null;
+                                        final err =
+                                            GlobalRecordValidator.validate(
+                                          v ?? '',
+                                        );
+                                        if (err != null) return err;
+                                        if (_globalRecordError != null &&
+                                            _duplicateGlobalRecordMemberId !=
+                                                null) {
+                                          return _globalRecordError;
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    DuplicateWarningWidget(
+                                      field: 'Global Record No.',
+                                      value: _globalRecordNo.text.trim(),
+                                      isDuplicate:
                                           _duplicateGlobalRecordMemberId !=
-                                              null) {
-                                        return _globalRecordError;
-                                      }
-                                      return null;
+                                              null,
+                                      onViewExisting: () =>
+                                          _openExistingDuplicate(
+                                        _duplicateGlobalRecordMemberId,
+                                      ),
+                                    ),
+                                  ],
+                                  SmartRecordField(
+                                    label: 'LRO Record No.',
+                                    controller: _lroRecordNo,
+                                    hint: 'Enter LRO Record No.',
+                                    isEditing: _isEditing && !_formReadOnly,
+                                    isAdmin: _viewerIsAdmin,
+                                    isSecretary: _viewerIsSecretary,
+                                    isMember: _isMemberOnly,
+                                    persistedValue: _persistedLroRecord,
+                                    errorText: _lroRecordError,
+                                    maxLength:
+                                        AppConstants.lroRecordNoMaxLength,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[A-Za-z0-9-]'),
+                                      ),
+                                    ],
+                                    validator: (v) =>
+                                        LroRecordValidator.validate(v ?? ''),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _lroRecordError =
+                                            LroRecordValidator.validate(value);
+                                      });
+                                      _markDirty();
                                     },
-                                  ),
-                                  DuplicateWarningWidget(
-                                    field: 'Global Record No.',
-                                    value: _globalRecordNo.text.trim(),
-                                    isDuplicate:
-                                        _duplicateGlobalRecordMemberId != null,
-                                    onViewExisting: () =>
-                                        _openExistingDuplicate(
-                                      _duplicateGlobalRecordMemberId,
+                                    decorationBuilder: (base) =>
+                                        _fieldDecoration(
+                                      'LRO Record No.',
+                                      isDense: true,
+                                      errorText: _lroRecordError,
+                                      suffixIcon: base.suffixIcon,
                                     ),
                                   ),
                                   TextFormField(
@@ -2381,6 +2542,7 @@ class _FormSnapshot {
   const _FormSnapshot({
     required this.saId,
     required this.globalRecordNo,
+    required this.lroRecordNo,
     required this.memberName,
     required this.surname,
     required this.address,
@@ -2397,6 +2559,7 @@ class _FormSnapshot {
 
   final String saId;
   final String globalRecordNo;
+  final String lroRecordNo;
   final String memberName;
   final String surname;
   final String address;

@@ -111,7 +111,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 12,
+      version: 13,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -378,6 +378,13 @@ class DatabaseService {
         'TEXT',
       );
       await _createRemunerationTables(database);
+    }
+    // NEW ADDITION - LRO Record No. (Delete block to revert v13)
+    if (oldVersion < 13) {
+      await _addColumnIfMissing(database, 'members', 'lroRecordNo', 'TEXT');
+      await database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_lroRecordNo ON members(lroRecordNo)',
+      );
     }
   }
 
@@ -647,6 +654,7 @@ class DatabaseService {
         id TEXT PRIMARY KEY,
         saId TEXT NOT NULL UNIQUE,
         globalRecordNo TEXT NOT NULL UNIQUE,
+        lroRecordNo TEXT,
         memberName TEXT NOT NULL,
         surname TEXT NOT NULL,
         address TEXT NOT NULL DEFAULT '',
@@ -706,6 +714,9 @@ class DatabaseService {
     await database.execute(
       'CREATE INDEX IF NOT EXISTS idx_members_globalRecordNo '
       'ON members(globalRecordNo)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lroRecordNo ON members(lroRecordNo)',
     );
 
     await database.execute('''

@@ -5,6 +5,8 @@ class Member {
   final String id;
   final String saId;
   final String globalRecordNo;
+  /// NEW ADDITION - LRO Record No. (max 14). Delete field + usages to revert.
+  final String? lroRecordNo;
   final String memberName;
   final String surname;
   final String address;
@@ -75,6 +77,7 @@ class Member {
     required this.id,
     required this.saId,
     required this.globalRecordNo,
+    this.lroRecordNo,
     required this.memberName,
     required this.surname,
     this.address = '',
@@ -161,6 +164,7 @@ class Member {
     String? photoLocalPath,
     String? photoUrl,
     String? createdBy,
+    String? lroRecordNo,
     String registrationStatus = 'pending',
   }) {
     final now = DateTime.now().toUtc();
@@ -168,6 +172,7 @@ class Member {
       id: const Uuid().v4(),
       saId: saId,
       globalRecordNo: globalRecordNo,
+      lroRecordNo: lroRecordNo,
       memberName: memberName,
       surname: surname,
       address: address,
@@ -193,6 +198,7 @@ class Member {
     String? id,
     String? saId,
     String? globalRecordNo,
+    String? lroRecordNo,
     String? memberName,
     String? surname,
     String? address,
@@ -251,11 +257,14 @@ class Member {
     bool clearTemporaryAccess = false,
     bool clearLock = false,
     bool clearSecretaryAssignment = false,
+    bool clearLroRecordNo = false,
   }) {
     return Member(
       id: id ?? this.id,
       saId: saId ?? this.saId,
       globalRecordNo: globalRecordNo ?? this.globalRecordNo,
+      lroRecordNo:
+          clearLroRecordNo ? null : (lroRecordNo ?? this.lroRecordNo),
       memberName: memberName ?? this.memberName,
       surname: surname ?? this.surname,
       address: address ?? this.address,
@@ -341,6 +350,7 @@ class Member {
       'id': id,
       'saId': saId,
       'globalRecordNo': globalRecordNo,
+      'lroRecordNo': lroRecordNo,
       'memberName': memberName,
       'surname': surname,
       'address': address,
@@ -404,6 +414,7 @@ class Member {
       'id': id,
       'saId': saId,
       'globalRecordNo': globalRecordNo,
+      'lroRecordNo': lroRecordNo,
       'memberName': memberName,
       'surname': surname,
       'address': address,
@@ -462,6 +473,7 @@ class Member {
       id: map['id'] as String,
       saId: map['saId'] as String? ?? '',
       globalRecordNo: map['globalRecordNo'] as String? ?? '',
+      lroRecordNo: map['lroRecordNo'] as String?,
       memberName: map['memberName'] as String? ?? '',
       surname: map['surname'] as String? ?? '',
       address: map['address'] as String? ?? '',
