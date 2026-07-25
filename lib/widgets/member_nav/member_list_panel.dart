@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../models/member_navigation_state.dart';
+import '../../models/user_role.dart';
 import '../../providers/member_navigation_provider.dart';
+import '../../providers/providers.dart';
 
 final _relativeFmt = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -170,6 +172,18 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
   Widget build(BuildContext context) {
     final navState = ref.watch(memberNavigationProvider);
     final nav = ref.read(memberNavigationProvider.notifier);
+    final users = ref.watch(appUsersProvider).valueOrNull ?? const [];
+    // memberId → role badge for Admin/RS (AppUser.role, not Member column).
+    // NEW ADDITION - role badges (Delete map + badge UI to revert)
+    final roleByMemberId = <String, UserRole>{};
+    for (final u in users) {
+      if (u.deleted) continue;
+      final mid = u.memberId?.trim();
+      if (mid == null || mid.isEmpty) continue;
+      if (u.isAdmin || u.isSecretary) {
+        roleByMemberId[mid] = u.userRole;
+      }
+    }
     final filtered = nav.filtered(widget.allMembers);
     final page = nav.pageMembers(widget.allMembers);
     final pages = MemberNavigationLogic.pageCount(
@@ -317,6 +331,7 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
                       member: member,
                       highlighted: highlighted,
                       isFavorite: isFav,
+                      role: roleByMemberId[member.id],
                       onTap: () {
                         nav.setHighlightIndex(i);
                         widget.onOpen(member);
@@ -411,12 +426,14 @@ class _MemberRow extends StatelessWidget {
     required this.onTap,
     required this.onDoubleTap,
     required this.onSecondaryTapDown,
+    this.role,
   });
 
   final int index;
   final Member member;
   final bool highlighted;
   final bool isFavorite;
+  final UserRole? role;
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
   final GestureTapDownCallback onSecondaryTapDown;
@@ -456,9 +473,32 @@ class _MemberRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      member.fullName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            member.fullName,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (role == UserRole.secretary) ...[
+                          const SizedBox(width: 6),
+                          _RoleBadge(
+                            label: '📋 RS',
+                            background: Colors.green.shade900,
+                            foreground: Colors.green.shade300,
+                          ),
+                        ],
+                        if (role == UserRole.admin) ...[
+                          const SizedBox(width: 6),
+                          _RoleBadge(
+                            label: '👑 Admin',
+                            background: Colors.blue.shade900,
+                            foreground: Colors.blue.shade300,
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       'SA ID: ${member.saId}',
@@ -499,6 +539,37 @@ class _MemberRow extends StatelessWidget {
               const Icon(Icons.chevron_right, color: Colors.black38),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 8,
+          color: foreground,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

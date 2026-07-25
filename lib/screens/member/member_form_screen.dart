@@ -571,7 +571,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final dbUsers = await ref.read(databaseServiceProvider).getAppUsers();
+    final db = ref.read(databaseServiceProvider);
+    final auth = ref.read(authUserProvider);
+    // Admin must see every Member, including Recording Secretaries.
+    if (auth != null && (auth.isAdmin || auth.isSystemAdministrator)) {
+      await db.ensureRecordingSecretaryMemberLinks();
+    }
+
+    final dbUsers = await db.getAppUsers();
     String? adminMemberId;
     for (final u in dbUsers) {
       if (u.isSystemAdministrator) {
@@ -580,10 +587,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
     }
 
-    var members = await ref
-        .read(dataAccessServiceProvider)
-        .getVisibleMembers(ref.read(authUserProvider));
-    final auth = ref.read(authUserProvider);
+    var members =
+        await ref.read(dataAccessServiceProvider).getVisibleMembers(auth);
     if (auth?.isMemberRole == true) {
       final linked = auth!.memberId;
       if (linked != null) {
@@ -1519,24 +1524,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         ),
                       ),
                     ),
-                    if (!isMemberOnly)
-                      IconButton(
-                        tooltip: 'Focus Search (Ctrl+F)',
-                        color: AppTheme.labelText,
-                        onPressed: () async {
-                          if (showList) {
-                            _searchFocusNode.requestFocus();
-                          } else {
-                            await goBackToList();
-                            if (!mounted) return;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _searchFocusNode.requestFocus();
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.search),
-                      ),
-                    // NEW ADDITION - RED Cancel Membership (Admin, right of search)
+                    // MODIFIED - Cancel LEFT of Search (Delete block order to revert)
                     if (_viewerIsAdmin && cancelTarget != null)
                       TextButton.icon(
                         onPressed: () async {
@@ -1553,7 +1541,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           size: 28,
                         ),
                         label: const Text(
-                          'Cancel',
+                          'Cancel Membership',
                           style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.bold,
@@ -1562,6 +1550,23 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
+                      ),
+                    if (!isMemberOnly)
+                      IconButton(
+                        tooltip: 'Focus Search (Ctrl+F)',
+                        color: AppTheme.labelText,
+                        onPressed: () async {
+                          if (showList) {
+                            _searchFocusNode.requestFocus();
+                          } else {
+                            await goBackToList();
+                            if (!mounted) return;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _searchFocusNode.requestFocus();
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.search),
                       ),
                   ],
                 ),
@@ -1997,11 +2002,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         )
                       : const Icon(Icons.save),
                   label: Text(
-                    _saving
-                        ? 'Saving...'
-                        : _canPressSave
-                            ? 'Save Member'
-                            : 'Complete Required Fields',
+                    _saving ? 'Saving...' : 'Save',
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor:

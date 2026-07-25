@@ -80,28 +80,94 @@ class DemoDataService {
 
   Future<void> _ensureSecretaries(DateTime now) async {
     final hash = PasswordHasher.hash('garden2026');
+    // Each RS gets a Member row so Admin Member List can show them with RS badge.
+    // MODIFIED - link secretary AppUsers to members (Delete memberId/members to revert)
     final secretaries = [
-      (id: 'sec_001', username: 'jane.smith', displayName: 'Jane Smith'),
-      (id: 'sec_002', username: 'bob.johnson', displayName: 'Bob Johnson'),
-      (id: 'sec_003', username: 'alice.williams', displayName: 'Alice Williams'),
+      (
+        id: 'sec_001',
+        username: 'jane.smith',
+        displayName: 'Jane Smith',
+        memberId: 'demo_rs_001',
+        saId: '8203155800083',
+        name: 'Jane',
+        surname: 'Smith',
+      ),
+      (
+        id: 'sec_002',
+        username: 'bob.johnson',
+        displayName: 'Bob Johnson',
+        memberId: 'demo_rs_002',
+        saId: '7908225009087',
+        name: 'Bob',
+        surname: 'Johnson',
+      ),
+      (
+        id: 'sec_003',
+        username: 'alice.williams',
+        displayName: 'Alice Williams',
+        memberId: 'demo_rs_003',
+        saId: '8801040123089',
+        name: 'Alice',
+        surname: 'Williams',
+      ),
     ];
     for (final s in secretaries) {
+      final member = await _db.getMemberById(s.memberId);
+      if (member == null) {
+        await _db.upsertMember(
+          Member(
+            id: s.memberId,
+            saId: s.saId,
+            globalRecordNo: 'GR-RS-${s.memberId}',
+            memberName: s.name,
+            surname: s.surname,
+            address: '1 Assembly Way',
+            suburb: 'Garden Town',
+            townCity: 'Garden Town',
+            postalCode: '0001',
+            contactNo1: '0820000000',
+            contactNo2: '',
+            emailAddress: '${s.username}@gardentown.local',
+            registrationStatus: 'complete',
+            isEmailVerified: true,
+            step1MemberInfoComplete: true,
+            step2Global528Complete: true,
+            step3Global928Complete: true,
+            step4LROComplete: false,
+            userId: s.id,
+            createdAt: now,
+            updatedAt: now,
+            pendingSync: true,
+          ),
+        );
+      }
+
       final existing = await _db.getAppUserByUsername(s.username);
-      if (existing != null) continue;
-      await _db.upsertAppUser(
-        AppUser(
-          id: s.id,
-          username: s.username,
-          displayName: s.displayName,
-          passwordHash: hash,
-          role: UserRole.secretary.storageName,
-          permissionsRaw:
-              AppPermission.encodeList(AppPermission.defaultSecretary),
-          updatedAt: now,
-          pendingSync: true,
-          active: true,
-        ),
-      );
+      if (existing == null) {
+        await _db.upsertAppUser(
+          AppUser(
+            id: s.id,
+            username: s.username,
+            displayName: s.displayName,
+            passwordHash: hash,
+            role: UserRole.secretary.storageName,
+            memberId: s.memberId,
+            permissionsRaw:
+                AppPermission.encodeList(AppPermission.defaultSecretary),
+            updatedAt: now,
+            pendingSync: true,
+            active: true,
+          ),
+        );
+      } else if (existing.memberId == null || existing.memberId!.isEmpty) {
+        await _db.upsertAppUser(
+          existing.copyWith(
+            memberId: s.memberId,
+            pendingSync: true,
+            updatedAt: now,
+          ),
+        );
+      }
     }
   }
 

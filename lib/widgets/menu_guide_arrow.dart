@@ -130,9 +130,9 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
 
   @override
   Widget build(BuildContext context) {
-    // Beside hamburger (SafeArea top-left). Spec: top 55 / left 60.
-    // MODIFIED - fixed Positioned(top:55, left:60) (Delete to revert)
-    const double top = 55;
+    // Beside hamburger (SafeArea top-left). Spec: top 50 / left 60.
+    // MODIFIED - moved up to top:50; MENU not bold (Delete to revert)
+    const double top = 50;
     const double left = 60;
 
     return SizedBox.expand(
@@ -156,7 +156,7 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           _HorizontalArrowGraphic(),
-                          SizedBox(width: 10),
+                          SizedBox(width: 4),
                           _OutlinedMenuLabel(),
                         ],
                       ),
@@ -177,10 +177,11 @@ class _OutlinedMenuLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // MODIFIED - normal weight, smaller (Delete to revert)
     const style = TextStyle(
-      fontSize: 26,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 1.6,
+      fontSize: 14,
+      fontWeight: FontWeight.normal,
+      letterSpacing: 1.2,
       height: 1,
     );
     return Stack(
@@ -191,7 +192,7 @@ class _OutlinedMenuLabel extends StatelessWidget {
           style: style.copyWith(
             foreground: Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = 7
+              ..strokeWidth = 3
               ..strokeJoin = StrokeJoin.round
               ..color = kMenuGuideOutline,
           ),
@@ -200,9 +201,9 @@ class _OutlinedMenuLabel extends StatelessWidget {
           'MENU',
           style: TextStyle(
             color: kMenuGuideFill,
-            fontSize: 26,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.6,
+            fontSize: 14,
+            fontWeight: FontWeight.normal,
+            letterSpacing: 1.2,
             height: 1,
           ),
         ),
@@ -217,7 +218,7 @@ class _HorizontalArrowGraphic extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(80, 32),
+      size: const Size(28, 28),
       painter: _HorizontalArrowPainter(),
     );
   }
@@ -229,14 +230,14 @@ class _HorizontalArrowPainter extends CustomPainter {
     final outline = Paint()
       ..color = kMenuGuideOutline
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     final fillStroke = Paint()
       ..color = kMenuGuideFill
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.5
+      ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -247,7 +248,7 @@ class _HorizontalArrowPainter extends CustomPainter {
     final outlineFill = Paint()
       ..color = kMenuGuideOutline
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.5
+      ..strokeWidth = 2
       ..strokeJoin = StrokeJoin.round;
 
     final cy = size.height / 2;

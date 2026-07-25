@@ -817,18 +817,89 @@ class DatabaseService {
     await ensureSeedRoles();
     final existing =
         await getAppUserByUsername(AppConstants.demoUsername);
-    if (existing != null) return;
+    if (existing == null) {
+      final admin = AppUser(
+        id: 'demo-admin',
+        username: AppConstants.demoUsername,
+        displayName: AppConstants.demoDisplayName,
+        passwordHash: PasswordHasher.hash(AppConstants.demoPassword),
+        role: 'Admin',
+        updatedAt: DateTime.now().toUtc(),
+        pendingSync: true,
+      );
+      await upsertAppUser(admin);
+    }
+    // Ensure every Recording Secretary AppUser has a Member row (Admin list).
+    // NEW ADDITION - Delete call to revert auto-link
+    await ensureRecordingSecretaryMemberLinks();
+  }
 
-    final admin = AppUser(
-      id: 'demo-admin',
-      username: AppConstants.demoUsername,
-      displayName: AppConstants.demoDisplayName,
-      passwordHash: PasswordHasher.hash(AppConstants.demoPassword),
-      role: 'Admin',
-      updatedAt: DateTime.now().toUtc(),
-      pendingSync: true,
-    );
-    await upsertAppUser(admin);
+  /// Create/link Member profiles for RS AppUsers missing memberId.
+  /// Admin Member List shows people via Member rows — orphan RS logins were invisible.
+  // NEW ADDITION - Delete method to revert
+  Future<void> ensureRecordingSecretaryMemberLinks() async {
+    final users = await getAppUsers();
+    final now = DateTime.now().toUtc();
+    for (final user in users) {
+      if (user.deleted || !user.isSecretary) continue;
+
+      final linkedId = user.memberId?.trim();
+      if (linkedId != null && linkedId.isNotEmpty) {
+        final existing = await getMemberById(linkedId);
+        if (existing != null && !existing.deleted) continue;
+      }
+
+      final memberId = (linkedId != null && linkedId.isNotEmpty)
+          ? linkedId
+          : 'rs_member_${user.id}';
+      final parts = user.displayName.trim().split(RegExp(r'\s+'));
+      final first = parts.isNotEmpty ? parts.first : user.username;
+      final last = parts.length > 1 ? parts.sublist(1).join(' ') : 'Secretary';
+      final saSeed = user.username.hashCode.abs().toString().padLeft(13, '0');
+      final saId = saSeed.length >= 13
+          ? saSeed.substring(0, 13)
+          : saSeed.padRight(13, '0');
+
+      final member = await getMemberById(memberId);
+      if (member == null) {
+        await upsertMember(
+          Member(
+            id: memberId,
+            saId: saId,
+            globalRecordNo: 'GR-RS-$memberId',
+            memberName: first,
+            surname: last,
+            address: '1 Assembly Way',
+            suburb: 'Garden Town',
+            townCity: 'Garden Town',
+            postalCode: '0001',
+            contactNo1: '0820000000',
+            contactNo2: '',
+            emailAddress: '${user.username}@gardentown.local',
+            registrationStatus: 'complete',
+            isEmailVerified: true,
+            step1MemberInfoComplete: true,
+            step2Global528Complete: true,
+            step3Global928Complete: true,
+            step4LROComplete: false,
+            userId: user.id,
+            createdAt: now,
+            updatedAt: now,
+            pendingSync: true,
+          ),
+        );
+      }
+
+      if (user.memberId != memberId) {
+        await upsertAppUser(
+          user.copyWith(
+            memberId: memberId,
+            pendingSync: true,
+            updatedAt: now,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> ensureSeedRoles() async {

@@ -17,7 +17,13 @@ class DataAccessService {
 
   Future<List<Member>> getVisibleMembers(AuthUser? user) async {
     if (user == null) return const [];
-    if (user.isAdmin) return _db.getAllMembers();
+
+    // ADMIN / System Administrator: ALL active members — no role filter.
+    // Recording Secretaries linked as AppUsers still appear via their Member row.
+    // MODIFIED - explicit admin-all path (Delete comment to revert)
+    if (user.isAdmin || user.isSystemAdministrator) {
+      return _db.getAllMembers();
+    }
 
     if (user.isSecretary) {
       return _db.getMembersAssignedToSecretary(user.id);
