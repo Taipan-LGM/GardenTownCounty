@@ -22,6 +22,7 @@ class KeyboardShortcutHandler extends StatelessWidget {
     this.onHome,
     this.onEnd,
     this.onOpenHighlighted,
+    this.onCancelMembership,
   });
 
   final Widget child;
@@ -41,6 +42,9 @@ class KeyboardShortcutHandler extends StatelessWidget {
   final VoidCallback? onHome;
   final VoidCallback? onEnd;
   final VoidCallback? onOpenHighlighted;
+  /// Admin soft-cancel (Ctrl+C when handler has focus).
+  // NEW ADDITION - Cancel Membership shortcut
+  final VoidCallback? onCancelMembership;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +114,10 @@ class KeyboardShortcutHandler extends StatelessWidget {
         }
         if (key == LogicalKeyboardKey.keyU && isCtrl) {
           onUpload?.call();
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.keyC && isCtrl) {
+          onCancelMembership?.call();
           return KeyEventResult.handled;
         }
         if (key == LogicalKeyboardKey.keyR && isCtrl) {

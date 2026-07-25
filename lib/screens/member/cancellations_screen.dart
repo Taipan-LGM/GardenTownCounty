@@ -6,8 +6,9 @@ import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
 import '../../services/cancellation_service.dart';
+import 'member_files_dialog.dart';
 
-/// Admin dashboard: soft-cancelled memberships + reinstate.
+/// Admin dashboard: soft-cancelled memberships + reinstate + files.
 ///
 /// // NEW ADDITION - replaces Locked Members drawer entry for cancellations.
 class CancellationsScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,22 @@ class CancellationsScreen extends ConsumerStatefulWidget {
 
 class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
   String _query = '';
+  final Map<String, int> _fileCounts = {};
+
+  Future<void> _loadFileCounts(List<Member> members) async {
+    final db = ref.read(databaseServiceProvider);
+    final next = <String, int>{};
+    for (final m in members) {
+      final files = await db.getFilesForMember(m.id);
+      next[m.id] = files.length;
+    }
+    if (!mounted) return;
+    setState(() {
+      _fileCounts
+        ..clear()
+        ..addAll(next);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +54,16 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Text('Error: $e'),
         data: (all) {
+          // Kick file-count load when list identity changes.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final ids = all.map((m) => m.id).join('|');
+            final known = _fileCounts.keys.join('|');
+            if (ids != known) {
+              _loadFileCounts(all);
+            }
+          });
+
           final q = _query.trim().toLowerCase();
           final filtered = q.isEmpty
               ? all
@@ -76,8 +103,10 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
                   ),
                   IconButton(
                     tooltip: 'Refresh',
-                    onPressed: () =>
-                        ref.invalidate(cancelledMembersProvider),
+                    onPressed: () {
+                      ref.invalidate(cancelledMembersProvider);
+                      setState(() => _fileCounts.clear());
+                    },
                     icon: const Icon(Icons.refresh),
                   ),
                 ],
@@ -129,12 +158,16 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
                         separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final m = filtered[index];
+                          final fileCount = _fileCounts[m.id] ?? 0;
                           return _CancelledCard(
                             member: m,
                             dateLabel: m.cancellationDate == null
                                 ? '—'
                                 : dateFmt.format(m.cancellationDate!.toLocal()),
+                            fileCount: fileCount,
                             onReinstate: () => _reinstate(m),
+                            onViewFiles: () =>
+                                showMemberFilesDialog(context, ref, m),
                             onView: () {
                               ref
                                   .read(selectedMemberIdProvider.notifier)
@@ -160,7 +193,7 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Reinstate Member?'),
         content: Text(
-          'Reinstate ${member.fullName}? They return to active membership.',
+          'Reinstate ${member.fullName}? All data and files remain available.',
         ),
         actions: [
           TextButton(
@@ -246,13 +279,17 @@ class _CancelledCard extends StatelessWidget {
   const _CancelledCard({
     required this.member,
     required this.dateLabel,
+    required this.fileCount,
     required this.onReinstate,
+    required this.onViewFiles,
     required this.onView,
   });
 
   final Member member;
   final String dateLabel;
+  final int fileCount;
   final VoidCallback onReinstate;
+  final VoidCallback onViewFiles;
   final VoidCallback onView;
 
   @override
@@ -288,6 +325,13 @@ class _CancelledCard extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
+                  Text(
+                    '$fileCount file${fileCount == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -296,6 +340,11 @@ class _CancelledCard extends StatelessWidget {
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('Reinstate'),
               style: FilledButton.styleFrom(backgroundColor: Colors.green),
+            ),
+            IconButton(
+              tooltip: 'View Files ($fileCount)',
+              onPressed: onViewFiles,
+              icon: const Icon(Icons.attach_file, color: Colors.amber),
             ),
             IconButton(
               tooltip: 'View Member',

@@ -80,20 +80,32 @@ class _CancelMembershipDialogState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Cancel ${m.fullName}\'s membership?',
+            'Are you sure you want to cancel ${m.memberName} ${m.surname}\'s membership?',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Member data is kept. They move to Cancellations and can be reinstated later.',
-            style: TextStyle(fontSize: 13),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'All member data and uploaded files will be preserved in the Cancellations form.',
+              style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+            ),
           ),
           const SizedBox(height: 12),
+          Text(
+            'Reason for cancellation (optional):',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 4),
           TextField(
             controller: _reasonController,
             maxLines: 3,
             decoration: const InputDecoration(
-              labelText: 'Reason (optional)',
+              hintText: 'Enter reason...',
               border: OutlineInputBorder(),
             ),
           ),

@@ -1468,6 +1468,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       onHome: () => goFirst(),
       onEnd: () => goLast(),
       onOpenHighlighted: openHighlighted,
+      onCancelMembership: (_viewerIsAdmin &&
+              _loadedMember != null &&
+              !_loadedMember!.isCancelled)
+          ? () => guardedCancelMembership()
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1506,6 +1511,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           }
                         },
                         icon: const Icon(Icons.search),
+                      ),
+                    // NEW ADDITION - Admin Cancel in MEMBER MANAGEMENT bar
+                    // (right of search). Delete block to revert.
+                    if (_viewerIsAdmin &&
+                        _loadedMember != null &&
+                        !_loadedMember!.isCancelled)
+                      IconButton(
+                        tooltip: 'Cancel Membership (Ctrl+C)',
+                        color: Colors.red.shade300,
+                        onPressed: () => guardedCancelMembership(),
+                        icon: const Icon(Icons.cancel_outlined),
                       ),
                   ],
                 ),
@@ -1598,7 +1614,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   onNext: goNext,
                                   onFirst: goFirst,
                                   onLast: goLast,
-                                  onCancelMembership: guardedCancelMembership,
                                 ),
                               ),
                       ),
@@ -1756,7 +1771,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     required Future<void> Function() onNext,
     required Future<void> Function() onFirst,
     required Future<void> Function() onLast,
-    required Future<void> Function() onCancelMembership,
   }) {
     final member = _loadedMember;
     final idx = navState.currentIndex;
@@ -1799,19 +1813,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         onFirst: () => onFirst(),
         onLast: () => onLast(),
         canEdit: member != null && _canEnterEditMode && !_isEditing,
-        // Soft-cancel replaces permanent delete in the nav bar.
+        // Cancel Membership lives on MEMBER MANAGEMENT top bar (Admin).
         canDelete: false,
         onDelete: null,
-        canCancelMembership: member != null &&
-            !_isEditing &&
-            _viewerIsAdmin &&
-            !(member.isCancelled),
-        onCancelMembership: member != null &&
-                !_isEditing &&
-                _viewerIsAdmin &&
-                !member.isCancelled
-            ? () => onCancelMembership()
-            : null,
         onEdit: (member != null && _canEnterEditMode && !_isEditing)
             ? _enterEditMode
             : null,

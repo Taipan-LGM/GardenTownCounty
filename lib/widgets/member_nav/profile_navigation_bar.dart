@@ -21,11 +21,9 @@ class ProfileNavigationBar extends StatelessWidget {
     this.onEdit,
     this.onUpload,
     this.onDelete,
-    this.onCancelMembership,
     this.canNew = true,
     this.canEdit = true,
     this.canDelete = true,
-    this.canCancelMembership = false,
     // NEW ADDITION - Admin RS radio (Delete RS params + UI to revert)
     this.showRsRadio = false,
     this.rsRadioOn = false,
@@ -47,13 +45,9 @@ class ProfileNavigationBar extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onUpload;
   final VoidCallback? onDelete;
-  /// Admin: soft-cancel membership (no permanent delete).
-  // NEW ADDITION - Cancel Membership action
-  final VoidCallback? onCancelMembership;
   final bool canNew;
   final bool canEdit;
   final bool canDelete;
-  final bool canCancelMembership;
 
   /// Show permanent RS radio next to New/Edit/Upload/Delete/Close (Admin only).
   final bool showRsRadio;
@@ -162,14 +156,6 @@ class ProfileNavigationBar extends StatelessWidget {
                     label: 'Upload',
                     tooltip: 'Upload Files (Ctrl+U)',
                     onPressed: onUpload,
-                  ),
-                if (onCancelMembership != null)
-                  _ActionChip(
-                    icon: Icons.cancel_outlined,
-                    label: 'Cancel',
-                    tooltip: 'Cancel Membership',
-                    onPressed:
-                        canCancelMembership ? onCancelMembership : null,
                   ),
                 if (onDelete != null)
                   _ActionChip(
