@@ -5,9 +5,9 @@ import '../../models/app_user.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
 
-/// Dropdown + Auto-Assign + Save row for reminder RS assignment.
+/// Dropdown + Save for reminder RS assignment (no per-card Auto-Assign).
 ///
-/// // NEW ADDITION - Delete this file to revert Reminders RS assignment UI.
+/// // MODIFIED - per-card Auto-Assign removed; use form-level Auto-Assign All.
 class ReminderRsAssignmentRow extends ConsumerStatefulWidget {
   const ReminderRsAssignmentRow({
     super.key,
@@ -27,7 +27,6 @@ class _ReminderRsAssignmentRowState
     extends ConsumerState<ReminderRsAssignmentRow> {
   String? _selectedSecretaryId;
   List<AppUser> _secretaries = [];
-  bool _isAutoAssigning = false;
   bool _saving = false;
 
   static const _noneSentinel = '__none__';
@@ -57,57 +56,19 @@ class _ReminderRsAssignmentRowState
     setState(() => _secretaries = list);
   }
 
-  Future<void> _autoAssign() async {
-    setState(() => _isAutoAssigning = true);
-    try {
-      final best =
-          await ref.read(autoAssignmentServiceProvider).autoAssignToReminder(
-                widget.reminder.id,
-              );
-      if (!mounted) return;
-      if (best == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No active Recording Secretaries available'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-      setState(() => _selectedSecretaryId = best.id);
-      ref.invalidate(activeOnboardingRemindersProvider);
-      ref.invalidate(membersProvider);
-      widget.onChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Auto-assigned to ${best.displayName}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isAutoAssigning = false);
-    }
-  }
-
-  Future<void> _saveAssignment({String assignmentMethod = 'manual'}) async {
+  Future<void> _saveAssignment() async {
     setState(() => _saving = true);
     try {
       final db = ref.read(databaseServiceProvider);
       await db.assignSecretaryToReminder(
         reminderId: widget.reminder.id,
         secretaryId: _selectedSecretaryId,
-        assignmentMethod: assignmentMethod,
+        assignmentMethod: 'manual',
       );
       await db.assignSecretaryToMember(
         memberId: widget.reminder.memberId,
         secretaryId: _selectedSecretaryId,
-        assignmentMethod: assignmentMethod,
+        assignmentMethod: 'manual',
       );
       ref.invalidate(activeOnboardingRemindersProvider);
       ref.invalidate(membersProvider);
@@ -139,13 +100,9 @@ class _ReminderRsAssignmentRowState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Row(
           children: [
-            SizedBox(
-              width: 220,
+            Expanded(
               child: DropdownButtonFormField<String>(
                 value: dropdownValue,
                 isExpanded: true,
@@ -166,7 +123,10 @@ class _ReminderRsAssignmentRowState
                   ..._secretaries.map(
                     (s) => DropdownMenuItem(
                       value: s.id,
-                      child: Text(s.displayName, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        s.displayName,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],
@@ -178,22 +138,9 @@ class _ReminderRsAssignmentRowState
                 },
               ),
             ),
+            const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: _isAutoAssigning ? null : _autoAssign,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: _isAutoAssigning
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Auto-Assign'),
-            ),
-            ElevatedButton(
-              onPressed: _saving ? null : () => _saveAssignment(),
+              onPressed: _saving ? null : _saveAssignment,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,

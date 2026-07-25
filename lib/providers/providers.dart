@@ -23,6 +23,7 @@ import '../services/connectivity_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/file_storage_service.dart';
+import '../services/demo_data_service.dart';
 import '../services/promotion_service.dart';
 import '../services/reminder_notification_service.dart';
 import '../services/reminder_service.dart';
@@ -32,6 +33,7 @@ import '../services/member_repository.dart';
 import '../services/member_lock_service.dart';
 import '../services/temporary_access_service.dart';
 import '../services/test_data_service.dart';
+import '../services/smart_auto_assignment_service.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
 import '../services/temp_access_expiry_service.dart';
@@ -268,6 +270,19 @@ final remunerationServiceProvider = Provider<RemunerationService>((ref) {
 
 final testDataServiceProvider = Provider<TestDataService>((ref) {
   return TestDataService(ref.watch(databaseServiceProvider));
+});
+
+// NEW ADDITION - demo data + smart auto-assign (Delete providers to revert)
+final demoDataServiceProvider = Provider<DemoDataService>((ref) {
+  return DemoDataService(ref.watch(databaseServiceProvider));
+});
+
+final smartAutoAssignmentServiceProvider =
+    Provider<SmartAutoAssignmentService>((ref) {
+  return SmartAutoAssignmentService(
+    ref.watch(databaseServiceProvider),
+    notifications: ref.watch(reminderNotificationServiceProvider),
+  );
 });
 
 // NEW ADDITION - promotion service (Delete to revert)

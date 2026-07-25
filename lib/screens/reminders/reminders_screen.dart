@@ -19,12 +19,39 @@ class RemindersScreen extends ConsumerStatefulWidget {
 class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   static final _dateFormat = DateFormat('yyyy-MM-dd HH:mm');
   int? _filterStep;
+  bool _isAutoAssigning = false;
 
   Future<void> _reload() async {
     await ref.read(reminderServiceProvider).autoExpireReminders();
     ref.invalidate(activeOnboardingRemindersProvider);
     ref.invalidate(reminderStatsProvider);
     ref.invalidate(activeReminderCountProvider);
+  }
+
+  Future<void> _autoAssignAll() async {
+    setState(() => _isAutoAssigning = true);
+    try {
+      final result =
+          await ref.read(smartAutoAssignmentServiceProvider).autoAssignAll();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: result.success ? Colors.green : Colors.orange,
+        ),
+      );
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isAutoAssigning = false);
+    }
   }
 
   void _openMember(String memberId) {
@@ -205,7 +232,81 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             },
           ),
         ),
+        // NEW ADDITION - single yellow Auto-Assign All (Delete block to revert)
+        remindersAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (reminders) => _buildAutoAssignBar(reminders),
+        ),
       ],
+    );
+  }
+
+  Widget _buildAutoAssignBar(List<Reminder> reminders) {
+    final unassignedCount = reminders
+        .where(
+          (r) =>
+              r.assignedSecretaryId == null ||
+              r.assignedSecretaryId!.trim().isEmpty,
+        )
+        .length;
+
+    return Material(
+      elevation: 8,
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  unassignedCount == 0
+                      ? 'All reminders have a Recording Secretary'
+                      : '$unassignedCount members without Recording Secretary',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: unassignedCount > 0
+                        ? Colors.orange.shade700
+                        : Colors.green.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: unassignedCount == 0 || _isAutoAssigning
+                      ? null
+                      : _autoAssignAll,
+                  icon: _isAutoAssigning
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.auto_awesome),
+                  label: Text(
+                    _isAutoAssigning ? 'Assigning...' : 'Auto-Assign All',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber.shade700,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.amber.shade200,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -227,6 +227,20 @@ class AppDrawer extends ConsumerWidget {
                       onTap: () =>
                           _go(context, ref, AppSection.activities),
                     ),
+                  // NEW ADDITION - Demo Data above Log Out (Delete tile to revert)
+                  if (isAdmin)
+                    ListTile(
+                      leading: const Icon(Icons.science, color: Colors.purpleAccent),
+                      title: const Text(
+                        'Demo Data',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      subtitle: const Text(
+                        'Generate 10 demo members',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      onTap: () => _generateDemoData(context, ref),
+                    ),
                   ListTile(
                     leading:
                         const Icon(Icons.logout, color: Colors.white70),
@@ -338,6 +352,83 @@ class AppDrawer extends ConsumerWidget {
   void _go(BuildContext context, WidgetRef ref, AppSection section) {
     ref.read(appSectionProvider.notifier).state = section;
     Navigator.of(context).pop();
+  }
+
+  // NEW ADDITION - Demo Data dialog (Delete method to revert)
+  Future<void> _generateDemoData(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Generate Demo Data?'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will create 10 demo members with:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• South African ID numbers'),
+            Text('• Realistic names (South African leaders)'),
+            Text('• Various step completions (1–3)'),
+            Text('• Some expired reminders'),
+            Text('• Mix of assigned / unassigned RS'),
+            SizedBox(height: 12),
+            Text(
+              'Adds to existing data (skips IDs that already exist).',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Generate Demo Data'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      final result =
+          await ref.read(demoDataServiceProvider).generateDemoData();
+      ref.invalidate(membersProvider);
+      ref.invalidate(appUsersProvider);
+      ref.invalidate(activeOnboardingRemindersProvider);
+      ref.invalidate(reminderStatsProvider);
+      ref.invalidate(activeReminderCountProvider);
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Demo data ready: ${result.membersCreated} members, '
+            '${result.remindersCreated} reminders created '
+            '(existing IDs skipped).',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating demo data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _item(

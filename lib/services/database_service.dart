@@ -2717,4 +2717,35 @@ class DatabaseService {
     );
     return rows.isNotEmpty;
   }
+
+  // NEW ADDITION - unassigned reminders helpers (Delete methods to revert)
+  Future<List<Reminder>> getUnassignedActiveReminders() async {
+    final all = await getActiveOnboardingReminders();
+    return all
+        .where(
+          (r) =>
+              r.assignedSecretaryId == null ||
+              r.assignedSecretaryId!.trim().isEmpty,
+        )
+        .toList();
+  }
+
+  Future<int> countAssignedReminders(String secretaryId) async {
+    if (_memoryMode) {
+      return _reminders.values
+          .where(
+            (r) =>
+                !r.deleted &&
+                r.status == 'active' &&
+                r.assignedSecretaryId == secretaryId,
+          )
+          .length;
+    }
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM reminders '
+      'WHERE deleted = 0 AND status = ? AND assignedSecretaryId = ?',
+      ['active', secretaryId],
+    );
+    return (rows.first['c'] as int?) ?? 0;
+  }
 }
