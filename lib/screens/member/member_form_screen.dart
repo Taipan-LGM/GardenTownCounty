@@ -261,7 +261,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void _applySnapshot(_FormSnapshot snap) {
     _suppressDirty = true;
     _saId.text = snap.saId;
-    _globalRecordNo.text = snap.globalRecordNo;
+    _globalRecordNo.text =
+        GlobalRecordValidator.displayValue(snap.globalRecordNo);
     _lroRecordNo.text = snap.lroRecordNo;
     _memberName.text = snap.memberName;
     _surname.text = snap.surname;
@@ -551,11 +552,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       case _AdminViewFilter.all:
         return _members;
       case _AdminViewFilter.newMembers:
+        // New only — never include Recording Secretaries.
+        // MODIFIED - exclude RS from New (Delete && !contains to revert)
         return _members
             .where(
               (m) =>
-                  m.registrationStatus == 'pending' ||
-                  m.registrationStatus == 'in_progress',
+                  (m.registrationStatus == 'pending' ||
+                      m.registrationStatus == 'in_progress') &&
+                  !_secretaryMemberIds.contains(m.id),
             )
             .toList();
       case _AdminViewFilter.rs:
@@ -570,8 +574,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   int get _countNew => _members
       .where(
         (m) =>
-            m.registrationStatus == 'pending' ||
-            m.registrationStatus == 'in_progress',
+            (m.registrationStatus == 'pending' ||
+                m.registrationStatus == 'in_progress') &&
+            !_secretaryMemberIds.contains(m.id),
       )
       .length;
 
@@ -798,7 +803,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _rsRadioOn = false;
       _rsRadioBusy = false;
       _saId.text = masked ? _maskValue : member.saId;
-      _globalRecordNo.text = masked ? _maskValue : member.globalRecordNo;
+      _globalRecordNo.text = masked
+          ? _maskValue
+          : GlobalRecordValidator.displayValue(member.globalRecordNo);
       _lroRecordNo.text = masked ? _maskValue : (member.lroRecordNo ?? '');
       _lroRecordError = null;
       _memberName.text = masked ? _maskValue : member.memberName;
@@ -1137,9 +1144,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
       return false;
     }
-    final nextGlobal = _globalRecordReadOnly
-        ? (_persistedGlobalRecord ?? _globalRecordNo.text).trim()
-        : _globalRecordNo.text.trim();
+    final typedGlobal = _globalRecordReadOnly
+        ? GlobalRecordValidator.displayValue(
+            _persistedGlobalRecord ?? _globalRecordNo.text,
+          )
+        : GlobalRecordValidator.displayValue(_globalRecordNo.text);
     final nextLroRaw = RecordFieldPolicy.isReadOnly(
       isAdmin: _viewerIsAdmin,
       isSecretary: _viewerIsSecretary,
@@ -1161,6 +1170,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ? null
           : await ref.read(memberRepositoryProvider).getById(_currentId!);
 
+      // Keep draft id when creating so a pre-picked photo stays linked.
+      final memberId = _currentId ??
+          _draftId ??
+          existing?.id ??
+          const Uuid().v4();
+
+      // UNIQUE(globalRecordNo) forbids multiple ''; use per-member pending token.
+      // MODIFIED - pending GR token (Delete to require real GR again)
+      final nextGlobal = typedGlobal.isEmpty
+          ? GlobalRecordValidator.pendingFor(memberId)
+          : typedGlobal;
+
       RecordFieldPolicy.assertCanSave(
         isAdmin: _viewerIsAdmin,
         existingGlobalRecordNo: existing?.globalRecordNo,
@@ -1178,6 +1199,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 lroRecordNo: nextLro,
               ))
           .copyWith(
+        id: memberId,
         saId: _saId.text.trim(),
         globalRecordNo: nextGlobal,
         lroRecordNo: nextLro,
@@ -1199,10 +1221,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         deleted: false,
       );
 
-      // Keep draft id when creating so a pre-picked photo stays linked.
-      final toSave = (_currentId == null && _draftId != null)
-          ? member.copyWith(id: _draftId)
-          : (_currentId != null ? member.copyWith(id: _currentId) : member);
+      final toSave = member;
 
       var saved = await ref.read(memberRepositoryProvider).save(toSave);
       final user = ref.read(authUserProvider);
@@ -1633,10 +1652,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         color: AppTheme.labelText,
                       ),
                     ),
-                    // Order: View Members radios → Cancel → Search
-                    // NEW ADDITION - Admin All/New/RS (Delete block to revert)
+                    // Far right: View Members → Cancel → Search
+                    // MODIFIED - controls aligned end (Delete Spacer block to revert)
+                    const Spacer(),
                     if (_viewerIsAdmin) ...[
-                      const SizedBox(width: 12),
                       const Text(
                         'View Members:',
                         style: TextStyle(
@@ -1645,32 +1664,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _adminViewRadio(
-                                label: 'All',
-                                count: _countAll,
-                                value: _AdminViewFilter.all,
-                              ),
-                              _adminViewRadio(
-                                label: 'New',
-                                count: _countNew,
-                                value: _AdminViewFilter.newMembers,
-                              ),
-                              _adminViewRadio(
-                                label: 'RS',
-                                count: _countRs,
-                                value: _AdminViewFilter.rs,
-                              ),
-                            ],
-                          ),
-                        ),
+                      _adminViewRadio(
+                        label: 'All',
+                        count: _countAll,
+                        value: _AdminViewFilter.all,
                       ),
-                    ] else
-                      const Spacer(),
+                      _adminViewRadio(
+                        label: 'New',
+                        count: _countNew,
+                        value: _AdminViewFilter.newMembers,
+                      ),
+                      _adminViewRadio(
+                        label: 'RS',
+                        count: _countRs,
+                        value: _AdminViewFilter.rs,
+                      ),
+                    ],
                     if (_viewerIsAdmin && cancelTarget != null)
                       TextButton.icon(
                         onPressed: () async {

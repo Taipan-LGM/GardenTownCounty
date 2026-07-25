@@ -87,14 +87,23 @@ class MemberDuplicateService {
     String globalRecordNo, {
     String? excludeMemberId,
   }) async {
-    final formatError = GlobalRecordValidator.validate(globalRecordNo);
+    final key = globalRecordNo.trim();
+    // Empty / pending placeholders are not unique keys — allow many members.
+    // MODIFIED - optional GR (Delete early return to revert required GR)
+    if (key.isEmpty || key.startsWith('__PENDING__')) {
+      return DuplicateCheckResult.ok;
+    }
+
+    final formatError = GlobalRecordValidator.validate(
+      key,
+      required: false,
+    );
     if (formatError != null) {
       return DuplicateCheckResult(
         isDuplicate: false,
         errorMessage: formatError,
       );
     }
-    final key = globalRecordNo.trim();
 
     final local = await _db.findMemberByGlobalRecordNo(
       key,
@@ -128,13 +137,8 @@ class MemberDuplicateService {
   /// Throws [DuplicateException] if either unique field collides.
   Future<void> assertUnique(Member member) async {
     final sa = await checkSaId(member.saId, excludeMemberId: member.id);
-    if (sa.errorMessage != null && !sa.isDuplicate) {
-      throw DuplicateException(
-        sa.errorMessage!,
-        field: 'SA ID',
-        value: member.saId,
-      );
-    }
+    // Format errors are not duplicates — only true collisions.
+    // MODIFIED - do not wrap format errors as DuplicateException
     if (sa.isDuplicate) {
       throw DuplicateException(
         sa.errorMessage ?? 'SA ID already exists',
@@ -143,18 +147,14 @@ class MemberDuplicateService {
         existingMemberId: sa.existingMember?.id,
       );
     }
+    if (sa.errorMessage != null) {
+      throw Exception(sa.errorMessage);
+    }
 
     final gr = await checkGlobalRecord(
       member.globalRecordNo,
       excludeMemberId: member.id,
     );
-    if (gr.errorMessage != null && !gr.isDuplicate) {
-      throw DuplicateException(
-        gr.errorMessage!,
-        field: 'Global Record No.',
-        value: member.globalRecordNo,
-      );
-    }
     if (gr.isDuplicate) {
       throw DuplicateException(
         gr.errorMessage ?? 'Global Record No. already exists',
@@ -162,6 +162,9 @@ class MemberDuplicateService {
         value: member.globalRecordNo,
         existingMemberId: gr.existingMember?.id,
       );
+    }
+    if (gr.errorMessage != null) {
+      throw Exception(gr.errorMessage);
     }
   }
 

@@ -73,4 +73,21 @@ void main() {
     await db.upsertMember(m);
     await dup.assertUnique(m.copyWith(memberName: 'Updated'));
   });
+
+  test('empty / pending Global Record is not treated as duplicate', () async {
+    await db.upsertMember(
+      member(id: 'a', saId: '9001014800089', globalRecord: '__PENDING__a'),
+    );
+    final empty = await dup.checkGlobalRecord('');
+    expect(empty.isDuplicate, isFalse);
+    final pending = await dup.checkGlobalRecord('__PENDING__b');
+    expect(pending.isDuplicate, isFalse);
+
+    await dup.assertUnique(
+      member(id: 'b', saId: '8501015800085', globalRecord: '__PENDING__b'),
+    );
+    await db.upsertMember(
+      member(id: 'b', saId: '8501015800085', globalRecord: '__PENDING__b'),
+    );
+  });
 }

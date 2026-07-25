@@ -130,10 +130,10 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
 
   @override
   Widget build(BuildContext context) {
-    // Beside hamburger (SafeArea top-left). Spec: top 50 / left 60.
-    // MODIFIED - moved up to top:50; MENU not bold (Delete to revert)
-    const double top = 50;
-    const double left = 60;
+    // Top of main form, beside hamburger (SafeArea).
+    // MODIFIED - flush to top of main form (Delete SafeArea align to revert)
+    final topPad = MediaQuery.paddingOf(context).top;
+    const double left = 52;
 
     return SizedBox.expand(
       child: IgnorePointer(
@@ -146,7 +146,7 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
                 fit: StackFit.expand,
                 children: [
                   Positioned(
-                    top: top,
+                    top: topPad + 2,
                     left: left,
                     child: Transform.scale(
                       scale: _scale.value,

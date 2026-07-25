@@ -1522,17 +1522,21 @@ class DatabaseService {
         existingMemberId: saClash.id,
       );
     }
-    final grClash = await findMemberByGlobalRecordNo(
-      member.globalRecordNo,
-      excludeMemberId: member.id,
-    );
-    if (grClash != null) {
-      throw DuplicateException(
-        'Global Record No. already exists',
-        field: 'Global Record No.',
-        value: member.globalRecordNo,
-        existingMemberId: grClash.id,
+    // Skip uniqueness for empty / pending placeholders (many members allowed).
+    final grKey = member.globalRecordNo.trim();
+    if (grKey.isNotEmpty && !grKey.startsWith('__PENDING__')) {
+      final grClash = await findMemberByGlobalRecordNo(
+        grKey,
+        excludeMemberId: member.id,
       );
+      if (grClash != null) {
+        throw DuplicateException(
+          'Global Record No. already exists',
+          field: 'Global Record No.',
+          value: member.globalRecordNo,
+          existingMemberId: grClash.id,
+        );
+      }
     }
 
     if (_memoryMode) {

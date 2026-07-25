@@ -1,3 +1,5 @@
+import 'sa_id_validator.dart';
+
 /// Visibility / edit rules for Global Record No. and LRO Record No.
 ///
 /// // NEW ADDITION - Delete this file to revert record-field policy.
@@ -5,7 +7,7 @@ class RecordFieldPolicy {
   RecordFieldPolicy._();
 
   static bool hasValue(String? value) =>
-      value != null && value.trim().isNotEmpty;
+      !GlobalRecordValidator.isPendingOrEmpty(value);
 
   /// Admin/Secretary: always show. Member: only when a value exists.
   static bool shouldShow({
@@ -68,14 +70,14 @@ class RecordFieldPolicy {
     required String? newLro,
   }) {
     final lines = <String>[];
-    final og = (oldGlobal ?? '').trim();
-    final ng = newGlobal.trim();
+    final og = GlobalRecordValidator.displayValue(oldGlobal);
+    final ng = GlobalRecordValidator.displayValue(newGlobal);
     if (og != ng) {
       if (og.isEmpty && ng.isNotEmpty) {
         lines.add('Entered Global Record No. for $memberName: $ng');
       } else if (og.isNotEmpty && ng.isEmpty) {
         lines.add('Cleared Global Record No. for $memberName (was $og)');
-      } else {
+      } else if (og.isNotEmpty && ng.isNotEmpty) {
         lines.add('Changed Global Record No. for $memberName: $og → $ng');
       }
     }

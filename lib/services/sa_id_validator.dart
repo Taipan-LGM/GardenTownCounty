@@ -77,13 +77,31 @@ class GlobalRecordValidator {
 
   static final RegExp _digitsOnly = RegExp(r'^[0-9]+$');
 
+  /// Pending placeholder used when GR is blank (SQLite UNIQUE allows one '').
+  // NEW ADDITION - Delete helper to revert pending GR tokens
+  static const pendingPrefix = '__PENDING__';
+
+  static bool isPendingOrEmpty(String? raw) {
+    final value = (raw ?? '').trim();
+    return value.isEmpty || value.startsWith(pendingPrefix);
+  }
+
+  static String pendingFor(String memberId) => '$pendingPrefix$memberId';
+
+  /// Display value — hide pending tokens in the form.
+  static String displayValue(String? raw) {
+    final value = (raw ?? '').trim();
+    if (value.startsWith(pendingPrefix)) return '';
+    return value;
+  }
+
   /// Returns null if valid; otherwise an error message.
   ///
   /// [required] false → empty allowed (Save enable / new member without GR).
   // MODIFIED - optional empty (Delete required param to revert)
   static String? validate(String raw, {bool required = true}) {
     final value = raw.trim();
-    if (value.isEmpty) {
+    if (value.isEmpty || value.startsWith(pendingPrefix)) {
       return required ? 'Global Record No. is required' : null;
     }
     if (!_digitsOnly.hasMatch(value)) {
