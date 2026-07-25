@@ -16,6 +16,7 @@ import '../../models/member_form_mode.dart';
 import '../../models/member_navigation_state.dart';
 import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
+import '../../services/member_form_save_gate.dart';
 import '../../services/record_field_policy.dart';
 import '../../services/sa_id_validator.dart';
 import '../../services/step1_validator.dart';
@@ -422,31 +423,34 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _duplicateSaIdMemberId = null;
     });
 
-    final hardError = SaIdValidator.validate(value);
-    if (hardError != null) {
+    try {
+      final hardError = SaIdValidator.validate(value);
+      if (hardError != null) {
+        if (!mounted) return;
+        setState(() => _saIdError = hardError);
+        return;
+      }
+
+      final soft = SaIdValidator.softWarning(value);
+      final excludeId = _currentId ?? _draftId;
+      final result = await ref.read(memberDuplicateServiceProvider).checkSaId(
+            value.trim(),
+            excludeMemberId: excludeId,
+          );
       if (!mounted) return;
       setState(() {
-        _saIdError = hardError;
-        _isCheckingSaId = false;
+        _saIdWarning = soft;
+        if (result.isDuplicate) {
+          _saIdError = result.errorMessage;
+          _duplicateSaIdMemberId = result.existingMember?.id;
+        }
       });
-      return;
+    } catch (e) {
+      debugPrint('SA ID live check failed: $e');
+      // Do not leave Save blocked on transient check failures.
+    } finally {
+      if (mounted) setState(() => _isCheckingSaId = false);
     }
-
-    final soft = SaIdValidator.softWarning(value);
-    final excludeId = _currentId ?? _draftId;
-    final result = await ref.read(memberDuplicateServiceProvider).checkSaId(
-          value.trim(),
-          excludeMemberId: excludeId,
-        );
-    if (!mounted) return;
-    setState(() {
-      _isCheckingSaId = false;
-      _saIdWarning = soft;
-      if (result.isDuplicate) {
-        _saIdError = result.errorMessage;
-        _duplicateSaIdMemberId = result.existingMember?.id;
-      }
-    });
   }
 
   Future<void> _validateGlobalRecordLive(String value) async {
@@ -457,47 +461,60 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _duplicateGlobalRecordMemberId = null;
     });
 
-    final formatError = GlobalRecordValidator.validate(value);
-    if (formatError != null) {
+    try {
+      final formatError = GlobalRecordValidator.validate(value);
+      if (formatError != null) {
+        if (!mounted) return;
+        setState(() => _globalRecordError = formatError);
+        return;
+      }
+
+      final excludeId = _currentId ?? _draftId;
+      final result =
+          await ref.read(memberDuplicateServiceProvider).checkGlobalRecord(
+                value.trim(),
+                excludeMemberId: excludeId,
+              );
       if (!mounted) return;
       setState(() {
-        _globalRecordError = formatError;
-        _isCheckingGlobalRecord = false;
+        if (result.isDuplicate) {
+          _globalRecordError = result.errorMessage;
+          _duplicateGlobalRecordMemberId = result.existingMember?.id;
+        }
       });
-      return;
+    } catch (e) {
+      debugPrint('Global Record live check failed: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingGlobalRecord = false);
     }
-
-    final excludeId = _currentId ?? _draftId;
-    final result =
-        await ref.read(memberDuplicateServiceProvider).checkGlobalRecord(
-              value.trim(),
-              excludeMemberId: excludeId,
-            );
-    if (!mounted) return;
-    setState(() {
-      _isCheckingGlobalRecord = false;
-      if (result.isDuplicate) {
-        _globalRecordError = result.errorMessage;
-        _duplicateGlobalRecordMemberId = result.existingMember?.id;
-      }
-    });
   }
 
-  /// Hard blockers only (empty / length / digits / confirmed duplicate / in-flight check).
-  bool get _uniqueFieldsOk =>
-      _saIdError == null &&
-      _globalRecordError == null &&
-      !_isCheckingSaId &&
-      !_isCheckingGlobalRecord &&
-      _saId.text.trim().isNotEmpty &&
-      _globalRecordNo.text.trim().isNotEmpty;
+  /// Labels still missing/invalid for Save (real-time).
+  /// // MODIFIED - full required set + do not wait on in-flight duplicate checks
+  List<String> get _missingSaveLabels =>
+      MemberFormSaveGate.missingRequiredLabels(
+        saId: _saId.text,
+        globalRecordNo: _globalRecordNo.text,
+        memberName: _memberName.text,
+        surname: _surname.text,
+        address: _address.text,
+        suburb: _suburb,
+        townCity: _townCity,
+        postalCode: _postalCode,
+        contactNo1: _contactNo1.text,
+        email: _email.text,
+        requireGlobalRecord: !_isMemberOnly,
+        saIdLiveError: _saIdError,
+        globalRecordLiveError: _globalRecordError,
+      );
 
-  bool get _canPressSave =>
-      _isEditing &&
-      !_saving &&
-      !_formReadOnly &&
-      !_fieldsMasked &&
-      _uniqueFieldsOk;
+  bool get _canPressSave => MemberFormSaveGate.canEnableSave(
+        isEditing: _isEditing,
+        saving: _saving,
+        formReadOnly: _formReadOnly,
+        fieldsMasked: _fieldsMasked,
+        missingLabels: _missingSaveLabels,
+      );
 
   Future<void> _openExistingDuplicate(String? memberId) async {
     if (memberId == null) return;
@@ -545,6 +562,65 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ? Colors.red.shade700
                   : Colors.green.shade700,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Explains why Save is gray (missing required / errors).
+  // NEW ADDITION - Delete method to revert missing-fields banner
+  Widget _buildSaveReadyBanner() {
+    final missing = _missingSaveLabels;
+    if (missing.isEmpty) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green.shade700),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '✅ All required fields complete. Ready to save!',
+                style: TextStyle(
+                  color: Colors.green.shade800,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade300),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber, color: Colors.orange.shade800),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '⚠️ Fill required fields to enable Save: ${missing.join(', ')}',
+              style: TextStyle(
+                color: Colors.orange.shade900,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -1219,6 +1295,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     required LookupType type,
     required String? value,
     required ValueChanged<String?> onChanged,
+    bool required = false,
   }) {
     if (_fieldsMasked) {
       return TextFormField(
@@ -1242,7 +1319,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
                 initialValue: effective,
                 decoration: _fieldDecoration(
-                  label,
+                  required ? '$label *' : label,
                   filled: value != null && value.trim().isNotEmpty,
                 ),
                 items: [
@@ -1255,6 +1332,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ),
                 ],
                 onChanged: _formReadOnly ? null : onChanged,
+                validator: required
+                    ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null
+                    : null,
               ),
             ),
             IconButton(
@@ -1827,6 +1907,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_isEditing) _buildEditModeBanner(),
+          if (_isEditing) _buildSaveReadyBanner(),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1900,13 +1981,24 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.save),
-                  label: const Text('Save'),
+                  label: Text(
+                    _saving
+                        ? 'Saving...'
+                        : _canPressSave
+                            ? 'Save'
+                            : 'Complete Required Fields',
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade600,
+                    disabledForegroundColor: Colors.white70,
                   ),
                 ),
               ],
@@ -2189,16 +2281,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     controller: _address,
                     enabled: !_formReadOnly,
                     decoration: _fieldDecoration(
-                      'Address',
+                      'Address *',
                       filled: _address.text.trim().isNotEmpty,
                     ),
                     maxLines: 2,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 8),
                   _lookupDropdown(
                     label: 'Suburb',
                     type: LookupType.suburb,
                     value: _suburb,
+                    required: true,
                     onChanged: (v) {
                       setState(() => _suburb = v);
                       _markDirty();
@@ -2209,6 +2304,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     label: 'Town / City',
                     type: LookupType.townCity,
                     value: _townCity,
+                    required: true,
                     onChanged: (v) {
                       setState(() => _townCity = v);
                       _markDirty();
@@ -2219,6 +2315,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     label: 'Postal Code',
                     type: LookupType.postalCode,
                     value: _postalCode,
+                    required: true,
                     onChanged: (v) {
                       setState(() => _postalCode = v);
                       _markDirty();
@@ -2232,7 +2329,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           controller: _contactNo1,
                           enabled: !_formReadOnly,
                           decoration: _fieldDecoration(
-                            'Contact No 1 (max 12)',
+                            'Contact No 1 * (max 12)',
                             filled: _contactNo1.text.trim().isNotEmpty,
                           ),
                           maxLength: AppConstants.contactNoMaxLength,
@@ -2242,6 +2339,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                               AppConstants.contactNoMaxLength,
                             ),
                           ],
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? 'Required' : null,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -2269,10 +2368,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     controller: _email,
                     enabled: !_formReadOnly,
                     decoration: _fieldDecoration(
-                      'Email Address',
+                      'Email Address *',
                       filled: _email.text.trim().isNotEmpty,
                     ),
                     keyboardType: TextInputType.emailAddress,
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (value.isEmpty) return 'Required';
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                          .hasMatch(value)) {
+                        return 'Enter a valid email';
+                      }
+                      return null;
+                    },
                   ),
                   // NEW ADDITION - Step 1 completion banner (Delete block to revert)
                   if (_step1FormComplete &&
