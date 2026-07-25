@@ -1320,6 +1320,30 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
     final wide = MediaQuery.sizeOf(context).width >= 1100;
 
+    // Admin Cancel target: open profile, else list highlight / selection.
+    Member? cancelTarget;
+    if (_viewerIsAdmin) {
+      final loaded = _loadedMember;
+      if (loaded != null && !loaded.isCancelled) {
+        cancelTarget = loaded;
+      } else if (showList && page.isNotEmpty) {
+        final hi = navState.highlightIndex.clamp(0, page.length - 1);
+        final candidate = page[hi];
+        if (!candidate.isCancelled) cancelTarget = candidate;
+      } else {
+        final sid =
+            navState.selectedMemberId ?? ref.watch(selectedMemberIdProvider);
+        if (sid != null) {
+          for (final m in _members) {
+            if (m.id == sid && !m.isCancelled) {
+              cancelTarget = m;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     Future<void> openMember(Member m, {bool forceEdit = false}) async {
       if (!await _ensureCanNavigate()) return;
       setState(() => _navForward = true);
@@ -1512,16 +1536,32 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         },
                         icon: const Icon(Icons.search),
                       ),
-                    // NEW ADDITION - Admin Cancel in MEMBER MANAGEMENT bar
-                    // (right of search). Delete block to revert.
-                    if (_viewerIsAdmin &&
-                        _loadedMember != null &&
-                        !_loadedMember!.isCancelled)
-                      IconButton(
-                        tooltip: 'Cancel Membership (Ctrl+C)',
-                        color: Colors.red.shade300,
-                        onPressed: () => guardedCancelMembership(),
-                        icon: const Icon(Icons.cancel_outlined),
+                    // NEW ADDITION - RED Cancel Membership (Admin, right of search)
+                    if (_viewerIsAdmin && cancelTarget != null)
+                      TextButton.icon(
+                        onPressed: () async {
+                          final target = cancelTarget!;
+                          if (_loadedMember?.id != target.id) {
+                            await openMember(target);
+                          }
+                          if (!mounted) return;
+                          await guardedCancelMembership();
+                        },
+                        icon: const Icon(
+                          Icons.cancel_outlined,
+                          color: Colors.red,
+                          size: 28,
+                        ),
+                        label: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
                       ),
                   ],
                 ),
@@ -1942,7 +1982,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   child: const Text('❌ Cancel'),
                 ),
                 const SizedBox(width: 8),
-                FilledButton.icon(
+                // ElevatedButton — FilledButton theme forces forestGreen otherwise.
+                // MODIFIED - explicit green Save Member (Delete to revert)
+                ElevatedButton.icon(
                   onPressed: _canPressSave ? () => _save() : null,
                   icon: _saving
                       ? const SizedBox(
@@ -1954,7 +1996,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           ),
                         )
                       : const Icon(Icons.save),
-                  // MODIFIED - Save Member / Complete Required Fields (no warnings)
                   label: Text(
                     _saving
                         ? 'Saving...'
@@ -1962,11 +2003,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             ? 'Save Member'
                             : 'Complete Required Fields',
                   ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        _canPressSave ? Colors.green : Colors.grey.shade700,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey.shade700,
                     disabledForegroundColor: Colors.grey.shade500,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ],

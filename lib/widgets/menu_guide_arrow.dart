@@ -130,10 +130,10 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
 
   @override
   Widget build(BuildContext context) {
-    // Far left, next to the hamburger (top-left).
-    // MODIFIED - absolute top:55 / left:60 (was padding.top+32)
-    const top = 55.0;
-    const left = 60.0;
+    // Beside hamburger (SafeArea top-left). Spec: top 55 / left 60.
+    // MODIFIED - fixed Positioned(top:55, left:60) (Delete to revert)
+    const double top = 55;
+    const double left = 60;
 
     return SizedBox.expand(
       child: IgnorePointer(

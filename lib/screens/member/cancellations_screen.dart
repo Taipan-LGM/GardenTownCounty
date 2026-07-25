@@ -335,11 +335,23 @@ class _CancelledCard extends StatelessWidget {
                 ],
               ),
             ),
-            FilledButton.icon(
+            // ElevatedButton avoids forestGreen FilledButton theme override.
+            ElevatedButton.icon(
               onPressed: onReinstate,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Reinstate'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text(
+                'Reinstate',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade700,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+              ),
             ),
             IconButton(
               tooltip: 'View Files ($fileCount)',
