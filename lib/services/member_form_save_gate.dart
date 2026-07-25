@@ -11,6 +11,10 @@ class MemberFormSaveGate {
   );
 
   /// Labels still empty / invalid for a staff new/edit save.
+  ///
+  /// Required for Save enable (user spec): SA ID, name, surname, address,
+  /// suburb, town, postal, contact1, email. Global Record is optional.
+  // MODIFIED - GR optional for enable (Delete requireGlobalRecord:false default)
   static List<String> missingRequiredLabels({
     required String saId,
     required String globalRecordNo,
@@ -22,7 +26,7 @@ class MemberFormSaveGate {
     required String? postalCode,
     required String contactNo1,
     required String email,
-    required bool requireGlobalRecord,
+    bool requireGlobalRecord = false,
     String? saIdLiveError,
     String? globalRecordLiveError,
   }) {
@@ -43,6 +47,11 @@ class MemberFormSaveGate {
           globalRecordLiveError.trim().isNotEmpty) {
         missing.add('Global Record No. (fix duplicate/error)');
       }
+    } else if (globalRecordNo.trim().isNotEmpty &&
+        globalRecordLiveError != null &&
+        globalRecordLiveError.trim().isNotEmpty) {
+      // Only block on GR duplicate/format when a value was entered.
+      missing.add('Global Record No. (fix duplicate/error)');
     }
 
     if (!_filled(memberName)) missing.add('Member Name');

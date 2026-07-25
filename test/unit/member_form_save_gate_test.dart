@@ -14,7 +14,7 @@ void main() {
       String? postalCode = '8001',
       String contactNo1 = '0215551234',
       String email = 'thabo@example.com',
-      bool requireGlobalRecord = true,
+      bool requireGlobalRecord = false,
       String? saIdLiveError,
       String? globalRecordLiveError,
     }) {
@@ -73,7 +73,7 @@ void main() {
         ),
       );
       expect(missing, contains('SA ID No.'));
-      expect(missing, contains('Global Record No.'));
+      expect(missing, isNot(contains('Global Record No.')));
       expect(missing, contains('Member Name'));
       expect(missing, contains('Surname'));
       expect(missing, contains('Address'));
@@ -82,6 +82,18 @@ void main() {
       expect(missing, contains('Postal Code'));
       expect(missing, contains('Contact No. 1'));
       expect(missing, contains('Email Address'));
+    });
+
+    test('empty Global Record does not block Save enable', () {
+      final missing = missingOf(filled(globalRecordNo: ''));
+      expect(missing, isEmpty);
+    });
+
+    test('requireGlobalRecord true still lists empty GR', () {
+      final missing = missingOf(
+        filled(globalRecordNo: '', requireGlobalRecord: true),
+      );
+      expect(missing, contains('Global Record No.'));
     });
 
     test('invalid SA ID length blocks save', () {

@@ -78,9 +78,14 @@ class GlobalRecordValidator {
   static final RegExp _digitsOnly = RegExp(r'^[0-9]+$');
 
   /// Returns null if valid; otherwise an error message.
-  static String? validate(String raw) {
+  ///
+  /// [required] false → empty allowed (Save enable / new member without GR).
+  // MODIFIED - optional empty (Delete required param to revert)
+  static String? validate(String raw, {bool required = true}) {
     final value = raw.trim();
-    if (value.isEmpty) return 'Global Record No. is required';
+    if (value.isEmpty) {
+      return required ? 'Global Record No. is required' : null;
+    }
     if (!_digitsOnly.hasMatch(value)) {
       return 'Global Record No. must contain only numbers';
     }

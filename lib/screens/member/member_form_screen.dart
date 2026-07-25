@@ -86,6 +86,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   /// Explicit Edit Mode — fields stay read-only until user clicks Edit.
   bool _isEditing = false;
+
+  /// Admin top-bar view: All / New / RS.
+  // NEW ADDITION - Delete field + filter UI to revert
+  _AdminViewFilter _adminViewFilter = _AdminViewFilter.all;
+  Set<String> _secretaryMemberIds = const {};
   bool _hasUnsavedChanges = false;
   bool _suppressDirty = false;
   _FormSnapshot? _snapshot;
@@ -215,8 +220,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   void _onFormFieldChanged() {
     if (_suppressDirty || !_isEditing) return;
-    // Rebuild for Step 1 field checkmarks / completion banner.
+    // Rebuild so Save button green/gray updates on every keystroke.
+    // MODIFIED - always setState for Save enable (Delete comment to revert)
     setState(() => _hasUnsavedChanges = true);
+    assert(() {
+      debugPrint(
+        '📝 Save enable=${_canPressSave} missing=${_missingSaveLabels}',
+      );
+      return true;
+    }());
   }
 
   void _markDirty() {
@@ -456,6 +468,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   Future<void> _validateGlobalRecordLive(String value) async {
     if (!mounted) return;
+    // Empty GR is allowed — clear errors so Save is not blocked.
+    // MODIFIED - optional GR (Delete early-return to revert required GR)
+    if (value.trim().isEmpty) {
+      setState(() {
+        _isCheckingGlobalRecord = false;
+        _globalRecordError = null;
+        _duplicateGlobalRecordMemberId = null;
+      });
+      return;
+    }
     setState(() {
       _isCheckingGlobalRecord = true;
       _globalRecordError = null;
@@ -463,7 +485,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     });
 
     try {
-      final formatError = GlobalRecordValidator.validate(value);
+      final formatError = GlobalRecordValidator.validate(
+        value,
+        required: false,
+      );
       if (formatError != null) {
         if (!mounted) return;
         setState(() => _globalRecordError = formatError);
@@ -491,7 +516,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   /// Labels still missing/invalid for Save (real-time).
-  /// // MODIFIED - full required set + do not wait on in-flight duplicate checks
+  /// Global Record is optional — does not keep Save gray.
+  /// // MODIFIED - GR optional for enable (Delete requireGlobalRecord:false)
   List<String> get _missingSaveLabels =>
       MemberFormSaveGate.missingRequiredLabels(
         saId: _saId.text,
@@ -504,7 +530,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         postalCode: _postalCode,
         contactNo1: _contactNo1.text,
         email: _email.text,
-        requireGlobalRecord: !_isMemberOnly,
+        requireGlobalRecord: false,
         saIdLiveError: _saIdError,
         globalRecordLiveError: _globalRecordError,
       );
@@ -516,6 +542,96 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         fieldsMasked: _fieldsMasked,
         missingLabels: _missingSaveLabels,
       );
+
+  /// Admin All / New / RS filter applied before list search/sort.
+  // NEW ADDITION - Delete getter to revert admin view filter
+  List<Member> get _adminViewMembers {
+    if (!_viewerIsAdmin) return _members;
+    switch (_adminViewFilter) {
+      case _AdminViewFilter.all:
+        return _members;
+      case _AdminViewFilter.newMembers:
+        return _members
+            .where(
+              (m) =>
+                  m.registrationStatus == 'pending' ||
+                  m.registrationStatus == 'in_progress',
+            )
+            .toList();
+      case _AdminViewFilter.rs:
+        return _members
+            .where((m) => _secretaryMemberIds.contains(m.id))
+            .toList();
+    }
+  }
+
+  int get _countAll => _members.length;
+
+  int get _countNew => _members
+      .where(
+        (m) =>
+            m.registrationStatus == 'pending' ||
+            m.registrationStatus == 'in_progress',
+      )
+      .length;
+
+  int get _countRs =>
+      _members.where((m) => _secretaryMemberIds.contains(m.id)).length;
+
+  Widget _adminViewRadio({
+    required String label,
+    required int count,
+    required _AdminViewFilter value,
+  }) {
+    final selected = _adminViewFilter == value;
+    return InkWell(
+      onTap: () {
+        setState(() => _adminViewFilter = value);
+        ref.read(memberNavigationProvider.notifier).setPage(0);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? Colors.lightBlueAccent : Colors.white54,
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? Center(
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.lightBlueAccent,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$label ($count)',
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.white70,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _openExistingDuplicate(String? memberId) async {
     if (memberId == null) return;
@@ -580,10 +696,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     final dbUsers = await db.getAppUsers();
     String? adminMemberId;
+    final secretaryIds = <String>{};
     for (final u in dbUsers) {
+      if (u.deleted) continue;
+      final mid = u.memberId?.trim();
+      if (mid != null && mid.isNotEmpty && u.isSecretary) {
+        secretaryIds.add(mid);
+      }
       if (u.isSystemAdministrator) {
         adminMemberId = u.memberId;
-        break;
       }
     }
 
@@ -603,6 +724,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     setState(() {
       _members = members;
       _adminLinkedMemberId = adminMemberId;
+      _secretaryMemberIds = secretaryIds;
       _loading = false;
     });
 
@@ -997,7 +1119,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       await _validateGlobalRecordLive(_globalRecordNo.text);
     }
     if (_saIdError != null ||
-        _globalRecordError != null ||
+        (_globalRecordNo.text.trim().isNotEmpty &&
+            _globalRecordError != null) ||
         _lroRecordError != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1026,21 +1149,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ? (_persistedLroRecord ?? _lroRecordNo.text)
         : _lroRecordNo.text;
     final nextLro = nextLroRaw.trim().isEmpty ? null : nextLroRaw.trim();
-    if (_saId.text.trim().isEmpty ||
-        (!_isMemberOnly && nextGlobal.isEmpty)) {
-      return false;
-    }
-    if (_isMemberOnly && nextGlobal.isEmpty) {
-      // Members never enter Global Record; require Admin to set it first.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Global Record No. has not been assigned yet. Contact Admin.',
-            ),
-          ),
-        );
-      }
+    // MODIFIED - SA ID required; Global Record optional for new saves
+    if (_saId.text.trim().isEmpty) {
       return false;
     }
 
@@ -1317,10 +1427,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final nav = ref.read(memberNavigationProvider.notifier);
     final isMemberOnly = _isMemberOnly;
     final showList = !isMemberOnly && navState.currentView == MemberNavView.list;
-    final filtered = nav.filtered(_members);
-    final page = nav.pageMembers(_members);
+    final listSource = _adminViewMembers;
+    final filtered = nav.filtered(listSource);
+    final page = nav.pageMembers(listSource);
     final counts = MemberNavigationLogic.counts(
-      _members,
+      listSource,
       favoriteIds: navState.favoriteIds,
     );
     final wide = MediaQuery.sizeOf(context).width >= 1100;
@@ -1514,17 +1625,52 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        '👥 MEMBER MANAGEMENT',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.labelText,
-                        ),
+                    const Text(
+                      '👥 MEMBER MANAGEMENT',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.labelText,
                       ),
                     ),
-                    // MODIFIED - Cancel LEFT of Search (Delete block order to revert)
+                    // Order: View Members radios → Cancel → Search
+                    // NEW ADDITION - Admin All/New/RS (Delete block to revert)
+                    if (_viewerIsAdmin) ...[
+                      const SizedBox(width: 12),
+                      const Text(
+                        'View Members:',
+                        style: TextStyle(
+                          color: AppTheme.labelText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _adminViewRadio(
+                                label: 'All',
+                                count: _countAll,
+                                value: _AdminViewFilter.all,
+                              ),
+                              _adminViewRadio(
+                                label: 'New',
+                                count: _countNew,
+                                value: _AdminViewFilter.newMembers,
+                              ),
+                              _adminViewRadio(
+                                label: 'RS',
+                                count: _countRs,
+                                value: _AdminViewFilter.rs,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else
+                      const Spacer(),
                     if (_viewerIsAdmin && cancelTarget != null)
                       TextButton.icon(
                         onPressed: () async {
@@ -1608,7 +1754,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       ),
                                     Expanded(
                                       child: MemberListPanel(
-                                        allMembers: _members,
+                                        allMembers: listSource,
                                         searchFocusNode: _searchFocusNode,
                                         isAdmin: _viewerIsAdmin,
                                         onAddNew: _canAddMembers
@@ -2194,9 +2340,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       ],
                                       validator: (v) {
                                         if (_globalRecordReadOnly) return null;
+                                        // Empty allowed — format only when typed.
                                         final err =
                                             GlobalRecordValidator.validate(
                                           v ?? '',
+                                          required: false,
                                         );
                                         if (err != null) return err;
                                         if (_globalRecordError != null &&
@@ -2747,6 +2895,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 }
+
+/// Admin Member Management view radios.
+// NEW ADDITION - Delete enum to revert All/New/RS filter
+enum _AdminViewFilter { all, newMembers, rs }
 
 class _FormSnapshot {
   const _FormSnapshot({
