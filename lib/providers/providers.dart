@@ -35,6 +35,7 @@ import '../services/member_lock_service.dart';
 import '../services/temporary_access_service.dart';
 import '../services/test_data_service.dart';
 import '../services/smart_auto_assignment_service.dart';
+import '../services/step_activation_service.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
 import '../services/temp_access_expiry_service.dart';
@@ -304,6 +305,16 @@ final promotionServiceProvider = Provider<PromotionService>((ref) {
   return PromotionService(
     ref.watch(authServiceProvider),
     ref.watch(databaseServiceProvider),
+    ref.watch(activityServiceProvider),
+    notifications: ref.watch(reminderNotificationServiceProvider),
+  );
+});
+
+// NEW ADDITION - Step 1 auto-activation (Delete provider to revert)
+final stepActivationServiceProvider = Provider<StepActivationService>((ref) {
+  return StepActivationService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(reminderServiceProvider),
     ref.watch(activityServiceProvider),
     notifications: ref.watch(reminderNotificationServiceProvider),
   );

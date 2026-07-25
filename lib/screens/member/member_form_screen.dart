@@ -18,6 +18,7 @@ import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
 import '../../services/record_field_policy.dart';
 import '../../services/sa_id_validator.dart';
+import '../../services/step1_validator.dart';
 import '../../services/secure_screen_service.dart';
 import '../../services/temporary_access_service.dart';
 import '../../widgets/duplicate_warning_widget.dart';
@@ -212,9 +213,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   void _onFormFieldChanged() {
     if (_suppressDirty || !_isEditing) return;
-    if (!_hasUnsavedChanges) {
-      setState(() => _hasUnsavedChanges = true);
-    }
+    // Rebuild for Step 1 field checkmarks / completion banner.
+    setState(() => _hasUnsavedChanges = true);
   }
 
   void _markDirty() {
@@ -331,12 +331,28 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
+  bool get _step1FormComplete => Step1Validator.isFormComplete(
+        saId: _saId.text,
+        globalRecordNo: _globalRecordNo.text,
+        lroRecordNo: _lroRecordNo.text,
+        memberName: _memberName.text,
+        surname: _surname.text,
+        address: _address.text,
+        suburb: _suburb,
+        townCity: _townCity,
+        postalCode: _postalCode,
+        contactNo1: _contactNo1.text,
+        contactNo2: _contactNo2.text,
+        emailAddress: _email.text,
+      );
+
   InputDecoration _fieldDecoration(
     String label, {
     bool isDense = false,
     String? errorText,
     String? helperText,
     Widget? suffixIcon,
+    bool filled = false,
   }) {
     return InputDecoration(
       labelText: label,
@@ -346,11 +362,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       helperMaxLines: 2,
       errorMaxLines: 3,
       suffixIcon: suffixIcon ??
-          Icon(
-            _isEditing && !_formReadOnly ? Icons.edit : Icons.lock,
-            size: 16,
-            color: _isEditing && !_formReadOnly ? Colors.blue : Colors.grey,
-          ),
+          (filled
+              ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
+              : Icon(
+                  _isEditing && !_formReadOnly ? Icons.edit : Icons.lock,
+                  size: 16,
+                  color:
+                      _isEditing && !_formReadOnly ? Colors.blue : Colors.grey,
+                )),
       enabledBorder: _isEditing && !_formReadOnly
           ? OutlineInputBorder(
               borderSide: BorderSide(color: Colors.blue.shade300),
@@ -1044,7 +1063,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ? member.copyWith(id: _draftId)
           : (_currentId != null ? member.copyWith(id: _currentId) : member);
 
-      final saved = await ref.read(memberRepositoryProvider).save(toSave);
+      var saved = await ref.read(memberRepositoryProvider).save(toSave);
       final user = ref.read(authUserProvider);
       if (user != null) {
         await ref.read(activityServiceProvider).record(
@@ -1070,6 +1089,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         }
       }
 
+      // NEW ADDITION - Step 1 auto-activation when all required fields filled
+      final beforeStep1 = saved.step1MemberInfoComplete;
+      saved = await ref
+          .read(stepActivationServiceProvider)
+          .checkAndActivateStep1(saved);
+      final step1JustActivated =
+          !beforeStep1 && saved.step1MemberInfoComplete;
+
       // Automated onboarding reminders (step 1–4, 24h expiry).
       try {
         final reminders = ref.read(reminderServiceProvider);
@@ -1083,6 +1110,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(activeReminderCountProvider);
       } catch (e) {
         debugPrint('Reminder sync after save failed: $e');
+      }
+
+      if (step1JustActivated && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Step 1 (Member Info) auto-activated — all required fields complete.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
 
       // Keep selection so bootstrap reloads this member (not a blank draft).
@@ -1203,7 +1241,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   '${type.storageKey}-${_currentId ?? 'new'}-$effective',
                 ),
                 initialValue: effective,
-                decoration: _fieldDecoration(label),
+                decoration: _fieldDecoration(
+                  label,
+                  filled: value != null && value.trim().isNotEmpty,
+                ),
                 items: [
                   const DropdownMenuItem<String?>(
                     value: null,
@@ -2111,6 +2152,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     decoration: _fieldDecoration(
                                       'Member Name',
                                       isDense: true,
+                                      filled: _memberName.text.trim().isNotEmpty,
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
@@ -2124,6 +2166,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     decoration: _fieldDecoration(
                                       'Surname',
                                       isDense: true,
+                                      filled: _surname.text.trim().isNotEmpty,
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
@@ -2145,7 +2188,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   TextFormField(
                     controller: _address,
                     enabled: !_formReadOnly,
-                    decoration: _fieldDecoration('Address'),
+                    decoration: _fieldDecoration(
+                      'Address',
+                      filled: _address.text.trim().isNotEmpty,
+                    ),
                     maxLines: 2,
                   ),
                   const SizedBox(height: 8),
@@ -2185,7 +2231,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         child: TextFormField(
                           controller: _contactNo1,
                           enabled: !_formReadOnly,
-                          decoration: _fieldDecoration('Contact No 1 (max 12)'),
+                          decoration: _fieldDecoration(
+                            'Contact No 1 (max 12)',
+                            filled: _contactNo1.text.trim().isNotEmpty,
+                          ),
                           maxLength: AppConstants.contactNoMaxLength,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
@@ -2200,7 +2249,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         child: TextFormField(
                           controller: _contactNo2,
                           enabled: !_formReadOnly,
-                          decoration: _fieldDecoration('Contact No 2 (max 12)'),
+                          decoration: _fieldDecoration(
+                            'Contact No 2 (max 12)',
+                            filled: _contactNo2.text.trim().isNotEmpty,
+                          ),
                           maxLength: AppConstants.contactNoMaxLength,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
@@ -2216,9 +2268,40 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   TextFormField(
                     controller: _email,
                     enabled: !_formReadOnly,
-                    decoration: _fieldDecoration('Email Address'),
+                    decoration: _fieldDecoration(
+                      'Email Address',
+                      filled: _email.text.trim().isNotEmpty,
+                    ),
                     keyboardType: TextInputType.emailAddress,
                   ),
+                  // NEW ADDITION - Step 1 completion banner (Delete block to revert)
+                  if (_step1FormComplete &&
+                      !(_loadedMember?.step1MemberInfoComplete ?? false))
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'All required fields complete! Step 1 (Member Info) '
+                              'will auto-activate when you save.',
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _comment,

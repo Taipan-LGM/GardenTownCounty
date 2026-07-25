@@ -136,6 +136,19 @@ class ReminderNotificationService {
     );
   }
 
+  // NEW ADDITION - Step 1 auto-activation notice (Delete method to revert)
+  Future<void> notifyStepAutoActivated({
+    required String memberName,
+    required int stepNumber,
+    required String stepDescription,
+  }) async {
+    await _send(
+      title: '✅ Step $stepNumber Auto-Activated',
+      body: '$memberName — $stepDescription completed automatically',
+      type: 'step_auto_activated',
+    );
+  }
+
   Future<void> _send({
     required String title,
     required String body,
