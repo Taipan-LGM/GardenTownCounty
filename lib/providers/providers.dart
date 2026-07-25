@@ -22,6 +22,7 @@ import '../services/bulk_import_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
+import '../services/data_access_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/demo_data_service.dart';
 import '../services/promotion_service.dart';
@@ -199,12 +200,25 @@ final verifiedTempAccessIdsProvider =
 
 final lockedMembersProvider =
     FutureProvider.autoDispose<List<Member>>((ref) async {
-  return ref.watch(databaseServiceProvider).getLockedMembers();
+  final user = ref.watch(authUserProvider);
+  final locked = await ref.watch(databaseServiceProvider).getLockedMembers();
+  if (user == null || user.isAdmin) return locked;
+  final visible = await ref
+      .watch(dataAccessServiceProvider)
+      .getVisibleMembers(user);
+  final ids = visible.map((m) => m.id).toSet();
+  return locked.where((m) => ids.contains(m.id)).toList();
+});
+
+// NEW ADDITION - role-scoped data access (Delete provider to revert)
+final dataAccessServiceProvider = Provider<DataAccessService>((ref) {
+  return DataAccessService(ref.watch(databaseServiceProvider));
 });
 
 final membersProvider =
     FutureProvider.autoDispose<List<Member>>((ref) async {
-  return ref.watch(memberRepositoryProvider).getAll();
+  final user = ref.watch(authUserProvider);
+  return ref.watch(dataAccessServiceProvider).getVisibleMembers(user);
 });
 
 final lookupsProvider =
@@ -297,17 +311,20 @@ final promotionServiceProvider = Provider<PromotionService>((ref) {
 
 final activeOnboardingRemindersProvider =
     FutureProvider.autoDispose<List<Reminder>>((ref) async {
-  return ref.watch(reminderServiceProvider).getActiveReminders();
+  final user = ref.watch(authUserProvider);
+  return ref.watch(dataAccessServiceProvider).getVisibleReminders(user);
 });
 
 final reminderStatsProvider =
     FutureProvider.autoDispose<ReminderStats>((ref) async {
-  return ref.watch(reminderServiceProvider).getReminderStats();
+  final reminders = await ref.watch(activeOnboardingRemindersProvider.future);
+  return ReminderStats.fromReminders(reminders);
 });
 
 final activeReminderCountProvider =
     FutureProvider.autoDispose<int>((ref) async {
-  return ref.watch(databaseServiceProvider).getActiveOnboardingReminderCount();
+  final reminders = await ref.watch(activeOnboardingRemindersProvider.future);
+  return reminders.length;
 });
 
 /// Navigation target shown inside the shell after login.

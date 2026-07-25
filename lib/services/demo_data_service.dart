@@ -95,7 +95,8 @@ class DemoDataService {
           displayName: s.displayName,
           passwordHash: hash,
           role: UserRole.secretary.storageName,
-          permissionsRaw: AppPermission.encodeList(AppPermission.assignable),
+          permissionsRaw:
+              AppPermission.encodeList(AppPermission.defaultSecretary),
           updatedAt: now,
           pendingSync: true,
           active: true,

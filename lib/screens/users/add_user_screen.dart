@@ -7,6 +7,7 @@ import '../../models/app_user.dart';
 import '../../models/member.dart';
 import '../../models/user_role.dart';
 import '../../providers/providers.dart';
+import '../../widgets/permission_editor_dialog.dart';
 
 /// Admin-only: assign roles & permissions to Members (no login/password).
 class AddUserScreen extends ConsumerStatefulWidget {
@@ -23,9 +24,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
 
   Member? _selectedMember;
   String _role = UserRole.secretary.storageName;
-  final Set<AppPermission> _granted = {};
+  final Set<AppPermission> _granted = {...AppPermission.defaultSecretary};
   AppUser? _editingUser;
   bool _saving = false;
+  String _searchQuery = '';
+  String _roleFilter = 'All';
 
   final _dateFmt = DateFormat('yyyy-MM-dd');
 
@@ -41,7 +44,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     _memberName.clear();
     _surname.clear();
     _role = UserRole.secretary.storageName;
-    _granted.clear();
+    _granted
+      ..clear()
+      ..addAll(AppPermission.defaultSecretary);
     _editingUser = null;
     setState(() {});
   }
@@ -114,7 +119,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       _role = user.userRole.storageName;
       _granted
         ..clear()
-        ..addAll(user.permissions.where((p) => !p.isAdminOnly));
+        ..addAll(AppPermission.mergeSecretaryPermissions(user.permissions));
     });
   }
 
@@ -131,31 +136,8 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       final auth = ref.read(authServiceProvider);
       final admin = ref.read(authUserProvider);
       final perms = _role == UserRole.secretary.storageName
-          ? _granted.toList()
+          ? AppPermission.mergeSecretaryPermissions(_granted)
           : const <AppPermission>[];
-
-      if (_role == UserRole.secretary.storageName && perms.isEmpty) {
-        final cont = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('No permissions'),
-            content: const Text(
-              'No permissions selected. User will have no rights. Continue?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Continue'),
-              ),
-            ],
-          ),
-        );
-        if (cont != true) return;
-      }
 
       final saved = await auth.assignMemberAccess(
         memberId: _selectedMember!.id,
@@ -263,8 +245,16 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            '🔒 This permission is reserved for the System Administrator.',
+            'This permission is reserved for the System Administrator.',
           ),
+        ),
+      );
+      return;
+    }
+    if (p.isRequiredForSecretary && !value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${p.label} is required for Recording Secretaries.'),
         ),
       );
       return;
@@ -276,6 +266,40 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         _granted.remove(p);
       }
     });
+  }
+
+  Future<void> _editSecretaryPermissions(
+    AppUser user,
+    List<Member> members,
+  ) async {
+    final count = await ref
+        .read(databaseServiceProvider)
+        .countAssignedMembers(user.id);
+    Member? member;
+    if (user.memberId != null) {
+      for (final m in members) {
+        if (m.id == user.memberId) {
+          member = m;
+          break;
+        }
+      }
+    }
+    if (!mounted) return;
+    final result = await PermissionEditorDialog.show(
+      context,
+      user: user,
+      assignedMembersCount: count,
+      saId: member?.saId ?? user.username,
+    );
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Permissions updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      ref.invalidate(appUsersProvider);
+    }
   }
 
   @override
@@ -473,7 +497,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   if (v == null) return;
                   setState(() {
                     _role = v;
-                    if (v != UserRole.secretary.storageName) {
+                    if (v == UserRole.secretary.storageName) {
+                      _granted
+                        ..clear()
+                        ..addAll(AppPermission.defaultSecretary);
+                    } else {
                       _granted.clear();
                     }
                   });
@@ -488,6 +516,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                     fontSize: 16,
                     color: AppTheme.bodyText,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Required permissions cannot be removed. Optional can be toggled.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 8),
                 ...AppPermission.managementOrder.map(_permissionTile),
@@ -533,19 +566,30 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
   }
 
   Widget _permissionTile(AppPermission p) {
-    final locked = p.isAdminOnly;
-    final on = locked ? false : _granted.contains(p);
+    final adminOnly = p.isAdminOnly;
+    final required = p.isRequiredForSecretary;
+    final on = adminOnly ? false : (required || _granted.contains(p));
+    final locked = adminOnly || required;
+    String? subtitle;
+    if (adminOnly) {
+      subtitle = 'Admin Only — reserved for System Administrator';
+    } else if (required) {
+      subtitle = 'Required — cannot be removed';
+    } else {
+      subtitle = 'Optional';
+    }
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(p.label),
-      subtitle: locked
-          ? const Text('Reserved for System Administrator')
-          : null,
+      subtitle: Text(subtitle),
       value: on,
-      onChanged: locked ? (_) => _onToggle(p, true) : (v) => _onToggle(p, v),
-      secondary: locked
-          ? const Icon(Icons.lock, color: Colors.grey)
-          : null,
+      onChanged: locked
+          ? (_) => _onToggle(p, !on)
+          : (v) => _onToggle(p, v),
+      secondary: Icon(
+        locked ? Icons.lock : Icons.toggle_on_outlined,
+        color: locked ? Colors.grey : Colors.green,
+      ),
     );
   }
 
@@ -575,138 +619,204 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
               return null;
             }
 
+            final admins =
+                users.where((u) => !u.deleted && u.isAdmin).length;
+            final secretaries =
+                users.where((u) => !u.deleted && u.isSecretary).length;
+            final memberUsers =
+                users.where((u) => !u.deleted && u.isMemberRole).length;
+
+            final q = _searchQuery.trim().toLowerCase();
+            var filtered = users.where((u) => !u.deleted).toList();
+            if (_roleFilter == 'Admin') {
+              filtered = filtered.where((u) => u.isAdmin).toList();
+            } else if (_roleFilter == 'Secretary') {
+              filtered = filtered.where((u) => u.isSecretary).toList();
+            } else if (_roleFilter == 'Member') {
+              filtered = filtered.where((u) => u.isMemberRole).toList();
+            }
+            if (q.isNotEmpty) {
+              filtered = filtered.where((u) {
+                final m = memberOf(u);
+                final hay = [
+                  u.displayName,
+                  u.username,
+                  m?.saId ?? '',
+                  m?.memberName ?? '',
+                  m?.surname ?? '',
+                ].join(' ').toLowerCase();
+                return hay.contains(q);
+              }).toList();
+            }
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'Users',
+                  'User Manager',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(
-                          AppTheme.forestGreen.withValues(alpha: 0.12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _statChip('Total: ${users.where((u) => !u.deleted).length}'),
+                    _statChip('Admins: $admins'),
+                    _statChip('Secretaries: $secretaries'),
+                    _statChip('Members: $memberUsers'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Search',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                          isDense: true,
                         ),
-                        columns: const [
-                          DataColumn(label: Text('SA ID No.')),
-                          DataColumn(label: Text('Member Name')),
-                          DataColumn(label: Text('Surname')),
-                          DataColumn(label: Text('Role')),
-                          DataColumn(label: Text('Permissions')),
-                          DataColumn(label: Text('Created')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: users.map((u) {
-                          final m = memberOf(u);
-                          final protected =
-                              u.isSystemAdministrator || u.isAdmin;
-                          final permsLabel = protected
-                              ? 'All'
-                              : (u.permissions.isEmpty
-                                  ? '—'
-                                  : u.permissions
-                                      .map((p) => p.label)
-                                      .join(', '));
-                          return DataRow(
-                            color: protected
-                                ? WidgetStateProperty.all(
-                                    AppTheme.forestGreen
-                                        .withValues(alpha: 0.18),
-                                  )
-                                : null,
-                            cells: [
-                              DataCell(Text(m?.saId ?? u.username)),
-                              DataCell(Text(
-                                m?.memberName ??
-                                    u.displayName.split(' ').first,
-                              )),
-                              DataCell(Text(
-                                m?.surname ??
-                                    (u.displayName.contains(' ')
-                                        ? u.displayName
-                                            .split(' ')
-                                            .skip(1)
-                                            .join(' ')
-                                        : '—'),
-                              )),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(u.userRole.label),
-                                    if (protected) ...[
-                                      const SizedBox(width: 6),
-                                      const Tooltip(
-                                        message:
-                                            '🔒 The System Administrator cannot be edited or deleted.',
-                                        child: Chip(
-                                          label: Text(
-                                            '🔒 Protected',
-                                            style: TextStyle(fontSize: 11),
-                                          ),
-                                          avatar: Icon(Icons.lock, size: 14),
-                                          visualDensity: VisualDensity.compact,
-                                          padding: EdgeInsets.zero,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 160,
-                                  child: Text(
-                                    permsLabel,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(_dateFmt.format(u.updatedAt.toLocal())),
-                              ),
-                              DataCell(
-                                protected
-                                    ? const Tooltip(
-                                        message:
-                                            '🔒 The System Administrator cannot be edited or deleted.',
-                                        child: Icon(
-                                          Icons.lock,
-                                          color: Colors.grey,
-                                        ),
-                                      )
-                                    : Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            tooltip: 'Edit',
-                                            icon: const Icon(Icons.edit),
-                                            onPressed: () =>
-                                                _loadForEdit(u, members),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'Delete',
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () => _delete(u),
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                        onChanged: (v) => setState(() => _searchQuery = v),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      value: _roleFilter,
+                      items: const [
+                        DropdownMenuItem(value: 'All', child: Text('All Roles')),
+                        DropdownMenuItem(value: 'Admin', child: Text('Admin')),
+                        DropdownMenuItem(
+                          value: 'Secretary',
+                          child: Text('Secretary'),
+                        ),
+                        DropdownMenuItem(value: 'Member', child: Text('Member')),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _roleFilter = v);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: FutureBuilder<Map<String, int>>(
+                    future: _loadAssignedCounts(filtered),
+                    builder: (context, snap) {
+                      final counts = snap.data ?? const <String, int>{};
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(
+                              AppTheme.forestGreen.withValues(alpha: 0.12),
+                            ),
+                            columns: const [
+                              DataColumn(label: Text('Name')),
+                              DataColumn(label: Text('Role')),
+                              DataColumn(label: Text('Assigned')),
+                              DataColumn(label: Text('Permissions')),
+                              DataColumn(label: Text('Updated')),
+                              DataColumn(label: Text('Actions')),
+                            ],
+                            rows: filtered.map((u) {
+                              final m = memberOf(u);
+                              final protected =
+                                  u.isSystemAdministrator || u.isAdmin;
+                              final permCount = protected
+                                  ? AppPermission.managementOrder.length
+                                  : u.permissions.length;
+                              final permsLabel = protected
+                                  ? 'All'
+                                  : '$permCount/11';
+                              final assigned = u.isSecretary
+                                  ? '${counts[u.id] ?? 0}'
+                                  : '—';
+                              return DataRow(
+                                color: protected
+                                    ? WidgetStateProperty.all(
+                                        AppTheme.forestGreen
+                                            .withValues(alpha: 0.18),
+                                      )
+                                    : u.isSecretary
+                                        ? WidgetStateProperty.all(
+                                            Colors.green.shade50,
+                                          )
+                                        : null,
+                                onSelectChanged: u.isSecretary && !protected
+                                    ? (_) => _editSecretaryPermissions(
+                                          u,
+                                          members,
+                                        )
+                                    : null,
+                                cells: [
+                                  DataCell(
+                                    Text(
+                                      m == null
+                                          ? u.displayName
+                                          : '${m.memberName} ${m.surname}',
+                                    ),
+                                  ),
+                                  DataCell(Text(u.userRole.label)),
+                                  DataCell(Text(assigned)),
+                                  DataCell(Text(permsLabel)),
+                                  DataCell(
+                                    Text(
+                                      _dateFmt.format(u.updatedAt.toLocal()),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    protected
+                                        ? const Tooltip(
+                                            message:
+                                                'System Administrator cannot be edited or deleted.',
+                                            child: Icon(
+                                              Icons.lock,
+                                              color: Colors.grey,
+                                            ),
+                                          )
+                                        : Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                tooltip: u.isSecretary
+                                                    ? 'Edit Permissions'
+                                                    : 'Edit',
+                                                icon: const Icon(Icons.edit),
+                                                onPressed: () {
+                                                  if (u.isSecretary) {
+                                                    _editSecretaryPermissions(
+                                                      u,
+                                                      members,
+                                                    );
+                                                  } else {
+                                                    _loadForEdit(u, members);
+                                                  }
+                                                },
+                                              ),
+                                              IconButton(
+                                                tooltip: 'Delete',
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Colors.red,
+                                                ),
+                                                onPressed: () => _delete(u),
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -715,5 +825,21 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         ),
       ),
     );
+  }
+
+  Widget _statChip(String label) {
+    return Chip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Future<Map<String, int>> _loadAssignedCounts(List<AppUser> users) async {
+    final db = ref.read(databaseServiceProvider);
+    final out = <String, int>{};
+    for (final u in users.where((u) => u.isSecretary)) {
+      out[u.id] = await db.countAssignedMembers(u.id);
+    }
+    return out;
   }
 }

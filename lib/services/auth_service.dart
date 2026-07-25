@@ -205,7 +205,7 @@ class AuthService {
     final existing = byMember ?? bySa;
 
     final safePerms = roleName == UserRole.secretary.storageName
-        ? permissions.where((p) => !p.isAdminOnly).toList()
+        ? AppPermission.mergeSecretaryPermissions(permissions)
         : const <AppPermission>[];
 
     final display =

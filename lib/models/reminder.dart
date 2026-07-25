@@ -428,4 +428,30 @@ class ReminderStats {
   final int step2;
   final int step3;
   final int step4;
+
+  factory ReminderStats.fromReminders(List<Reminder> reminders) {
+    var step1 = 0;
+    var step2 = 0;
+    var step3 = 0;
+    var step4 = 0;
+    for (final r in reminders) {
+      switch (r.stepNumber) {
+        case 1:
+          step1++;
+        case 2:
+          step2++;
+        case 3:
+          step3++;
+        case 4:
+          step4++;
+      }
+    }
+    return ReminderStats(
+      total: reminders.length,
+      step1: step1,
+      step2: step2,
+      step3: step3,
+      step4: step4,
+    );
+  }
 }

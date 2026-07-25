@@ -543,7 +543,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
     }
 
-    var members = await ref.read(memberRepositoryProvider).getAll();
+    var members = await ref
+        .read(dataAccessServiceProvider)
+        .getVisibleMembers(ref.read(authUserProvider));
     final auth = ref.read(authUserProvider);
     if (auth?.isMemberRole == true) {
       final linked = auth!.memberId;
@@ -784,7 +786,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _markDirty();
       ref.read(selectedMemberIdProvider.notifier).state = memberId;
 
-      final members = await ref.read(memberRepositoryProvider).getAll();
+      final members = await ref
+          .read(dataAccessServiceProvider)
+          .getVisibleMembers(ref.read(authUserProvider));
       if (!mounted) return;
       setState(() {
         _members = members;

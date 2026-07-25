@@ -2534,6 +2534,61 @@ class DatabaseService {
     return (rows.first['c'] as int?) ?? 0;
   }
 
+  // NEW ADDITION - RS visibility queries (Delete methods to revert)
+  Future<List<Member>> getMembersAssignedToSecretary(String secretaryId) async {
+    if (_memoryMode) {
+      return _members.values
+          .where(
+            (m) =>
+                !m.deleted &&
+                m.assignedSecretaryId == secretaryId,
+          )
+          .toList()
+        ..sort(
+          (a, b) => a.surname.toLowerCase().compareTo(b.surname.toLowerCase()),
+        );
+    }
+    final rows = await db.query(
+      'members',
+      where: 'assignedSecretaryId = ? AND deleted = 0',
+      whereArgs: [secretaryId],
+      orderBy: 'surname COLLATE NOCASE ASC, memberName COLLATE NOCASE ASC',
+    );
+    return rows.map(Member.fromMap).toList();
+  }
+
+  Future<List<Reminder>> getRemindersAssignedToSecretary(
+    String secretaryId,
+  ) async {
+    if (_memoryMode) {
+      return _reminders.values
+          .where(
+            (r) =>
+                !r.deleted &&
+                r.status == 'active' &&
+                r.assignedSecretaryId == secretaryId,
+          )
+          .toList();
+    }
+    final rows = await db.query(
+      'reminders',
+      where: 'assignedSecretaryId = ? AND status = ? AND deleted = 0',
+      whereArgs: [secretaryId, 'active'],
+    );
+    return rows.map(Reminder.fromMap).toList();
+  }
+
+  /// Active onboarding reminders for members assigned to this secretary.
+  Future<List<Reminder>> getRemindersForSecretaryAssignedMembers(
+    String secretaryId,
+  ) async {
+    final assigned = await getMembersAssignedToSecretary(secretaryId);
+    final ids = assigned.map((m) => m.id).toSet();
+    if (ids.isEmpty) return const [];
+    final all = await getActiveOnboardingReminders();
+    return all.where((r) => ids.contains(r.memberId)).toList();
+  }
+
   Future<Member> assignSecretaryToMember({
     required String memberId,
     String? secretaryId,

@@ -51,7 +51,9 @@ class PromotionService {
       memberName: member.memberName,
       surname: member.surname,
       role: UserRole.secretary.storageName,
-      permissions: permissions ?? AppPermission.assignable,
+      permissions: AppPermission.mergeSecretaryPermissions(
+        permissions ?? AppPermission.defaultSecretary,
+      ),
     );
 
     await _activity.record(

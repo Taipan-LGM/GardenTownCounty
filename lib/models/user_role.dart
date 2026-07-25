@@ -60,17 +60,31 @@ enum AppPermission {
     onboarding,
   ];
 
-  /// May be granted to Recording Secretaries.
-  static const assignable = [
+  /// Default rights granted on promote to Recording Secretary.
+  /// // NEW ADDITION - required 6 (Delete with optional/required lists to revert)
+  static const defaultSecretary = [
     search,
     memberInfo,
     global528,
     global928,
     lro,
-    sos,
     reminders,
+  ];
+
+  /// Cannot be removed from Recording Secretaries.
+  static const requiredSecretary = defaultSecretary;
+
+  /// Admin may toggle these on/off for Secretaries.
+  static const optionalSecretary = [
+    sos,
     activities,
     onboarding,
+  ];
+
+  /// May be granted to Recording Secretaries (required + optional).
+  static const assignable = [
+    ...defaultSecretary,
+    ...optionalSecretary,
   ];
 
   /// Always Admin-only — shown locked OFF in User Management.
@@ -80,6 +94,24 @@ enum AppPermission {
   ];
 
   bool get isAdminOnly => adminOnly.contains(this);
+
+  bool get isRequiredForSecretary => requiredSecretary.contains(this);
+
+  bool get isOptionalForSecretary => optionalSecretary.contains(this);
+
+  /// Merge requested rights with required defaults; strip Admin-only.
+  static List<AppPermission> mergeSecretaryPermissions(
+    Iterable<AppPermission> requested,
+  ) {
+    final selected = <AppPermission>{...requiredSecretary};
+    for (final p in requested) {
+      if (p.isAdminOnly) continue;
+      if (optionalSecretary.contains(p) || requiredSecretary.contains(p)) {
+        selected.add(p);
+      }
+    }
+    return managementOrder.where(selected.contains).toList();
+  }
 
   static AppPermission? fromCode(String? code) {
     for (final p in AppPermission.values) {
@@ -116,4 +148,28 @@ class AppPermissions {
   static const String reminders = 'Reminders';
   static const String activities = 'Activities';
   static const String onboarding = 'Onboarding';
+
+  /// Default permissions granted when a Member is promoted to Recording Secretary.
+  static const List<String> defaultSecretaryPermissions = [
+    search,
+    memberInfo,
+    global528,
+    global928,
+    lro,
+    reminders,
+  ];
+
+  static const List<String> allPermissions = [
+    search,
+    memberInfo,
+    global528,
+    global928,
+    lro,
+    backupRestore,
+    userManagement,
+    sos,
+    reminders,
+    activities,
+    onboarding,
+  ];
 }

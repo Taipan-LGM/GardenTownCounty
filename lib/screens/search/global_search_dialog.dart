@@ -39,14 +39,22 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
       _searched = true;
     });
     final results = await ref.read(memberRepositoryProvider).search(query);
+    final user = ref.read(authUserProvider);
+    final visible = await ref
+        .read(dataAccessServiceProvider)
+        .getVisibleMembers(user);
+    final visibleIds = visible.map((m) => m.id).toSet();
+    final scoped = user?.isAdmin == true
+        ? results
+        : results.where((m) => visibleIds.contains(m.id)).toList();
     if (!mounted) return;
     setState(() {
-      _results = results;
+      _results = scoped;
       _loading = false;
     });
 
-    if (results.length == 1) {
-      _openMember(results.first);
+    if (scoped.length == 1) {
+      _openMember(scoped.first);
     }
   }
 
