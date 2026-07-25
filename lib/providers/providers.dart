@@ -211,6 +211,15 @@ final lockedMembersProvider =
   return locked.where((m) => ids.contains(m.id)).toList();
 });
 
+/// Soft-cancelled members (Admin Cancellations screen).
+// NEW ADDITION - Delete provider to revert cancellations list
+final cancelledMembersProvider =
+    FutureProvider.autoDispose<List<Member>>((ref) async {
+  final user = ref.watch(authUserProvider);
+  if (user == null || !user.isAdmin) return const [];
+  return ref.watch(databaseServiceProvider).getCancelledMembers();
+});
+
 // NEW ADDITION - role-scoped data access (Delete provider to revert)
 final dataAccessServiceProvider = Provider<DataAccessService>((ref) {
   return DataAccessService(ref.watch(databaseServiceProvider));
@@ -367,6 +376,7 @@ Future<void> refreshApp(WidgetRef ref) async {
   await ref.read(syncEngineProvider).pushPending();
   ref.invalidate(membersProvider);
   ref.invalidate(lockedMembersProvider);
+  ref.invalidate(cancelledMembersProvider);
   ref.invalidate(activitiesProvider);
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);

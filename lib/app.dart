@@ -12,7 +12,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/landing/landing_screen.dart';
 import 'screens/member/duplicate_report_screen.dart';
-import 'screens/member/locked_members_screen.dart';
+import 'screens/member/cancellations_screen.dart';
 import 'screens/member/member_form_screen.dart';
 import 'screens/placeholders/placeholder_screen.dart';
 import 'screens/reminders/reminders_screen.dart';
@@ -318,7 +318,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.lro:
         return 'LRO';
       case AppSection.lockedMembers:
-        return 'Locked Members';
+        return 'Cancellations';
       case AppSection.duplicateReport:
         return 'Duplicate Management';
     }
@@ -349,7 +349,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.lro:
         return const PlaceholderScreen(title: 'LRO');
       case AppSection.lockedMembers:
-        return const LockedMembersScreen();
+        return const CancellationsScreen();
       case AppSection.duplicateReport:
         return const DuplicateReportScreen();
     }

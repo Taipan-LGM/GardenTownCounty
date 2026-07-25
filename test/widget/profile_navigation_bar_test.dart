@@ -25,9 +25,10 @@ Member _member(String id, String name, String surname) {
 }
 
 void main() {
-  testWidgets('ProfileNavigationBar shows New Edit Upload Delete Close',
+  testWidgets('ProfileNavigationBar shows New Edit Upload Cancel Close',
       (tester) async {
     var created = 0;
+    var cancelled = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -38,10 +39,13 @@ void main() {
             onBack: () {},
             onPrevious: () {},
             onNext: () {},
+            onFirst: () {},
+            onLast: () {},
             onNew: () => created++,
             onEdit: () {},
             onUpload: () {},
-            onDelete: () {},
+            onCancelMembership: () => cancelled++,
+            canCancelMembership: true,
           ),
         ),
       ),
@@ -50,13 +54,17 @@ void main() {
     expect(find.text('New'), findsOneWidget);
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Upload'), findsOneWidget);
-    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('Close'), findsOneWidget);
     expect(find.textContaining('Previous'), findsOneWidget);
     expect(find.textContaining('Next'), findsOneWidget);
+    expect(find.byIcon(Icons.skip_previous), findsOneWidget);
+    expect(find.byIcon(Icons.skip_next), findsOneWidget);
 
     await tester.tap(find.text('New'));
     expect(created, 1);
+    await tester.tap(find.text('Cancel'));
+    expect(cancelled, 1);
   });
 
   testWidgets('ProfileNavigationBar disables edges', (tester) async {
@@ -70,6 +78,8 @@ void main() {
             onBack: () {},
             onPrevious: () {},
             onNext: () {},
+            onFirst: () {},
+            onLast: () {},
           ),
         ),
       ),

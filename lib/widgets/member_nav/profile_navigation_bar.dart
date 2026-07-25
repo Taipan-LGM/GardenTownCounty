@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 
-/// Top bar shown while viewing a member profile — Previous / Next always visible.
+/// Top bar shown while viewing a member profile — First / Prev / Next / Last.
 class ProfileNavigationBar extends StatelessWidget {
   const ProfileNavigationBar({
     super.key,
@@ -13,15 +13,19 @@ class ProfileNavigationBar extends StatelessWidget {
     required this.onBack,
     required this.onPrevious,
     required this.onNext,
+    this.onFirst,
+    this.onLast,
     this.previousName,
     this.nextName,
     this.onNew,
     this.onEdit,
     this.onUpload,
     this.onDelete,
+    this.onCancelMembership,
     this.canNew = true,
     this.canEdit = true,
     this.canDelete = true,
+    this.canCancelMembership = false,
     // NEW ADDITION - Admin RS radio (Delete RS params + UI to revert)
     this.showRsRadio = false,
     this.rsRadioOn = false,
@@ -35,15 +39,21 @@ class ProfileNavigationBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
+  final VoidCallback? onFirst;
+  final VoidCallback? onLast;
   final String? previousName;
   final String? nextName;
   final VoidCallback? onNew;
   final VoidCallback? onEdit;
   final VoidCallback? onUpload;
   final VoidCallback? onDelete;
+  /// Admin: soft-cancel membership (no permanent delete).
+  // NEW ADDITION - Cancel Membership action
+  final VoidCallback? onCancelMembership;
   final bool canNew;
   final bool canEdit;
   final bool canDelete;
+  final bool canCancelMembership;
 
   /// Show permanent RS radio next to New/Edit/Upload/Delete/Close (Admin only).
   final bool showRsRadio;
@@ -63,9 +73,22 @@ class ProfileNavigationBar extends StatelessWidget {
         (currentIndex > 0) || (fromDraft && totalMembers > 0);
     final hasNext = (currentIndex >= 0 && currentIndex < totalMembers - 1) ||
         (fromDraft && totalMembers > 0);
+    final hasFirst = hasPrev && onFirst != null;
+    final hasLast = hasNext && onLast != null;
     final counter = totalMembers == 0
         ? '—'
         : '${currentIndex < 0 ? 'New' : currentIndex + 1} of $totalMembers';
+
+    final statusLabel = currentMember.isCancelled
+        ? 'Cancelled'
+        : currentMember.isLocked
+            ? 'Locked'
+            : 'Active';
+    final statusColor = currentMember.isCancelled
+        ? Colors.red.shade800
+        : currentMember.isLocked
+            ? Colors.orange.shade800
+            : Colors.green.shade800;
 
     return Material(
       elevation: 2,
@@ -93,12 +116,32 @@ class ProfileNavigationBar extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // NEW ADDITION - RS radio (first among action controls)
-                if (showRsRadio) _RsRadioChip(
-                  value: rsRadioOn,
-                  enabled: rsRadioEnabled,
-                  onChanged: onRsRadioChanged,
+                Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
+                // NEW ADDITION - RS radio (first among action controls)
+                if (showRsRadio)
+                  _RsRadioChip(
+                    value: rsRadioOn,
+                    enabled: rsRadioEnabled,
+                    onChanged: onRsRadioChanged,
+                  ),
                 if (onNew != null)
                   _ActionChip(
                     icon: Icons.person_add_outlined,
@@ -120,6 +163,14 @@ class ProfileNavigationBar extends StatelessWidget {
                     tooltip: 'Upload Files (Ctrl+U)',
                     onPressed: onUpload,
                   ),
+                if (onCancelMembership != null)
+                  _ActionChip(
+                    icon: Icons.cancel_outlined,
+                    label: 'Cancel',
+                    tooltip: 'Cancel Membership',
+                    onPressed:
+                        canCancelMembership ? onCancelMembership : null,
+                  ),
                 if (onDelete != null)
                   _ActionChip(
                     icon: Icons.delete_outline,
@@ -138,6 +189,14 @@ class ProfileNavigationBar extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
+                IconButton(
+                  tooltip: 'First Member (Ctrl+Home)',
+                  onPressed: hasFirst ? onFirst : null,
+                  icon: Icon(
+                    Icons.skip_previous,
+                    color: hasFirst ? Colors.white : Colors.white38,
+                  ),
+                ),
                 Expanded(
                   child: FilledButton.tonalIcon(
                     onPressed: hasPrev ? onPrevious : null,
@@ -157,7 +216,7 @@ class ProfileNavigationBar extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -190,6 +249,14 @@ class ProfileNavigationBar extends StatelessWidget {
                       nextName == null ? 'Next' : 'Next: $nextName',
                       overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Last Member (Ctrl+End)',
+                  onPressed: hasLast ? onLast : null,
+                  icon: Icon(
+                    Icons.skip_next,
+                    color: hasLast ? Colors.white : Colors.white38,
                   ),
                 ),
               ],

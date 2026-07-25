@@ -179,8 +179,9 @@ class AppDrawer extends ConsumerWidget {
                     _item(
                       context,
                       ref,
-                      icon: Icons.lock_outline,
-                      label: 'Locked Members',
+                      icon: Icons.cancel_outlined,
+                      // MODIFIED - Locked Members → Cancellations
+                      label: 'Cancellations',
                       selected: section == AppSection.lockedMembers,
                       onTap: () =>
                           _go(context, ref, AppSection.lockedMembers),

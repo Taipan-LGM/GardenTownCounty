@@ -57,6 +57,14 @@ class Member {
   final String? temporaryAccessGrantedTo;
   final String? temporaryAccessReason;
 
+  // NEW ADDITION - soft cancellation (no permanent delete)
+  final bool isCancelled;
+  final DateTime? cancellationDate;
+  final String? cancelledBy;
+  final String? cancellationReason;
+  final DateTime? reinstatedDate;
+  final String? reinstatedBy;
+
   // NEW ADDITION - RS assignment (Delete fields + usages to revert)
   final String? assignedSecretaryId;
   final String? assignedSecretaryName;
@@ -118,6 +126,12 @@ class Member {
     this.temporaryAccessGrantedBy,
     this.temporaryAccessGrantedTo,
     this.temporaryAccessReason,
+    this.isCancelled = false,
+    this.cancellationDate,
+    this.cancelledBy,
+    this.cancellationReason,
+    this.reinstatedDate,
+    this.reinstatedBy,
     // NEW ADDITION - RS assignment
     this.assignedSecretaryId,
     this.assignedSecretaryName,
@@ -239,6 +253,12 @@ class Member {
     String? temporaryAccessGrantedBy,
     String? temporaryAccessGrantedTo,
     String? temporaryAccessReason,
+    bool? isCancelled,
+    DateTime? cancellationDate,
+    String? cancelledBy,
+    String? cancellationReason,
+    DateTime? reinstatedDate,
+    String? reinstatedBy,
     // NEW ADDITION - RS assignment
     String? assignedSecretaryId,
     String? assignedSecretaryName,
@@ -258,6 +278,7 @@ class Member {
     bool clearLock = false,
     bool clearSecretaryAssignment = false,
     bool clearLroRecordNo = false,
+    bool clearCancellation = false,
   }) {
     return Member(
       id: id ?? this.id,
@@ -319,6 +340,19 @@ class Member {
       temporaryAccessReason: clearTemporaryAccess
           ? null
           : (temporaryAccessReason ?? this.temporaryAccessReason),
+      isCancelled: clearCancellation
+          ? false
+          : (isCancelled ?? this.isCancelled),
+      cancellationDate: clearCancellation
+          ? null
+          : (cancellationDate ?? this.cancellationDate),
+      cancelledBy:
+          clearCancellation ? null : (cancelledBy ?? this.cancelledBy),
+      cancellationReason: clearCancellation
+          ? null
+          : (cancellationReason ?? this.cancellationReason),
+      reinstatedDate: reinstatedDate ?? this.reinstatedDate,
+      reinstatedBy: reinstatedBy ?? this.reinstatedBy,
       // NEW ADDITION - RS assignment
       assignedSecretaryId: clearSecretaryAssignment
           ? null
@@ -391,6 +425,12 @@ class Member {
       'temporaryAccessGrantedBy': temporaryAccessGrantedBy,
       'temporaryAccessGrantedTo': temporaryAccessGrantedTo,
       'temporaryAccessReason': temporaryAccessReason,
+      'isCancelled': isCancelled ? 1 : 0,
+      'cancellationDate': cancellationDate?.toIso8601String(),
+      'cancelledBy': cancelledBy,
+      'cancellationReason': cancellationReason,
+      'reinstatedDate': reinstatedDate?.toIso8601String(),
+      'reinstatedBy': reinstatedBy,
       // NEW ADDITION - RS assignment
       'assignedSecretaryId': assignedSecretaryId,
       'assignedSecretaryName': assignedSecretaryName,
@@ -454,6 +494,12 @@ class Member {
       'temporaryAccessGrantedBy': temporaryAccessGrantedBy,
       'temporaryAccessGrantedTo': temporaryAccessGrantedTo,
       'temporaryAccessReason': temporaryAccessReason,
+      'isCancelled': isCancelled,
+      'cancellationDate': cancellationDate?.toIso8601String(),
+      'cancelledBy': cancelledBy,
+      'cancellationReason': cancellationReason,
+      'reinstatedDate': reinstatedDate?.toIso8601String(),
+      'reinstatedBy': reinstatedBy,
       // NEW ADDITION - RS assignment
       'assignedSecretaryId': assignedSecretaryId,
       'assignedSecretaryName': assignedSecretaryName,
@@ -515,6 +561,12 @@ class Member {
       temporaryAccessGrantedBy: map['temporaryAccessGrantedBy'] as String?,
       temporaryAccessGrantedTo: map['temporaryAccessGrantedTo'] as String?,
       temporaryAccessReason: map['temporaryAccessReason'] as String?,
+      isCancelled: _asBool(map['isCancelled']),
+      cancellationDate: _asDate(map['cancellationDate']),
+      cancelledBy: map['cancelledBy'] as String?,
+      cancellationReason: map['cancellationReason'] as String?,
+      reinstatedDate: _asDate(map['reinstatedDate']),
+      reinstatedBy: map['reinstatedBy'] as String?,
       // NEW ADDITION - RS assignment
       assignedSecretaryId: map['assignedSecretaryId'] as String?,
       assignedSecretaryName: map['assignedSecretaryName'] as String?,
@@ -541,6 +593,7 @@ class Member {
       'step3Global928Complete': map['step3Global928Complete'] == true ? 1 : 0,
       'step4LROComplete': map['step4LROComplete'] == true ? 1 : 0,
       'isLocked': map['isLocked'] == true ? 1 : 0,
+      'isCancelled': map['isCancelled'] == true ? 1 : 0,
       'deleted': map['deleted'] == true ? 1 : 0,
     });
   }

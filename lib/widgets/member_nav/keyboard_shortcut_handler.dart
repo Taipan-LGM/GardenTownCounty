@@ -79,11 +79,12 @@ class KeyboardShortcutHandler extends StatelessWidget {
           onOpenHighlighted?.call();
           return KeyEventResult.handled;
         }
-        if (key == LogicalKeyboardKey.home) {
+        // MODIFIED - First/Last require Ctrl (Ctrl+Home / Ctrl+End)
+        if (key == LogicalKeyboardKey.home && isCtrl) {
           onHome?.call();
           return KeyEventResult.handled;
         }
-        if (key == LogicalKeyboardKey.end) {
+        if (key == LogicalKeyboardKey.end && isCtrl) {
           onEnd?.call();
           return KeyEventResult.handled;
         }

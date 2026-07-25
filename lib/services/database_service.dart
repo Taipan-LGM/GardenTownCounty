@@ -111,7 +111,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 13,
+      version: 14,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -385,6 +385,25 @@ class DatabaseService {
       await database.execute(
         'CREATE INDEX IF NOT EXISTS idx_lroRecordNo ON members(lroRecordNo)',
       );
+    }
+    // NEW ADDITION - soft cancellation columns (Delete block to revert v14)
+    if (oldVersion < 14) {
+      await _addColumnIfMissing(database, 'members', 'isCancelled', 'INTEGER');
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'cancellationDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(database, 'members', 'cancelledBy', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'cancellationReason',
+        'TEXT',
+      );
+      await _addColumnIfMissing(database, 'members', 'reinstatedDate', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'reinstatedBy', 'TEXT');
     }
   }
 
@@ -695,6 +714,12 @@ class DatabaseService {
         temporaryAccessGrantedBy TEXT,
         temporaryAccessGrantedTo TEXT,
         temporaryAccessReason TEXT,
+        isCancelled INTEGER,
+        cancellationDate TEXT,
+        cancelledBy TEXT,
+        cancellationReason TEXT,
+        reinstatedDate TEXT,
+        reinstatedBy TEXT,
         assignedSecretaryId TEXT,
         assignedSecretaryName TEXT,
         assignedDate TEXT,
@@ -1197,7 +1222,9 @@ class DatabaseService {
 
   Future<List<Member>> getAllMembers() async {
     if (_memoryMode) {
-      final list = _members.values.where((m) => !m.deleted).toList()
+      final list = _members.values
+          .where((m) => !m.deleted && !m.isCancelled)
+          .toList()
         ..sort((a, b) {
           final s = a.surname.toLowerCase().compareTo(b.surname.toLowerCase());
           if (s != 0) return s;
@@ -1207,8 +1234,30 @@ class DatabaseService {
     }
     final rows = await db.query(
       'members',
-      where: 'deleted = 0',
+      where: 'deleted = 0 AND (isCancelled IS NULL OR isCancelled = 0)',
       orderBy: 'surname COLLATE NOCASE ASC, memberName COLLATE NOCASE ASC',
+    );
+    return rows.map(Member.fromMap).toList();
+  }
+
+  /// Soft-cancelled memberships (still retained — never hard-deleted).
+  // NEW ADDITION - Delete method to revert cancelled list
+  Future<List<Member>> getCancelledMembers() async {
+    if (_memoryMode) {
+      final list = _members.values
+          .where((m) => !m.deleted && m.isCancelled)
+          .toList()
+        ..sort((a, b) {
+          final ad = a.cancellationDate ?? a.updatedAt;
+          final bd = b.cancellationDate ?? b.updatedAt;
+          return bd.compareTo(ad);
+        });
+      return list;
+    }
+    final rows = await db.query(
+      'members',
+      where: 'deleted = 0 AND isCancelled = 1',
+      orderBy: 'cancellationDate DESC',
     );
     return rows.map(Member.fromMap).toList();
   }
@@ -2541,6 +2590,7 @@ class DatabaseService {
           .where(
             (m) =>
                 !m.deleted &&
+                !m.isCancelled &&
                 m.assignedSecretaryId == secretaryId,
           )
           .toList()
@@ -2550,7 +2600,9 @@ class DatabaseService {
     }
     final rows = await db.query(
       'members',
-      where: 'assignedSecretaryId = ? AND deleted = 0',
+      where:
+          'assignedSecretaryId = ? AND deleted = 0 AND '
+          '(isCancelled IS NULL OR isCancelled = 0)',
       whereArgs: [secretaryId],
       orderBy: 'surname COLLATE NOCASE ASC, memberName COLLATE NOCASE ASC',
     );

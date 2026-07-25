@@ -22,6 +22,7 @@ import '../../services/sa_id_validator.dart';
 import '../../services/step1_validator.dart';
 import '../../services/secure_screen_service.dart';
 import '../../services/temporary_access_service.dart';
+import '../../widgets/cancel_membership_dialog.dart';
 import '../../widgets/duplicate_warning_widget.dart';
 import '../../widgets/file_image_stub.dart'
     if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
@@ -569,65 +570,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
-  /// Explains why Save is gray (missing required / errors).
-  // NEW ADDITION - Delete method to revert missing-fields banner
-  Widget _buildSaveReadyBanner() {
-    final missing = _missingSaveLabels;
-    if (missing.isEmpty) {
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.shade300),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green.shade700),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '✅ All required fields complete. Ready to save!',
-                style: TextStyle(
-                  color: Colors.green.shade800,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade300),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.warning_amber, color: Colors.orange.shade800),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '⚠️ Fill required fields to enable Save: ${missing.join(', ')}',
-              style: TextStyle(
-                color: Colors.orange.shade900,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _bootstrap() async {
     final dbUsers = await ref.read(databaseServiceProvider).getAppUsers();
     String? adminMemberId;
@@ -684,6 +626,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               members[index],
               all: members,
             );
+        return;
+      }
+      // Cancelled members are excluded from the active list — still open by id.
+      final cancelled = await ref
+          .read(databaseServiceProvider)
+          .getMemberById(selectedId);
+      if (cancelled != null && mounted) {
+        _loadMember(cancelled, -1);
         return;
       }
     }
@@ -1253,41 +1203,38 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
-  Future<void> _delete() async {
-    if (!_canBrowseMembers || _fieldsMasked) return;
-    if (_currentId == null) return;
+  /// Soft-cancel membership (Admin). Never permanently deletes member data.
+  // MODIFIED - Delete → Cancel Membership (Delete method body to revert)
+  Future<void> _cancelMembership() async {
+    if (!_viewerIsAdmin || _fieldsMasked) return;
     final member = _loadedMember;
-    if (member != null && member.isLocked && !_viewerIsAdmin) {
+    if (member == null) return;
+    if (member.isCancelled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '🔒 This member is locked and cannot be deleted.',
-          ),
+        SnackBar(
+          content: Text('${member.fullName} is already cancelled.'),
+          backgroundColor: Colors.orange,
         ),
       );
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete member?'),
-        content: const Text('This soft-deletes the member and syncs to cloud.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
+    final ok = await CancelMembershipDialog.show(context, member);
+    if (ok != true || !mounted) return;
+    ref.invalidate(cancelledMembersProvider);
+    ref.invalidate(membersProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Membership cancelled for ${member.fullName}'),
+        backgroundColor: Colors.green,
       ),
     );
-    if (confirmed != true) return;
-    await ref.read(memberRepositoryProvider).delete(_currentId!);
     ref.read(memberNavigationProvider.notifier).goBackToList();
     await _bootstrap();
+  }
+
+  Future<void> _delete() async {
+    // Permanent delete removed — route Admin through soft-cancel.
+    await _cancelMembership();
   }
 
   Widget _lookupDropdown({
@@ -1457,17 +1404,33 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       await showMemberFilesDialog(context, ref, m);
     }
 
-    Future<void> guardedDelete() async {
+    Future<void> guardedCancelMembership() async {
       if (_isEditing) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Please save or cancel before deleting'),
+            content: Text('Please save or cancel edits first'),
             backgroundColor: Colors.orange,
           ),
         );
         return;
       }
-      await _delete();
+      await _cancelMembership();
+    }
+
+    Future<void> goFirst() async {
+      if (!await _ensureCanNavigate()) return;
+      await nav.navigateFirst(all: _members);
+      final id = ref.read(memberNavigationProvider).selectedMemberId;
+      final idx = _members.indexWhere((m) => m.id == id);
+      if (idx >= 0) _loadMember(_members[idx], idx);
+    }
+
+    Future<void> goLast() async {
+      if (!await _ensureCanNavigate()) return;
+      await nav.navigateLast(all: _members);
+      final id = ref.read(memberNavigationProvider).selectedMemberId;
+      final idx = _members.indexWhere((m) => m.id == id);
+      if (idx >= 0) _loadMember(_members[idx], idx);
     }
 
     final shell = KeyboardShortcutHandler(
@@ -1493,27 +1456,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               openMemberDraft();
             }
           : null,
-      onDelete: (_loadedMember != null) ? () => guardedDelete() : null,
+      onDelete: (_loadedMember != null && _viewerIsAdmin)
+          ? () => guardedCancelMembership()
+          : null,
       onUpload: () => guardedUpload(),
       onRefresh: () async {
         if (!await _ensureCanNavigate()) return;
         await refreshApp(ref);
         await _bootstrap();
       },
-      onHome: () async {
-        if (!await _ensureCanNavigate()) return;
-        await nav.navigateFirst(all: _members);
-        final id = ref.read(memberNavigationProvider).selectedMemberId;
-        final idx = _members.indexWhere((m) => m.id == id);
-        if (idx >= 0) _loadMember(_members[idx], idx);
-      },
-      onEnd: () async {
-        if (!await _ensureCanNavigate()) return;
-        await nav.navigateLast(all: _members);
-        final id = ref.read(memberNavigationProvider).selectedMemberId;
-        final idx = _members.indexWhere((m) => m.id == id);
-        if (idx >= 0) _loadMember(_members[idx], idx);
-      },
+      onHome: () => goFirst(),
+      onEnd: () => goLast(),
       onOpenHighlighted: openHighlighted,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1643,6 +1596,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   onBack: goBackToList,
                                   onPrev: goPrev,
                                   onNext: goNext,
+                                  onFirst: goFirst,
+                                  onLast: goLast,
+                                  onCancelMembership: guardedCancelMembership,
                                 ),
                               ),
                       ),
@@ -1798,6 +1754,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     required Future<void> Function() onBack,
     required Future<void> Function() onPrev,
     required Future<void> Function() onNext,
+    required Future<void> Function() onFirst,
+    required Future<void> Function() onLast,
+    required Future<void> Function() onCancelMembership,
   }) {
     final member = _loadedMember;
     final idx = navState.currentIndex;
@@ -1837,11 +1796,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         onBack: () => onBack(),
         onPrevious: () => onPrev(),
         onNext: () => onNext(),
+        onFirst: () => onFirst(),
+        onLast: () => onLast(),
         canEdit: member != null && _canEnterEditMode && !_isEditing,
-        canDelete: member != null &&
+        // Soft-cancel replaces permanent delete in the nav bar.
+        canDelete: false,
+        onDelete: null,
+        canCancelMembership: member != null &&
             !_isEditing &&
-            !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
-            !_isMemberOnly,
+            _viewerIsAdmin &&
+            !(member.isCancelled),
+        onCancelMembership: member != null &&
+                !_isEditing &&
+                _viewerIsAdmin &&
+                !member.isCancelled
+            ? () => onCancelMembership()
+            : null,
         onEdit: (member != null && _canEnterEditMode && !_isEditing)
             ? _enterEditMode
             : null,
@@ -1885,12 +1855,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 if (!mounted) return;
                 await showMemberFilesDialog(context, ref, member);
               },
-        onDelete: (member != null &&
-                !_isEditing &&
-                !(_loadedMember?.isLocked == true && !_viewerIsAdmin) &&
-                !_isMemberOnly)
-            ? _delete
-            : null,
         // NEW ADDITION - permanent Admin RS radio
         showRsRadio: ref.watch(isAdminProvider),
         rsRadioOn: _rsRadioOn,
@@ -1907,7 +1871,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_isEditing) _buildEditModeBanner(),
-          if (_isEditing) _buildSaveReadyBanner(),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1987,18 +1950,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           ),
                         )
                       : const Icon(Icons.save),
+                  // MODIFIED - Save Member / Complete Required Fields (no warnings)
                   label: Text(
                     _saving
                         ? 'Saving...'
                         : _canPressSave
-                            ? 'Save'
+                            ? 'Save Member'
                             : 'Complete Required Fields',
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade600,
-                    disabledForegroundColor: Colors.white70,
+                    disabledBackgroundColor: Colors.grey.shade700,
+                    disabledForegroundColor: Colors.grey.shade500,
                   ),
                 ),
               ],
