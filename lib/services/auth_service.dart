@@ -340,6 +340,40 @@ class AuthService {
     return user;
   }
 
+  /// User Manager: update Recording Secretary module rights by AppUser id.
+  /// Does not require a linked Member (demo/unlinked secretaries still save).
+  // NEW ADDITION - permission save by user id (Delete method to revert)
+  Future<AppUser> updateSecretaryPermissions({
+    required String userId,
+    required List<AppPermission> permissions,
+  }) async {
+    _requireAdmin();
+    final user = await _db.getAppUserById(userId);
+    if (user == null || user.deleted) {
+      throw Exception('Recording Secretary not found.');
+    }
+    if (!user.isSecretary) {
+      throw Exception('Permissions can only be edited for Recording Secretaries.');
+    }
+    if (user.isSystemAdministrator) {
+      throw Exception('⚠️ The System Administrator cannot be demoted.');
+    }
+
+    final safePerms = AppPermission.mergeSecretaryPermissions(permissions);
+    final updated = user.copyWith(
+      permissions: safePerms,
+      pendingSync: true,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _db.upsertAppUser(updated);
+
+    final actor = _currentUser;
+    if (actor != null && actor.id == updated.id) {
+      await _persist(AuthUser.fromAppUser(updated, email: actor.email));
+    }
+    return updated;
+  }
+
   Future<AppUser> updateOperator({
     required String id,
     required String displayName,

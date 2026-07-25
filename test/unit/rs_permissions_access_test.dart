@@ -130,4 +130,69 @@ void main() {
       expect(user.hasPermission(AppPermission.memberInfo), isTrue);
     });
   });
+
+  group('AuthService.updateSecretaryPermissions', () {
+    test('saves optional rights without memberId link', () async {
+      final now = DateTime.now().toUtc();
+      final unlinked = AppUser(
+        id: 'sec_unlinked',
+        username: 'jane.demo',
+        displayName: 'Jane Demo',
+        passwordHash: PasswordHasher.hash('x'),
+        role: UserRole.secretary.storageName,
+        permissionsRaw:
+            AppPermission.encodeList(AppPermission.defaultSecretary),
+        updatedAt: now,
+      );
+      await db.upsertAppUser(unlinked);
+
+      final saved = await auth.updateSecretaryPermissions(
+        userId: unlinked.id,
+        permissions: [
+          ...AppPermission.defaultSecretary,
+          AppPermission.sos,
+          AppPermission.activities,
+        ],
+      );
+
+      expect(saved.permissions, contains(AppPermission.sos));
+      expect(saved.permissions, contains(AppPermission.activities));
+      expect(saved.permissions, contains(AppPermission.search));
+      expect(saved.permissions, isNot(contains(AppPermission.backupRestore)));
+
+      final reloaded = await db.getAppUserById(unlinked.id);
+      expect(reloaded, isNotNull);
+      expect(reloaded!.permissions, contains(AppPermission.sos));
+      expect(reloaded.permissions, contains(AppPermission.activities));
+    });
+
+    test('toggling optional off persists after reload', () async {
+      final now = DateTime.now().toUtc();
+      final withOptional = AppUser(
+        id: 'sec_opt',
+        username: 'bob.demo',
+        displayName: 'Bob Demo',
+        passwordHash: PasswordHasher.hash('x'),
+        role: UserRole.secretary.storageName,
+        permissionsRaw: AppPermission.encodeList(
+          AppPermission.mergeSecretaryPermissions([
+            ...AppPermission.defaultSecretary,
+            AppPermission.onboarding,
+          ]),
+        ),
+        updatedAt: now,
+      );
+      await db.upsertAppUser(withOptional);
+
+      final saved = await auth.updateSecretaryPermissions(
+        userId: withOptional.id,
+        permissions: AppPermission.defaultSecretary,
+      );
+      expect(saved.permissions, isNot(contains(AppPermission.onboarding)));
+
+      final reloaded = await db.getAppUserById(withOptional.id);
+      expect(reloaded!.permissions, isNot(contains(AppPermission.onboarding)));
+      expect(reloaded.permissions, contains(AppPermission.reminders));
+    });
+  });
 }

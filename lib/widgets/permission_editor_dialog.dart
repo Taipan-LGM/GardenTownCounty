@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_user.dart';
-import '../models/user_role.dart';
+import '../models/user_role.dart'; // AppPermission
 import '../providers/providers.dart';
 
 /// Admin dialog to edit Recording Secretary permissions.
@@ -242,30 +242,13 @@ class _PermissionEditorDialogState
     setState(() => _saving = true);
     try {
       final perms = AppPermission.mergeSecretaryPermissions(_granted);
-      final member = widget.user.memberId == null
-          ? null
-          : await ref
-              .read(databaseServiceProvider)
-              .getMemberById(widget.user.memberId!);
-      final saId = widget.saId ?? member?.saId ?? widget.user.username;
-      final nameParts = widget.user.displayName.split(' ');
-      final memberName = member?.memberName ?? nameParts.first;
-      final surname = member?.surname ??
-          (nameParts.length > 1 ? nameParts.skip(1).join(' ') : '');
-
-      final memberId = widget.user.memberId ?? member?.id;
-      if (memberId == null || memberId.isEmpty) {
-        throw Exception('Secretary is not linked to a Member profile.');
-      }
-
-      final saved = await ref.read(authServiceProvider).assignMemberAccess(
-            memberId: memberId,
-            saId: saId,
-            memberName: memberName,
-            surname: surname,
-            role: UserRole.secretary.storageName,
-            permissions: perms,
-          );
+      // Persist by AppUser id — no Member link required.
+      // MODIFIED - use updateSecretaryPermissions (Delete to revert)
+      final saved =
+          await ref.read(authServiceProvider).updateSecretaryPermissions(
+                userId: widget.user.id,
+                permissions: perms,
+              );
 
       final admin = ref.read(authUserProvider);
       if (admin != null) {

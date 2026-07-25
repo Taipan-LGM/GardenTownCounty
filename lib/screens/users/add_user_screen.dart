@@ -26,6 +26,10 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
   final Set<AppPermission> _draftPerms = {};
   bool _saving = false;
   bool _dirty = false;
+  // Cache assigned-count future so rebuilds do not restart FutureBuilder.
+  // NEW ADDITION - counts cache (Delete fields to revert)
+  String? _countsKey;
+  Future<Map<String, int>>? _countsFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -124,30 +128,49 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
 
   AppUser? _resolveSelected(List<AppUser> filtered) {
     if (filtered.isEmpty) {
-      if (_selectedSecretary != null) {
+      if (_selectedSecretary != null || _draftPerms.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _selectedSecretary = null;
-              _draftPerms.clear();
-              _dirty = false;
-            });
-          }
+          if (!mounted) return;
+          setState(() {
+            _selectedSecretary = null;
+            _draftPerms.clear();
+            _dirty = false;
+          });
         });
       }
       return null;
     }
+
+    // Keep current selection if still visible — never reset draft here.
     if (_selectedSecretary != null) {
       for (final u in filtered) {
         if (u.id == _selectedSecretary!.id) return u;
       }
     }
+
     final first = filtered.first;
+    // Auto-select once. Do NOT wipe drafts if admin already toggled rights
+    // before post-frame init (that was the Save-does-nothing bug).
+    // MODIFIED - preserve dirty draft on auto-select (Delete block to revert)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_selectedSecretary?.id != first.id) {
+      if (_selectedSecretary != null) {
+        final stillVisible =
+            filtered.any((u) => u.id == _selectedSecretary!.id);
+        if (stillVisible) return;
+        if (_dirty) {
+          // Filtered out while dirty — keep draft, rebind to first without wipe.
+          setState(() => _selectedSecretary = first);
+          return;
+        }
         _selectSecretary(first);
+        return;
       }
+      if (_dirty) {
+        setState(() => _selectedSecretary = first);
+        return;
+      }
+      _selectSecretary(first);
     });
     return _selectedSecretary?.id == first.id ? _selectedSecretary : first;
   }
@@ -257,17 +280,22 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: !_dirty || _saving
+                  // Always allow save when a secretary is selected (not only when dirty).
+                  // MODIFIED - enable Save whenever selected (Delete to revert)
+                  onPressed: _saving
                       ? null
-                      : () => _savePermissions(selected, members),
+                      : () => _savePermissions(selected),
                   icon: _saving
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.save),
-                  label: const Text('Save Permissions'),
+                  label: Text(_saving ? 'Saving...' : 'Save Permissions'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue.shade700,
                     foregroundColor: Colors.white,
@@ -412,7 +440,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                     ),
                   )
                 : FutureBuilder<Map<String, int>>(
-                    future: _loadAssignedCounts(filtered),
+                    future: _assignedCountsFuture(filtered),
                     builder: (context, snap) {
                       final counts = snap.data ?? const <String, int>{};
                       return ListView.builder(
@@ -510,6 +538,15 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     );
   }
 
+  Future<Map<String, int>> _assignedCountsFuture(List<AppUser> users) {
+    final key = users.map((u) => u.id).join('|');
+    if (_countsKey != key || _countsFuture == null) {
+      _countsKey = key;
+      _countsFuture = _loadAssignedCounts(users);
+    }
+    return _countsFuture!;
+  }
+
   Future<Map<String, int>> _loadAssignedCounts(List<AppUser> users) async {
     final db = ref.read(databaseServiceProvider);
     final out = <String, int>{};
@@ -519,32 +556,23 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     return out;
   }
 
-  Future<void> _savePermissions(
-    AppUser secretary,
-    List<Member> members,
-  ) async {
+  Future<void> _savePermissions(AppUser secretary) async {
     setState(() => _saving = true);
     try {
+      // Ensure draft includes required rights even if UI never toggled them.
       final perms = AppPermission.mergeSecretaryPermissions(_draftPerms);
-      final member = _memberOf(secretary, members);
-      final memberId = secretary.memberId ?? member?.id;
-      if (memberId == null) {
-        throw Exception('Secretary is not linked to a Member profile.');
-      }
-      final saId = member?.saId ?? secretary.username;
-      final nameParts = secretary.displayName.split(' ');
-      final memberName = member?.memberName ?? nameParts.first;
-      final surname = member?.surname ??
-          (nameParts.length > 1 ? nameParts.skip(1).join(' ') : '');
+      debugPrint(
+        'Saving permissions for ${secretary.displayName}: '
+        '${perms.map((p) => p.label).join(', ')}',
+      );
 
-      final saved = await ref.read(authServiceProvider).assignMemberAccess(
-            memberId: memberId,
-            saId: saId,
-            memberName: memberName,
-            surname: surname,
-            role: UserRole.secretary.storageName,
-            permissions: perms,
-          );
+      // Persist by AppUser id — works even when memberId is null.
+      // MODIFIED - use updateSecretaryPermissions (Delete to revert)
+      final saved =
+          await ref.read(authServiceProvider).updateSecretaryPermissions(
+                userId: secretary.id,
+                permissions: perms,
+              );
 
       final admin = ref.read(authUserProvider);
       if (admin != null) {
@@ -563,23 +591,34 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         _selectedSecretary = saved;
         _draftPerms
           ..clear()
-          ..addAll(saved.permissions);
+          ..addAll(AppPermission.mergeSecretaryPermissions(saved.permissions));
         _dirty = false;
+        _countsKey = null;
+        _countsFuture = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Permissions updated for ${saved.displayName}'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ Permissions updated for ${saved.displayName}',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
     } catch (e) {
+      debugPrint('Error saving permissions: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving permissions: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('❌ Error saving permissions: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
