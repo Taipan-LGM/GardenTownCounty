@@ -186,6 +186,16 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     });
   }
 
+  /// Auto-save current draft (if dirty), then switch to [user].
+  Future<void> _onSecretarySelected(AppUser user) async {
+    final previous = _selectedSecretary;
+    if (previous != null && previous.id != user.id && _dirty) {
+      await _savePermissions(previous, silent: true);
+      if (!mounted) return;
+    }
+    _selectSecretary(user);
+  }
+
   Member? _memberOf(AppUser u, List<Member> members) {
     if (u.memberId != null) {
       for (final m in members) {
@@ -250,13 +260,38 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'RECORDING SECRETARY RIGHTS',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'RECORDING SECRETARY RIGHTS',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (_dirty && selected != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade900,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'UNSAVED',
+                    style: TextStyle(
+                      color: Colors.orange.shade300,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -275,37 +310,70 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
             )
           else
             Expanded(child: _buildPermissionToggles()),
-          if (selected != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  // Always allow save when a secretary is selected (not only when dirty).
-                  // MODIFIED - enable Save whenever selected (Delete to revert)
-                  onPressed: _saving
-                      ? null
-                      : () => _savePermissions(selected),
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(_saving ? 'Saving...' : 'Save Permissions'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade800,
-                    padding: const EdgeInsets.all(16),
-                  ),
+          if (selected != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_dirty && !_saving)
+                    ? () => _savePermissions(selected)
+                    : null,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _saving
+                      ? 'Saving...'
+                      : _dirty
+                          ? 'Save Permissions'
+                          : 'No Changes',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      _dirty ? Colors.blue.shade700 : Colors.grey.shade800,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade800,
+                  disabledForegroundColor: Colors.grey.shade500,
+                  padding: const EdgeInsets.all(16),
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade900,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.grey.shade500,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Changes are auto-saved when you switch to another Secretary',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -334,11 +402,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: checked
-                ? Colors.green.shade900.withValues(alpha: 0.35)
-                : Colors.grey.shade900.withValues(alpha: 0.6),
+                ? Colors.black.withValues(alpha: 0.45)
+                : Colors.green.shade900.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: checked ? Colors.green.shade700 : Colors.grey.shade700,
+              color: checked ? Colors.grey.shade700 : Colors.green.shade700,
             ),
           ),
           child: Row(
@@ -348,8 +416,8 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   icon,
                   size: 20,
                   color: checked
-                      ? Colors.green.shade300
-                      : Colors.grey.shade500,
+                      ? Colors.white70
+                      : Colors.green.shade300,
                 ),
                 const SizedBox(width: 12),
               ],
@@ -370,23 +438,19 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
               else
                 _badge('Optional', Colors.orange),
               const SizedBox(width: 8),
-              Switch(
-                value: checked,
-                onChanged: enabled
-                    ? (value) {
-                        setState(() {
-                          if (value) {
-                            _draftPerms.add(permission);
-                          } else {
-                            _draftPerms.remove(permission);
-                          }
-                          _dirty = true;
-                        });
-                      }
-                    : null,
-                activeThumbColor: Colors.green,
-                activeTrackColor: Colors.green.shade700,
-                inactiveTrackColor: Colors.grey.shade700,
+              _RsRightsToggle(
+                checked: checked,
+                enabled: enabled,
+                onChanged: (value) {
+                  setState(() {
+                    if (value) {
+                      _draftPerms.add(permission);
+                    } else {
+                      _draftPerms.remove(permission);
+                    }
+                    _dirty = true;
+                  });
+                },
               ),
             ],
           ),
@@ -485,7 +549,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                               ),
                             ),
                             child: ListTile(
-                              onTap: () => _selectSecretary(user),
+                              onTap: () => _onSecretarySelected(user),
                               leading: CircleAvatar(
                                 backgroundColor: isSelected
                                     ? Colors.red.shade400
@@ -537,7 +601,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  '$permCount/11',
+                                  '$permCount/${AppPermission.assignable.length}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
@@ -575,18 +639,33 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     return out;
   }
 
-  Future<void> _savePermissions(AppUser secretary) async {
+  Future<void> _savePermissions(
+    AppUser secretary, {
+    bool silent = false,
+  }) async {
+    if (!_dirty && !silent) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('No changes to save'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      return;
+    }
+    if (!_dirty) return;
+
     setState(() => _saving = true);
     try {
-      // Ensure draft includes required rights even if UI never toggled them.
       final perms = AppPermission.mergeSecretaryPermissions(_draftPerms);
       debugPrint(
         'Saving permissions for ${secretary.displayName}: '
         '${perms.map((p) => p.label).join(', ')}',
       );
 
-      // Persist by AppUser id — works even when memberId is null.
-      // MODIFIED - use updateSecretaryPermissions (Delete to revert)
       final saved =
           await ref.read(authServiceProvider).updateSecretaryPermissions(
                 userId: secretary.id,
@@ -607,25 +686,31 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
       ref.invalidate(appUsersProvider);
       if (!mounted) return;
       setState(() {
-        _selectedSecretary = saved;
-        _draftPerms
-          ..clear()
-          ..addAll(AppPermission.mergeSecretaryPermissions(saved.permissions));
+        if (_selectedSecretary?.id == saved.id) {
+          _selectedSecretary = saved;
+          _draftPerms
+            ..clear()
+            ..addAll(
+              AppPermission.mergeSecretaryPermissions(saved.permissions),
+            );
+        }
         _dirty = false;
         _countsKey = null;
         _countsFuture = null;
       });
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              '✅ Permissions updated for ${saved.displayName}',
+      if (!silent) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                'Permissions updated for ${saved.displayName}',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+          );
+      }
     } catch (e) {
       debugPrint('Error saving permissions: $e');
       if (!mounted) return;
@@ -633,7 +718,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
-            content: Text('❌ Error saving permissions: $e'),
+            content: Text(
+              silent
+                  ? 'Auto-save failed for ${secretary.displayName}'
+                  : 'Error saving permissions: $e',
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -641,5 +730,63 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+}
+
+/// RS Rights toggle: ON = black track, OFF = green track.
+class _RsRightsToggle extends StatelessWidget {
+  const _RsRightsToggle({
+    required this.checked,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool checked;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: GestureDetector(
+        onTap: enabled ? () => onChanged(!checked) : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          width: 50,
+          height: 30,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: checked ? Colors.black : Colors.green,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: checked ? Colors.grey.shade700 : Colors.green.shade700,
+            ),
+          ),
+          alignment: checked ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              checked ? Icons.check : Icons.close,
+              size: 14,
+              color: checked ? Colors.black : Colors.green,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
