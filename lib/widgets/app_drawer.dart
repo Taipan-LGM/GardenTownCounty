@@ -124,7 +124,7 @@ class AppDrawer extends ConsumerWidget {
                         await showGlobalSearchDialog(context, ref);
                       },
                     ),
-                  // 3. Member Management
+                  // 3. Application Form
                   if (showMemberInfo)
                     _item(
                       context,

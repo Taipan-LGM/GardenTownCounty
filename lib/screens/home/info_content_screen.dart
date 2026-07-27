@@ -191,7 +191,7 @@ class _ArticleCard extends ConsumerWidget {
               if (isAdmin) ...[
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
+                  icon: const Icon(Icons.edit, color: Colors.white, size: 18),
                   onPressed: () async {
                     final ok = await showArticleEditorDialog(
                       context,

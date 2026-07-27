@@ -65,7 +65,8 @@ class ActivitiesScreen extends ConsumerWidget {
                   label: const Text('GPS'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.bodyText,
+                    foregroundColor: Colors.white,
+                    side: AppTheme.buttonWhiteBand,
                   ),
                 ),
                 orElse: () => const SizedBox.shrink(),
@@ -118,9 +119,9 @@ class ActivitiesScreen extends ConsumerWidget {
                             hasGps
                                 ? IconButton(
                                     tooltip: 'Open GPS map',
-                                    icon: const Icon(
+                    icon: const Icon(
                                       Icons.map_outlined,
-                                      color: AppTheme.forestGreen,
+                                      color: Colors.white,
                                     ),
                                     onPressed: () => _openGps(
                                       context,

@@ -15,7 +15,7 @@ class AppStrings {
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
   String get memberInfo =>
-      isAf ? 'Lidledebestuur' : 'Member Management';
+      isAf ? 'Aansoekvorm' : 'Application Form';
   String get memberInfoForm =>
       isAf ? 'Lid-aansoekvorm' : 'Member Application Form';
   String get sos => 'SOS';

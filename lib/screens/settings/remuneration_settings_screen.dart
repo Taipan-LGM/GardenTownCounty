@@ -348,7 +348,7 @@ class _RemunerationSettingsScreenState
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                icon: const Icon(Icons.edit, color: Colors.white),
                                 onPressed: () => _editExtraService(service),
                               ),
                               IconButton(
