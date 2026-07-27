@@ -146,3 +146,55 @@ Future<void> _pruneAutoBackups(Directory dir) async {
     } catch (_) {}
   }
 }
+
+class BackupFileInfo {
+  const BackupFileInfo({
+    required this.path,
+    required this.name,
+    required this.modifiedAt,
+    required this.bytes,
+  });
+
+  final String path;
+  final String name;
+  final DateTime modifiedAt;
+  final int bytes;
+}
+
+Future<List<BackupFileInfo>> listBackupFiles(BackupAuthService auth) async {
+  final dirs = <Directory>[
+    Directory(await auth.backupsDirectoryPath(auto: false)),
+    Directory(await auth.backupsDirectoryPath(auto: true)),
+  ];
+  final out = <BackupFileInfo>[];
+  for (final dir in dirs) {
+    if (!dir.existsSync()) continue;
+    for (final entity in dir.listSync()) {
+      if (entity is! File) continue;
+      if (!entity.path.toLowerCase().endsWith('.gtb')) continue;
+      final stat = entity.statSync();
+      out.add(
+        BackupFileInfo(
+          path: entity.path,
+          name: p.basename(entity.path),
+          modifiedAt: stat.modified,
+          bytes: stat.size,
+        ),
+      );
+    }
+  }
+  out.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+  return out;
+}
+
+Future<int> deleteAllBackupFiles(BackupAuthService auth) async {
+  final files = await listBackupFiles(auth);
+  var deleted = 0;
+  for (final f in files) {
+    try {
+      await File(f.path).delete();
+      deleted++;
+    } catch (_) {}
+  }
+  return deleted;
+}

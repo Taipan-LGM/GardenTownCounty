@@ -32,3 +32,25 @@ Future<void> restoreSqliteArchive(
 ) async {
   throw UnsupportedError('SQLite restore requires desktop/mobile.');
 }
+
+class BackupFileInfo {
+  const BackupFileInfo({
+    required this.path,
+    required this.name,
+    required this.modifiedAt,
+    required this.bytes,
+  });
+
+  final String path;
+  final String name;
+  final DateTime modifiedAt;
+  final int bytes;
+}
+
+Future<List<BackupFileInfo>> listBackupFiles(BackupAuthService auth) async {
+  return const [];
+}
+
+Future<int> deleteAllBackupFiles(BackupAuthService auth) async {
+  return 0;
+}

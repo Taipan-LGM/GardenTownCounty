@@ -3225,4 +3225,37 @@ class DatabaseService {
 
     await ensureSeedAdmin();
   }
+
+  /// Permanently delete all operational app data (Admin Delete All).
+  /// Keeps: Admin user(s), county_info, system roles, lookups, SOS presets,
+  /// remuneration settings templates.
+  Future<void> deleteAllData() async {
+    if (_memoryMode) {
+      await resetCountyOperationalData();
+      _articles.clear();
+      _videos.clear();
+      await ensureSeedAdmin();
+      return;
+    }
+
+    await resetCountyOperationalData();
+
+    final batch = db.batch();
+    batch.delete('county_articles');
+    batch.delete('county_videos');
+    // Hard-remove non-admin users (incl. soft-deleted). Keep Admin.
+    batch.delete(
+      'app_users',
+      where: "role NOT IN ('Admin', 'System Administrator')",
+    );
+    await batch.commit(noResult: true);
+
+    _articles.clear();
+    _videos.clear();
+    _appUsers.removeWhere(
+      (id, u) => !u.isAdmin && !u.isSystemAdministrator,
+    );
+
+    await ensureSeedAdmin();
+  }
 }

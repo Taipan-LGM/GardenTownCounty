@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
@@ -157,4 +156,8 @@ class BackupService {
     archive.addFile(ArchiveFile('manifest.json', manifest.length, manifest));
     return archive;
   }
+
+  Future<List<io.BackupFileInfo>> listBackups() => io.listBackupFiles(_auth);
+
+  Future<int> deleteAllBackupFiles() => io.deleteAllBackupFiles(_auth);
 }
