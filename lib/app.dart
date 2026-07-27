@@ -214,13 +214,15 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.duplicateReport:
         return user.isAdmin;
       case AppSection.global528:
-      case AppSection.global528Step2:
         return user.hasPermission(AppPermission.global528);
+      case AppSection.global528Step2:
+        return user.hasPermission(AppPermission.global528Step2);
       case AppSection.global928:
         return user.hasPermission(AppPermission.global928);
       case AppSection.lro:
-      case AppSection.credentialCard:
         return user.hasPermission(AppPermission.lro);
+      case AppSection.credentialCard:
+        return user.hasPermission(AppPermission.credentialCard);
       case AppSection.countyInfo:
       case AppSection.countyVideos:
         return true;

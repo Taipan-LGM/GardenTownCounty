@@ -1,0 +1,20 @@
+/// Main shell navigation sections (drawer / top bar / body).
+enum AppSection {
+  home,
+  settings,
+  memberInfo,
+  sos,
+  reminders,
+  activities,
+  addUser,
+  backupRestore,
+  global528,
+  global528Step2,
+  global928,
+  lro,
+  credentialCard,
+  lockedMembers,
+  duplicateReport,
+  countyInfo,
+  countyVideos,
+}

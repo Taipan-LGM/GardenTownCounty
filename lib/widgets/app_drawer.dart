@@ -5,6 +5,7 @@ import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../l10n/app_strings.dart';
 import '../models/user_role.dart';
+import '../navigation/app_drawer_catalog.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
 import 'cancel_button.dart';
@@ -25,17 +26,7 @@ class AppDrawer extends ConsumerWidget {
     final countyContactNo = profile?.countyContactNo.trim() ?? '';
     final countyRegNo = profile?.countyRegNo.trim() ?? '';
 
-    bool can(AppPermission p) =>
-        user?.hasPermission(p) ?? false;
-
-    final showSearch = isAdmin || can(AppPermission.search);
-    final showMemberInfo = isAdmin || can(AppPermission.memberInfo);
-    final show528 = isAdmin || can(AppPermission.global528);
-    final show928 = isAdmin || can(AppPermission.global928);
-    final showLro = isAdmin || can(AppPermission.lro);
-    final showSos = isAdmin || can(AppPermission.sos);
-    final showReminders = isAdmin || can(AppPermission.reminders);
-    final showActivities = isAdmin || can(AppPermission.activities);
+    bool can(AppPermission p) => user?.hasPermission(p) ?? false;
 
     return Drawer(
       child: SafeArea(
@@ -102,204 +93,27 @@ class AppDrawer extends ConsumerWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  // 1. Home
-                  _item(
-                    context,
-                    ref,
-                    icon: Icons.home,
-                    label: strings.home,
-                    selected: section == AppSection.home,
-                    onTap: () => _go(context, ref, AppSection.home),
-                  ),
-                  // 2. Search
-                  if (showSearch)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.search,
-                      label: strings.search,
-                      selected: false,
-                      onTap: () async {
-                        Navigator.of(context).pop();
-                        await showGlobalSearchDialog(context, ref);
-                      },
-                    ),
-                  // 3. Application Form
-                  if (showMemberInfo)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.assignment,
-                      label: strings.memberInfo,
-                      selected: section == AppSection.memberInfo,
-                      onTap: () => _go(context, ref, AppSection.memberInfo),
-                    ),
-                  // 4. Step 1_Global 528
-                  if (show528)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.numbers,
-                      label: strings.global528,
-                      selected: section == AppSection.global528,
-                      onTap: () => _go(context, ref, AppSection.global528),
-                    ),
-                  // 5. Step 2_Global 528 (NEW)
-                  if (show528)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.numbers,
-                      label: strings.global528Step2,
-                      selected: section == AppSection.global528Step2,
-                      onTap: () =>
-                          _go(context, ref, AppSection.global528Step2),
-                    ),
-                  // 6. Step 3_Global 928
-                  if (show928)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.numbers,
-                      label: strings.global928,
-                      selected: section == AppSection.global928,
-                      onTap: () => _go(context, ref, AppSection.global928),
-                    ),
-                  // 7. Step 4_LRO
-                  if (showLro)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.gavel,
-                      label: strings.lro,
-                      selected: section == AppSection.lro,
-                      onTap: () => _go(context, ref, AppSection.lro),
-                    ),
-                  // 8. Step 5_Credential Card (NEW)
-                  if (showLro)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.credit_card,
-                      label: strings.credentialCard,
-                      selected: section == AppSection.credentialCard,
-                      onTap: () =>
-                          _go(context, ref, AppSection.credentialCard),
-                    ),
-                  const Divider(color: Colors.white24),
-                  // 9. Backup & Restore
-                  if (isAdmin)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.backup,
-                      label: strings.backupRestore,
-                      selected: section == AppSection.backupRestore,
-                      onTap: () =>
-                          _go(context, ref, AppSection.backupRestore),
-                    ),
-                  // 10. RS Rights
-                  if (isAdmin)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.admin_panel_settings,
-                      label: strings.userManagement,
-                      selected: section == AppSection.addUser,
-                      onTap: () => _go(context, ref, AppSection.addUser),
-                    ),
-                  // 11. Cancellations
-                  if (isAdmin)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.cancel_outlined,
-                      label: strings.cancellations,
-                      selected: section == AppSection.lockedMembers,
-                      onTap: () =>
-                          _go(context, ref, AppSection.lockedMembers),
-                      iconColor: Colors.redAccent,
-                    ),
-                  // 12. Duplicate Manager
-                  if (isAdmin)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.warning_amber,
-                      label: strings.duplicateManagement,
-                      selected: section == AppSection.duplicateReport,
-                      onTap: () =>
-                          _go(context, ref, AppSection.duplicateReport),
-                      iconColor: Colors.orangeAccent,
-                    ),
-                  // 13. SOS
-                  if (showSos)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.sos,
-                      label: strings.sos,
-                      selected: section == AppSection.sos,
-                      onTap: () => _go(context, ref, AppSection.sos),
-                    ),
-                  // 14. Reminders
-                  if (showReminders)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.alarm,
-                      label: strings.reminders,
-                      selected: section == AppSection.reminders,
-                      onTap: () => _go(context, ref, AppSection.reminders),
-                      badgeCount: ref
-                              .watch(activeReminderCountProvider)
-                              .valueOrNull ??
-                          0,
-                    ),
-                  // 15. Activities
-                  if (showActivities)
-                    _item(
-                      context,
-                      ref,
-                      icon: Icons.list_alt,
-                      label: strings.activities,
-                      selected: section == AppSection.activities,
-                      onTap: () =>
-                          _go(context, ref, AppSection.activities),
-                    ),
-                  const Divider(color: Colors.white24),
-                  // 16. Demo Data
-                  if (isAdmin)
-                    ListTile(
-                      leading: const Icon(
-                        Icons.science,
-                        color: Colors.purpleAccent,
+                  for (final item in AppDrawerCatalog.items) ...[
+                    if (AppDrawerCatalog.isVisible(
+                      item: item,
+                      isAdmin: isAdmin,
+                      hasPermission: can,
+                    ))
+                      _buildCatalogItem(
+                        context,
+                        ref,
+                        item: item,
+                        section: section,
+                        strings: strings,
                       ),
-                      title: Text(
-                        strings.demoData,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      subtitle: const Text(
-                        'Generate 10 demo members',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      onTap: () => _generateDemoData(context, ref),
-                    ),
-                  // 17. Sign Out
-                  ListTile(
-                    leading: const Icon(
-                      Icons.logout,
-                      color: Colors.redAccent,
-                    ),
-                    title: Text(
-                      strings.signOut,
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
-                    onTap: () => _confirmSignOut(context, ref, strings),
-                  ),
+                    if (item.showDividerAfter &&
+                        AppDrawerCatalog.isVisible(
+                          item: item,
+                          isAdmin: isAdmin,
+                          hasPermission: can,
+                        ))
+                      const Divider(color: Colors.white24),
+                  ],
                 ],
               ),
             ),
@@ -341,7 +155,9 @@ class AppDrawer extends ConsumerWidget {
                     const SizedBox(height: 6),
                     _countyField(
                       label: strings.countyContactNo,
-                      value: countyContactNo.isEmpty ? 'Not set' : countyContactNo,
+                      value: countyContactNo.isEmpty
+                          ? 'Not set'
+                          : countyContactNo,
                     ),
                     const SizedBox(height: 6),
                     _countyField(
@@ -367,6 +183,74 @@ class AppDrawer extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildCatalogItem(
+    BuildContext context,
+    WidgetRef ref, {
+    required AppDrawerItemDef item,
+    required AppSection section,
+    required AppStrings strings,
+  }) {
+    switch (item.action) {
+      case AppDrawerAction.search:
+        return _item(
+          context,
+          ref,
+          icon: item.icon,
+          label: item.label,
+          selected: false,
+          onTap: () async {
+            Navigator.of(context).pop();
+            await showGlobalSearchDialog(context, ref);
+          },
+        );
+      case AppDrawerAction.demoData:
+        return ListTile(
+          leading: Icon(
+            item.icon,
+            color: item.accentColor ?? Colors.purpleAccent,
+          ),
+          title: Text(
+            item.label,
+            style: const TextStyle(color: Colors.white),
+          ),
+          subtitle: const Text(
+            'Generate 10 demo members',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          onTap: () => _generateDemoData(context, ref),
+        );
+      case AppDrawerAction.signOut:
+        return ListTile(
+          leading: Icon(
+            item.icon,
+            color: item.accentColor ?? Colors.redAccent,
+          ),
+          title: Text(
+            item.label,
+            style: TextStyle(
+              color: item.accentColor ?? Colors.redAccent,
+            ),
+          ),
+          onTap: () => _confirmSignOut(context, ref, strings),
+        );
+      case AppDrawerAction.navigate:
+        final target = item.section;
+        if (target == null) return const SizedBox.shrink();
+        return _item(
+          context,
+          ref,
+          icon: item.icon,
+          label: item.label,
+          selected: section == target,
+          onTap: () => _go(context, ref, target),
+          iconColor: item.accentColor,
+          badgeCount: item.showReminderBadge
+              ? (ref.watch(activeReminderCountProvider).valueOrNull ?? 0)
+              : 0,
+        );
+    }
   }
 
   Widget _countyField({required String label, required String value}) {

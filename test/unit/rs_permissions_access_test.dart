@@ -46,23 +46,31 @@ void main() {
   });
 
   group('AppPermission secretary defaults', () {
-    test('default excludes optional SOS/Activities/Onboarding', () {
-      expect(AppPermission.defaultSecretary, hasLength(6));
-      expect(AppPermission.defaultSecretary.contains(AppPermission.sos), isFalse);
+    test('default includes core drawer modules for secretaries', () {
+      expect(AppPermission.defaultSecretary, hasLength(11));
+      expect(AppPermission.defaultSecretary.contains(AppPermission.sos), isTrue);
       expect(
         AppPermission.defaultSecretary.contains(AppPermission.reminders),
+        isTrue,
+      );
+      expect(
+        AppPermission.defaultSecretary.contains(AppPermission.global528Step2),
+        isTrue,
+      );
+      expect(
+        AppPermission.defaultSecretary.contains(AppPermission.credentialCard),
         isTrue,
       );
     });
 
     test('merge always keeps required and strips admin-only', () {
       final merged = AppPermission.mergeSecretaryPermissions([
-        AppPermission.sos,
+        AppPermission.onboarding,
         AppPermission.backupRestore,
       ]);
       expect(merged, contains(AppPermission.search));
       expect(merged, contains(AppPermission.reminders));
-      expect(merged, contains(AppPermission.sos));
+      expect(merged, contains(AppPermission.onboarding));
       expect(merged, isNot(contains(AppPermission.backupRestore)));
     });
   });
@@ -126,8 +134,9 @@ void main() {
         admin: auth.currentUser!,
       );
       expect(user.permissions, AppPermission.defaultSecretary);
-      expect(user.hasPermission(AppPermission.sos), isFalse);
+      expect(user.hasPermission(AppPermission.sos), isTrue);
       expect(user.hasPermission(AppPermission.memberInfo), isTrue);
+      expect(user.hasPermission(AppPermission.backupRestore), isFalse);
     });
   });
 

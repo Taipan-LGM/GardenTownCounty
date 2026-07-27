@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/app_user.dart';
 import '../../models/member.dart';
 import '../../models/user_role.dart';
+import '../../navigation/app_drawer_catalog.dart';
 import '../../providers/providers.dart';
 
 /// Admin-only User Manager: Recording Secretary rights + RS list (black theme).
@@ -313,6 +314,15 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
   Widget _buildPermissionToggles() {
     return ListView(
       children: AppPermission.managementOrder.map((permission) {
+        AppDrawerItemDef? catalog;
+        for (final i in AppDrawerCatalog.items) {
+          if (i.permission == permission) {
+            catalog = i;
+            break;
+          }
+        }
+        final label = catalog?.label ?? permission.label;
+        final icon = catalog?.icon;
         final adminOnly = permission.isAdminOnly;
         final required = permission.isRequiredForSecretary;
         final checked = adminOnly
@@ -334,9 +344,19 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           ),
           child: Row(
             children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 20,
+                  color: checked
+                      ? Colors.green.shade300
+                      : Colors.grey.shade500,
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Text(
-                  permission.label,
+                  label,
                   style: TextStyle(
                     color: adminOnly ? Colors.grey.shade500 : Colors.white,
                     fontWeight:
@@ -347,9 +367,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
               if (adminOnly)
                 _badge('Admin Only', Colors.blue)
               else if (required)
-                _badge('Required', Colors.red)
+                _badge('Default', Colors.green)
               else
-                _badge('Optional', Colors.green),
+                _badge('Optional', Colors.orange),
               const SizedBox(width: 8),
               Switch(
                 value: checked,

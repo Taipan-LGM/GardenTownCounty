@@ -12,6 +12,10 @@ import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
 import '../models/temporary_access_log.dart';
 import '../models/user_role.dart';
+import '../navigation/app_section.dart';
+
+export '../navigation/app_section.dart';
+
 import '../services/activity_service.dart';
 import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
@@ -377,26 +381,7 @@ final activeReminderCountProvider =
 });
 
 /// Navigation target shown inside the shell after login.
-enum AppSection {
-  home,
-  settings,
-  memberInfo,
-  sos,
-  reminders,
-  activities,
-  addUser,
-  backupRestore,
-  global528,
-  global528Step2,
-  global928,
-  lro,
-  credentialCard,
-  lockedMembers,
-  duplicateReport,
-  countyInfo,
-  countyVideos,
-}
-
+/// Main shell navigation sections — see [AppSection] in app_section.dart.
 final appSectionProvider = StateProvider<AppSection>((ref) => AppSection.home);
 
 final selectedMemberIdProvider = StateProvider<String?>((ref) => null);
