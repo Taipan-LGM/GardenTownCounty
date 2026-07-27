@@ -14,11 +14,14 @@ class AppStrings {
   String get home => isAf ? 'Tuis' : 'Home';
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
-  String get memberInfo => isAf ? '1_Lid Info' : '1_Member Info';
+  String get memberInfo =>
+      isAf ? 'Aansoekvorm' : 'Application Form';
   String get sos => 'SOS';
-  String get global528 => '2_Global 528';
-  String get global928 => '3_Global 928';
-  String get lro => '4_LRO';
+  String get global528 => 'Step 1_Global 528';
+  String get global528Step2 => 'Step 2_Global 528';
+  String get global928 => 'Step 3_Global 928';
+  String get lro => 'Step 4_LRO';
+  String get credentialCard => 'Step 5_Credential Card';
   String get backupRestore =>
       isAf ? 'Rugsteun & Herstel' : 'Backup & Restore';
   String get addUser => isAf ? 'Voeg Gebruiker By' : 'Add User';
@@ -26,7 +29,11 @@ class AppStrings {
       isAf ? 'Gebruikerbestuur' : 'User Management';
   String get reminders => isAf ? 'Herinnerings' : 'Reminders';
   String get activities => isAf ? 'Aktiwiteite' : 'Activities';
-  String get signOut => isAf ? 'Teken uit' : 'Sign out';
+  String get signOut => isAf ? 'Teken uit' : 'Sign Out';
+  String get cancellations => isAf ? 'Kansellasies' : 'Cancellations';
+  String get duplicateManagement =>
+      isAf ? 'Duplikaatbestuur' : 'Duplicate Management';
+  String get demoData => isAf ? 'Demo Data' : 'Demo Data';
 
   String get theme => isAf ? 'Tema' : 'Theme';
   String get light => isAf ? 'Lig' : 'Light';

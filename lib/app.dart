@@ -214,10 +214,12 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.duplicateReport:
         return user.isAdmin;
       case AppSection.global528:
+      case AppSection.global528Step2:
         return user.hasPermission(AppPermission.global528);
       case AppSection.global928:
         return user.hasPermission(AppPermission.global928);
       case AppSection.lro:
+      case AppSection.credentialCard:
         return user.hasPermission(AppPermission.lro);
       case AppSection.countyInfo:
       case AppSection.countyVideos:
@@ -232,7 +234,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.settings:
         return 'Settings';
       case AppSection.memberInfo:
-        return 'Member Info';
+        return 'Application Form';
       case AppSection.sos:
         return 'SOS';
       case AppSection.reminders:
@@ -244,11 +246,15 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.backupRestore:
         return 'Backup & Restore';
       case AppSection.global528:
-        return '528 Status Correction';
+        return 'Step 1_Global 528';
+      case AppSection.global528Step2:
+        return 'Step 2_Global 528';
       case AppSection.global928:
-        return '928 Emancipation';
+        return 'Step 3_Global 928';
       case AppSection.lro:
-        return 'LRO';
+        return 'Step 4_LRO';
+      case AppSection.credentialCard:
+        return 'Step 5_Credential Card';
       case AppSection.lockedMembers:
         return 'Cancellations';
       case AppSection.duplicateReport:
@@ -279,11 +285,15 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.backupRestore:
         return const BackupRestoreScreen();
       case AppSection.global528:
-        return const PlaceholderScreen(title: 'Global 528');
+        return const PlaceholderScreen(title: 'Step 1_Global 528');
+      case AppSection.global528Step2:
+        return const PlaceholderScreen(title: 'Step 2_Global 528');
       case AppSection.global928:
-        return const PlaceholderScreen(title: 'Global 928');
+        return const PlaceholderScreen(title: 'Step 3_Global 928');
       case AppSection.lro:
-        return const PlaceholderScreen(title: 'LRO');
+        return const PlaceholderScreen(title: 'Step 4_LRO');
+      case AppSection.credentialCard:
+        return const PlaceholderScreen(title: 'Step 5_Credential Card');
       case AppSection.lockedMembers:
         return const CancellationsScreen();
       case AppSection.duplicateReport:

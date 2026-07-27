@@ -44,64 +44,46 @@ class AppDrawer extends ConsumerWidget {
           children: [
             DrawerHeader(
               margin: EdgeInsets.zero,
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               decoration: const BoxDecoration(color: AppTheme.forestGreen),
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: IconButton(
-                      tooltip: strings.settings,
-                      icon: Icon(
-                        Icons.settings,
-                        color: section == AppSection.settings
-                            ? AppTheme.gold
-                            : Colors.white,
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const RoundCountyLogo(size: 48),
+                    const SizedBox(height: 8),
+                    Text(
+                      countyName,
+                      style: const TextStyle(
+                        color: AppTheme.gold,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      onPressed: () =>
-                          _go(context, ref, AppSection.settings),
                     ),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const RoundCountyLogo(size: 48),
-                        const SizedBox(height: 8),
-                        Text(
-                          countyName,
-                          style: const TextStyle(
-                            color: AppTheme.gold,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          user?.displayName ?? 'Guest',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                        if (user != null)
-                          Text(
-                            user.userRole.label,
-                            style: const TextStyle(
-                              color: AppTheme.gold,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
+                    const SizedBox(height: 4),
+                    Text(
+                      user?.displayName ?? 'Guest',
+                      style: const TextStyle(color: Colors.white70),
                     ),
-                  ),
-                ],
+                    if (user != null)
+                      Text(
+                        user.userRole.label,
+                        style: const TextStyle(
+                          color: AppTheme.gold,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
+                  // 1. Home
                   _item(
                     context,
                     ref,
@@ -110,6 +92,7 @@ class AppDrawer extends ConsumerWidget {
                     selected: section == AppSection.home,
                     onTap: () => _go(context, ref, AppSection.home),
                   ),
+                  // 2. Search
                   if (showSearch)
                     _item(
                       context,
@@ -122,42 +105,70 @@ class AppDrawer extends ConsumerWidget {
                         await showGlobalSearchDialog(context, ref);
                       },
                     ),
+                  // 3. Application Form (was 1_Member Info)
                   if (showMemberInfo)
                     _item(
                       context,
                       ref,
-                      icon: Icons.badge_outlined,
+                      icon: Icons.assignment,
                       label: strings.memberInfo,
                       selected: section == AppSection.memberInfo,
                       onTap: () => _go(context, ref, AppSection.memberInfo),
                     ),
+                  // 4. Step 1_Global 528
                   if (show528)
                     _item(
                       context,
                       ref,
-                      icon: Icons.public,
+                      icon: Icons.numbers,
                       label: strings.global528,
                       selected: section == AppSection.global528,
                       onTap: () => _go(context, ref, AppSection.global528),
                     ),
+                  // 5. Step 2_Global 528 (NEW)
+                  if (show528)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.numbers,
+                      label: strings.global528Step2,
+                      selected: section == AppSection.global528Step2,
+                      onTap: () =>
+                          _go(context, ref, AppSection.global528Step2),
+                    ),
+                  // 6. Step 3_Global 928
                   if (show928)
                     _item(
                       context,
                       ref,
-                      icon: Icons.public_outlined,
+                      icon: Icons.numbers,
                       label: strings.global928,
                       selected: section == AppSection.global928,
                       onTap: () => _go(context, ref, AppSection.global928),
                     ),
+                  // 7. Step 4_LRO
                   if (showLro)
                     _item(
                       context,
                       ref,
-                      icon: Icons.account_balance,
+                      icon: Icons.gavel,
                       label: strings.lro,
                       selected: section == AppSection.lro,
                       onTap: () => _go(context, ref, AppSection.lro),
                     ),
+                  // 8. Step 5_Credential Card (NEW)
+                  if (showLro)
+                    _item(
+                      context,
+                      ref,
+                      icon: Icons.credit_card,
+                      label: strings.credentialCard,
+                      selected: section == AppSection.credentialCard,
+                      onTap: () =>
+                          _go(context, ref, AppSection.credentialCard),
+                    ),
+                  const Divider(color: Colors.white24),
+                  // 9. Backup & Restore
                   if (isAdmin)
                     _item(
                       context,
@@ -168,51 +179,57 @@ class AppDrawer extends ConsumerWidget {
                       onTap: () =>
                           _go(context, ref, AppSection.backupRestore),
                     ),
+                  // 10. User Management
                   if (isAdmin)
                     _item(
                       context,
                       ref,
-                      icon: Icons.manage_accounts_outlined,
+                      icon: Icons.admin_panel_settings,
                       label: strings.userManagement,
                       selected: section == AppSection.addUser,
                       onTap: () => _go(context, ref, AppSection.addUser),
                     ),
+                  // 11. Cancellations
                   if (isAdmin)
                     _item(
                       context,
                       ref,
                       icon: Icons.cancel_outlined,
-                      // MODIFIED - Locked Members → Cancellations
-                      label: 'Cancellations',
+                      label: strings.cancellations,
                       selected: section == AppSection.lockedMembers,
                       onTap: () =>
                           _go(context, ref, AppSection.lockedMembers),
+                      iconColor: Colors.redAccent,
                     ),
+                  // 12. Duplicate Management
                   if (isAdmin)
                     _item(
                       context,
                       ref,
-                      icon: Icons.copy_all_outlined,
-                      label: 'Duplicate Management',
+                      icon: Icons.warning_amber,
+                      label: strings.duplicateManagement,
                       selected: section == AppSection.duplicateReport,
                       onTap: () =>
                           _go(context, ref, AppSection.duplicateReport),
+                      iconColor: Colors.orangeAccent,
                     ),
+                  // 13. SOS
                   if (showSos)
                     _item(
                       context,
                       ref,
-                      icon: Icons.sos_outlined,
+                      icon: Icons.sos,
                       label: strings.sos,
                       selected: section == AppSection.sos,
                       onTap: () => _go(context, ref, AppSection.sos),
                     ),
+                  // 14. Reminders
                   if (showReminders)
                     _item(
                       context,
                       ref,
                       icon: Icons.alarm,
-                      label: '⏰ Reminders',
+                      label: strings.reminders,
                       selected: section == AppSection.reminders,
                       onTap: () => _go(context, ref, AppSection.reminders),
                       badgeCount: ref
@@ -220,48 +237,49 @@ class AppDrawer extends ConsumerWidget {
                               .valueOrNull ??
                           0,
                     ),
+                  // 15. Activities
                   if (showActivities)
                     _item(
                       context,
                       ref,
-                      icon: Icons.timeline,
+                      icon: Icons.list_alt,
                       label: strings.activities,
                       selected: section == AppSection.activities,
                       onTap: () =>
                           _go(context, ref, AppSection.activities),
                     ),
-                  // NEW ADDITION - Demo Data above Log Out (Delete tile to revert)
+                  const Divider(color: Colors.white24),
+                  // 16. Demo Data
                   if (isAdmin)
                     ListTile(
-                      leading: const Icon(Icons.science, color: Colors.purpleAccent),
-                      title: const Text(
-                        'Demo Data',
-                        style: TextStyle(color: Colors.white),
+                      leading: const Icon(
+                        Icons.science,
+                        color: Colors.purpleAccent,
+                      ),
+                      title: Text(
+                        strings.demoData,
+                        style: const TextStyle(color: Colors.white),
                       ),
                       subtitle: const Text(
                         'Generate 10 demo members',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
                       ),
                       onTap: () => _generateDemoData(context, ref),
                     ),
+                  // 17. Sign Out
                   ListTile(
-                    leading:
-                        const Icon(Icons.logout, color: Colors.white70),
+                    leading: const Icon(
+                      Icons.logout,
+                      color: Colors.redAccent,
+                    ),
                     title: Text(
                       strings.signOut,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.redAccent),
                     ),
-                    onTap: () async {
-                      await ref.read(authServiceProvider).signOut();
-                      ref.read(authUserProvider.notifier).state = null;
-                      ref.read(verifiedTempAccessIdsProvider.notifier).state =
-                          <String>{};
-                      ref.read(appSectionProvider.notifier).state =
-                          AppSection.home;
-                      ref.read(landingCompleteProvider.notifier).state =
-                          false;
-                      if (context.mounted) Navigator.of(context).pop();
-                    },
+                    onTap: () => _confirmSignOut(context, ref, strings),
                   ),
                 ],
               ),
@@ -362,7 +380,52 @@ class AppDrawer extends ConsumerWidget {
     Navigator.of(context).pop();
   }
 
-  // NEW ADDITION - Demo Data dialog (Delete method to revert)
+  Future<void> _confirmSignOut(
+    BuildContext context,
+    WidgetRef ref,
+    AppStrings strings,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: Text(
+          '${strings.signOut}?',
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Are you sure you want to sign out?',
+          style: TextStyle(color: Colors.grey.shade300),
+        ),
+        actions: [
+          CancelButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            text: 'Cancel',
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(strings.signOut),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await _performSignOut(context, ref);
+  }
+
+  Future<void> _performSignOut(BuildContext context, WidgetRef ref) async {
+    await ref.read(authServiceProvider).signOut();
+    ref.read(authUserProvider.notifier).state = null;
+    ref.read(verifiedTempAccessIdsProvider.notifier).state = <String>{};
+    ref.read(appSectionProvider.notifier).state = AppSection.home;
+    ref.read(landingCompleteProvider.notifier).state = false;
+    if (context.mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _generateDemoData(BuildContext context, WidgetRef ref) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -447,9 +510,13 @@ class AppDrawer extends ConsumerWidget {
     required bool selected,
     required VoidCallback onTap,
     int badgeCount = 0,
+    Color? iconColor,
   }) {
+    final leadingColor = selected
+        ? AppTheme.gold
+        : (iconColor ?? Colors.white70);
     return ListTile(
-      leading: Icon(icon, color: selected ? AppTheme.gold : Colors.white70),
+      leading: Icon(icon, color: leadingColor),
       title: Text(
         label,
         style: TextStyle(
