@@ -234,7 +234,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.settings:
         return 'Settings';
       case AppSection.memberInfo:
-        return 'Application Form';
+        return 'Member Application Form';
       case AppSection.sos:
         return 'SOS';
       case AppSection.reminders:
@@ -242,7 +242,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.activities:
         return 'Activities';
       case AppSection.addUser:
-        return 'User Management';
+        return 'Recording Secretary Rights';
       case AppSection.backupRestore:
         return 'Backup & Restore';
       case AppSection.global528:
@@ -258,7 +258,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.lockedMembers:
         return 'Cancellations';
       case AppSection.duplicateReport:
-        return 'Duplicate Management';
+        return 'Duplicate Manager';
       case AppSection.countyInfo:
         return 'County Info';
       case AppSection.countyVideos:

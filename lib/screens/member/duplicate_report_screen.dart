@@ -47,7 +47,7 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
               children: [
                 const Expanded(
                   child: Text(
-                    'Duplicate Management',
+                    'Duplicate Manager',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -190,7 +190,7 @@ Future<void> showDuplicateReportDialog(BuildContext context) {
           children: [
             const Padding(
               padding: formDialogTitlePadding,
-              child: FormDialogTitle(title: 'Duplicate Management'),
+              child: FormDialogTitle(title: 'Duplicate Manager'),
             ),
             const Divider(height: 1),
             const Expanded(child: DuplicateReportScreen()),

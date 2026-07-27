@@ -15,7 +15,9 @@ class AppStrings {
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
   String get memberInfo =>
-      isAf ? 'Aansoekvorm' : 'Application Form';
+      isAf ? 'Lidledebestuur' : 'Member Management';
+  String get memberInfoForm =>
+      isAf ? 'Lid-aansoekvorm' : 'Member Application Form';
   String get sos => 'SOS';
   String get global528 => 'Step 1_Global 528';
   String get global528Step2 => 'Step 2_Global 528';
@@ -25,14 +27,15 @@ class AppStrings {
   String get backupRestore =>
       isAf ? 'Rugsteun & Herstel' : 'Backup & Restore';
   String get addUser => isAf ? 'Voeg Gebruiker By' : 'Add User';
-  String get userManagement =>
-      isAf ? 'Gebruikerbestuur' : 'User Management';
+  String get userManagement => isAf ? 'RS Regte' : 'RS Rights';
+  String get userManagementForm =>
+      isAf ? 'Opnamesekretaris-regte' : 'Recording Secretary Rights';
   String get reminders => isAf ? 'Herinnerings' : 'Reminders';
   String get activities => isAf ? 'Aktiwiteite' : 'Activities';
   String get signOut => isAf ? 'Teken uit' : 'Sign Out';
   String get cancellations => isAf ? 'Kansellasies' : 'Cancellations';
   String get duplicateManagement =>
-      isAf ? 'Duplikaatbestuur' : 'Duplicate Management';
+      isAf ? 'Duplikaatbestuurder' : 'Duplicate Manager';
   String get demoData => isAf ? 'Demo Data' : 'Demo Data';
 
   String get theme => isAf ? 'Tema' : 'Theme';

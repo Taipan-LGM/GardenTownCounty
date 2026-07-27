@@ -210,7 +210,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         children: [
           const Expanded(
             child: Text(
-              'USER MANAGER',
+              'RECORDING SECRETARY RIGHTS',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,

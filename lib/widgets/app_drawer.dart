@@ -44,39 +44,58 @@ class AppDrawer extends ConsumerWidget {
           children: [
             DrawerHeader(
               margin: EdgeInsets.zero,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
               decoration: const BoxDecoration(color: AppTheme.forestGreen),
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const RoundCountyLogo(size: 48),
-                    const SizedBox(height: 8),
-                    Text(
-                      countyName,
-                      style: const TextStyle(
-                        color: AppTheme.gold,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: IconButton(
+                      tooltip: strings.settings,
+                      icon: Icon(
+                        Icons.settings,
+                        color: section == AppSection.settings
+                            ? AppTheme.gold
+                            : Colors.white,
                       ),
+                      onPressed: () =>
+                          _go(context, ref, AppSection.settings),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user?.displayName ?? 'Guest',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    if (user != null)
-                      Text(
-                        user.userRole.label,
-                        style: const TextStyle(
-                          color: AppTheme.gold,
-                          fontSize: 12,
+                  ),
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const RoundCountyLogo(size: 48),
+                        const SizedBox(height: 8),
+                        Text(
+                          countyName,
+                          style: const TextStyle(
+                            color: AppTheme.gold,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                  ],
-                ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.displayName ?? 'Guest',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        if (user != null)
+                          Text(
+                            user.userRole.label,
+                            style: const TextStyle(
+                              color: AppTheme.gold,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -105,7 +124,7 @@ class AppDrawer extends ConsumerWidget {
                         await showGlobalSearchDialog(context, ref);
                       },
                     ),
-                  // 3. Application Form (was 1_Member Info)
+                  // 3. Member Management
                   if (showMemberInfo)
                     _item(
                       context,
@@ -179,7 +198,7 @@ class AppDrawer extends ConsumerWidget {
                       onTap: () =>
                           _go(context, ref, AppSection.backupRestore),
                     ),
-                  // 10. User Management
+                  // 10. RS Rights
                   if (isAdmin)
                     _item(
                       context,
@@ -201,7 +220,7 @@ class AppDrawer extends ConsumerWidget {
                           _go(context, ref, AppSection.lockedMembers),
                       iconColor: Colors.redAccent,
                     ),
-                  // 12. Duplicate Management
+                  // 12. Duplicate Manager
                   if (isAdmin)
                     _item(
                       context,
