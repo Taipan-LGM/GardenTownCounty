@@ -130,10 +130,9 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
 
   @override
   Widget build(BuildContext context) {
-    // Top of main form, beside hamburger (SafeArea).
-    // MODIFIED - flush to top of main form (Delete SafeArea align to revert)
+    // Point at Menu tab on the right of the fixed top bar.
     final topPad = MediaQuery.paddingOf(context).top;
-    const double left = 52;
+    const double right = 8;
 
     return SizedBox.expand(
       child: IgnorePointer(
@@ -146,18 +145,22 @@ class MenuGuideArrowState extends State<MenuGuideArrow>
                 fit: StackFit.expand,
                 children: [
                   Positioned(
-                    top: topPad + 2,
-                    left: left,
+                    top: topPad + 22,
+                    right: right,
                     child: Transform.scale(
                       scale: _scale.value,
-                      alignment: Alignment.centerLeft,
-                      child: const Row(
+                      alignment: Alignment.centerRight,
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _HorizontalArrowGraphic(),
-                          SizedBox(width: 4),
-                          _OutlinedMenuLabel(),
+                          const _OutlinedMenuLabel(),
+                          const SizedBox(width: 4),
+                          Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.diagonal3Values(-1, 1, 1),
+                            child: const _HorizontalArrowGraphic(),
+                          ),
                         ],
                       ),
                     ),

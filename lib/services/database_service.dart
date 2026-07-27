@@ -7,7 +7,9 @@ import '../core/constants/app_constants.dart';
 import '../core/exceptions/duplicate_exception.dart';
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
+import '../models/county_article.dart';
 import '../models/county_info.dart';
+import '../models/county_video.dart';
 import '../models/lookup_item.dart';
 import '../models/lro_case.dart';
 import '../models/lro_document.dart';
@@ -55,6 +57,8 @@ class DatabaseService {
   final Map<String, SecretaryRemuneration> _secretaryRemunerations = {};
   // NEW ADDITION - county_info single-row cache (Delete to revert)
   CountyInfo? _countyInfo;
+  final Map<String, CountyArticle> _articles = {};
+  final Map<String, CountyVideo> _videos = {};
 
   Database get db {
     final database = _db;
@@ -90,6 +94,8 @@ class DatabaseService {
     _remunerationSettings.clear();
     _secretaryRemunerations.clear();
     _countyInfo = null;
+    _articles.clear();
+    _videos.clear();
   }
 
   Future<void> init() async {
@@ -115,7 +121,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 16,
+      version: 17,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -421,6 +427,9 @@ class DatabaseService {
         'countyContactNo',
         "TEXT NOT NULL DEFAULT ''",
       );
+    }
+    if (oldVersion < 17) {
+      await _createCountyMediaTables(database);
     }
   }
 
@@ -830,6 +839,50 @@ class DatabaseService {
     await _createRemunerationTables(database);
     // NEW ADDITION - county_info on fresh create
     await _createCountyInfoTable(database);
+    await _createCountyMediaTables(database);
+  }
+
+  Future<void> _createCountyMediaTables(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS county_articles (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        author TEXT,
+        pdfLocalPath TEXT,
+        pdfUrl TEXT,
+        imageUrl TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT,
+        isPublished INTEGER NOT NULL DEFAULT 1,
+        category TEXT,
+        viewCount INTEGER NOT NULL DEFAULT 0,
+        createdBy TEXT NOT NULL,
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        isDeleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS county_videos (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        videoLocalPath TEXT NOT NULL DEFAULT '',
+        videoUrl TEXT,
+        thumbnailLocalPath TEXT,
+        thumbnailUrl TEXT,
+        duration TEXT,
+        uploadedAt TEXT NOT NULL,
+        category TEXT,
+        viewCount INTEGER NOT NULL DEFAULT 0,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        uploadedBy TEXT NOT NULL,
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        isDeleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
   }
 
   // NEW ADDITION - Delete method to revert county_info table
@@ -3007,6 +3060,126 @@ class DatabaseService {
       'county_info',
       stamped.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // ── County articles & videos ───────────────────────────────────────────
+
+  Future<List<CountyArticle>> getPublishedArticles() async {
+    if (_memoryMode) {
+      final list = _articles.values
+          .where((a) => !a.isDeleted && a.isPublished)
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    }
+    final rows = await db.query(
+      'county_articles',
+      where: 'isDeleted = 0 AND isPublished = 1',
+      orderBy: 'createdAt DESC',
+    );
+    return rows.map(CountyArticle.fromMap).toList();
+  }
+
+  Future<List<CountyArticle>> getAllArticles() async {
+    if (_memoryMode) {
+      final list =
+          _articles.values.where((a) => !a.isDeleted).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    }
+    final rows = await db.query(
+      'county_articles',
+      where: 'isDeleted = 0',
+      orderBy: 'createdAt DESC',
+    );
+    return rows.map(CountyArticle.fromMap).toList();
+  }
+
+  Future<void> upsertArticle(CountyArticle article) async {
+    if (_memoryMode) {
+      _articles[article.id] = article;
+      return;
+    }
+    await db.insert(
+      'county_articles',
+      article.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> softDeleteArticle(String id) async {
+    if (_memoryMode) {
+      final article = _articles[id];
+      if (article != null) {
+        _articles[id] = article.copyWith(isDeleted: true);
+      }
+      return;
+    }
+    await db.update(
+      'county_articles',
+      {'isDeleted': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<CountyVideo>> getActiveVideos() async {
+    if (_memoryMode) {
+      final list = _videos.values
+          .where((v) => !v.isDeleted && v.isActive)
+          .toList()
+        ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      return list;
+    }
+    final rows = await db.query(
+      'county_videos',
+      where: 'isDeleted = 0 AND isActive = 1',
+      orderBy: 'uploadedAt DESC',
+    );
+    return rows.map(CountyVideo.fromMap).toList();
+  }
+
+  Future<List<CountyVideo>> getAllVideos() async {
+    if (_memoryMode) {
+      final list =
+          _videos.values.where((v) => !v.isDeleted).toList()
+        ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      return list;
+    }
+    final rows = await db.query(
+      'county_videos',
+      where: 'isDeleted = 0',
+      orderBy: 'uploadedAt DESC',
+    );
+    return rows.map(CountyVideo.fromMap).toList();
+  }
+
+  Future<void> upsertVideo(CountyVideo video) async {
+    if (_memoryMode) {
+      _videos[video.id] = video;
+      return;
+    }
+    await db.insert(
+      'county_videos',
+      video.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> softDeleteVideo(String id) async {
+    if (_memoryMode) {
+      final video = _videos[id];
+      if (video != null) {
+        _videos[id] = video.copyWith(isDeleted: true);
+      }
+      return;
+    }
+    await db.update(
+      'county_videos',
+      {'isDeleted': 1},
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 

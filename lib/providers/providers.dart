@@ -22,6 +22,7 @@ import '../services/backup_service.dart';
 import '../services/bulk_import_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/county_info_service.dart';
+import '../services/county_media_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/data_access_service.dart';
@@ -90,6 +91,18 @@ final countyInfoServiceProvider = Provider<CountyInfoService>((ref) {
 final countyInfoProvider =
     FutureProvider.autoDispose<CountyInfo>((ref) async {
   return ref.watch(countyInfoServiceProvider).getCountyInfo();
+});
+
+final countyMediaServiceProvider = Provider<CountyMediaService>((ref) {
+  return CountyMediaService(ref.watch(databaseServiceProvider));
+});
+
+final publishedArticlesProvider = FutureProvider((ref) {
+  return ref.watch(countyMediaServiceProvider).getPublishedArticles();
+});
+
+final activeVideosProvider = FutureProvider((ref) {
+  return ref.watch(countyMediaServiceProvider).getActiveVideos();
 });
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
@@ -378,6 +391,8 @@ enum AppSection {
   lro,
   lockedMembers,
   duplicateReport,
+  countyInfo,
+  countyVideos,
 }
 
 final appSectionProvider = StateProvider<AppSection>((ref) => AppSection.home);

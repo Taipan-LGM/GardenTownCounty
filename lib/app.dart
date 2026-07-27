@@ -10,6 +10,8 @@ import 'services/reminder_expiry_service.dart';
 import 'screens/activities/activities_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
+import 'screens/home/info_content_screen.dart';
+import 'screens/home/videos_content_screen.dart';
 import 'screens/landing/landing_screen.dart';
 import 'screens/member/duplicate_report_screen.dart';
 import 'screens/member/cancellations_screen.dart';
@@ -20,7 +22,7 @@ import 'screens/settings/settings_screen.dart';
 import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
 import 'widgets/app_drawer.dart';
-import 'widgets/county_logo.dart';
+import 'widgets/app_top_bar.dart';
 import 'widgets/menu_guide_arrow.dart';
 import 'widgets/sync_status_indicator.dart';
 
@@ -149,116 +151,95 @@ class _AppShellState extends ConsumerState<AppShell>
       });
     }
 
-    final landingComplete = ref.watch(landingCompleteProvider);
-
-    final showLandingChrome = effectiveSection == AppSection.home;
+    final isHomeHub = effectiveSection == AppSection.home ||
+        effectiveSection == AppSection.countyInfo ||
+        effectiveSection == AppSection.countyVideos;
+    final showAppBar = !isHomeHub;
 
     return Scaffold(
-      appBar: showLandingChrome
-          ? null
-          : AppBar(
+      appBar: showAppBar
+          ? AppBar(
               title: Text(_titleFor(effectiveSection)),
-            ),
+            )
+          : null,
       drawer: const AppDrawer(),
       onDrawerChanged: (opened) {
         if (opened) _dismissMenuGuide();
       },
-      body: Stack(
+      body: Column(
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return RefreshIndicator(
-                color: AppTheme.gold,
-                backgroundColor: AppTheme.forestGreen,
-                displacement: 40,
-                onRefresh: () => refreshApp(ref),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  child: SizedBox(
-                    height: constraints.maxHeight,
-                    width: constraints.maxWidth,
-                    child: showLandingChrome
-                        ? Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              LandingScreen(onFinished: _onLandingFinished),
-                              // Tap anywhere (except menu button above) to dismiss.
-                              if (_showMenuGuide)
-                                Positioned.fill(
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: _dismissMenuGuide,
-                                    child: const SizedBox.expand(),
-                                  ),
-                                ),
-                              if (_showMenuGuide)
-                                Positioned.fill(
-                                  child: MenuGuideArrow(
-                                    key: _menuGuideKey,
-                                    onFinished: _onMenuGuideFinished,
-                                  ),
-                                ),
-                              // Menu button stays on top so it remains tappable.
-                              SafeArea(
-                                child: Align(
-                                  alignment: Alignment.topLeft,
-                                  child: Builder(
-                                    builder: (context) {
-                                      return IconButton(
-                                        icon: const Icon(
-                                          Icons.menu,
-                                          color: AppTheme.gold,
-                                          size: 32,
-                                        ),
-                                        tooltip: 'Open menu',
-                                        onPressed: () {
-                                          _dismissMenuGuide();
-                                          Scaffold.of(context).openDrawer();
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // First + second logos share the same back layer.
-                              if (landingComplete) ...[
-                                const IgnorePointer(
-                                  child: FixedFirstLogoBackground(),
-                                ),
-                                // Must be a direct Stack child (Positioned).
-                                const CornerLogoOverlay(),
-                              ],
-                              ColoredBox(
-                                color: Theme.of(context)
-                                    .scaffoldBackgroundColor
-                                    .withValues(
-                                      alpha: landingComplete ? 0.92 : 1,
+          SafeArea(
+            bottom: false,
+            child: Builder(
+              builder: (barContext) {
+                return AppTopBar(
+                  onOpenMenu: () {
+                    _dismissMenuGuide();
+                    Scaffold.of(barContext).openDrawer();
+                  },
+                );
+              },
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return RefreshIndicator(
+                      color: AppTheme.gold,
+                      backgroundColor: AppTheme.forestGreen,
+                      displacement: 40,
+                      onRefresh: () => refreshApp(ref),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        child: SizedBox(
+                          height: constraints.maxHeight,
+                          width: constraints.maxWidth,
+                          child: effectiveSection == AppSection.home
+                              ? Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    LandingScreen(
+                                      onFinished: _onLandingFinished,
                                     ),
-                                child: KeyedSubtree(
+                                    if (_showMenuGuide)
+                                      Positioned.fill(
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.translucent,
+                                          onTap: _dismissMenuGuide,
+                                          child: const SizedBox.expand(),
+                                        ),
+                                      ),
+                                    if (_showMenuGuide)
+                                      Positioned.fill(
+                                        child: MenuGuideArrow(
+                                          key: _menuGuideKey,
+                                          onFinished: _onMenuGuideFinished,
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              : KeyedSubtree(
                                   key: ValueKey(
                                     'section-$effectiveSection-$refreshTick',
                                   ),
                                   child: _bodyFor(effectiveSection),
                                 ),
-                              ),
-                            ],
-                          ),
-                  ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          const Positioned(
-            right: 16,
-            bottom: 16,
-            child: SyncStatusIndicator(),
+                const Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: SyncStatusIndicator(),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -290,6 +271,9 @@ class _AppShellState extends ConsumerState<AppShell>
         return user.hasPermission(AppPermission.global928);
       case AppSection.lro:
         return user.hasPermission(AppPermission.lro);
+      case AppSection.countyInfo:
+      case AppSection.countyVideos:
+        return true;
     }
   }
 
@@ -321,6 +305,10 @@ class _AppShellState extends ConsumerState<AppShell>
         return 'Cancellations';
       case AppSection.duplicateReport:
         return 'Duplicate Management';
+      case AppSection.countyInfo:
+        return 'County Info';
+      case AppSection.countyVideos:
+        return 'County Videos';
     }
   }
 
@@ -352,6 +340,10 @@ class _AppShellState extends ConsumerState<AppShell>
         return const CancellationsScreen();
       case AppSection.duplicateReport:
         return const DuplicateReportScreen();
+      case AppSection.countyInfo:
+        return const InfoContentScreen();
+      case AppSection.countyVideos:
+        return const VideosContentScreen();
     }
   }
 }
