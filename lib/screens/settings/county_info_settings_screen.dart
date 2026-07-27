@@ -127,13 +127,25 @@ class _CountyInfoSettingsScreenState
     if (admin == null || !admin.isAdmin) return;
     if (!_canSave) return;
 
-    final allFourChanged = _allFieldsChanged;
+    // Always re-check at save time — warning every Save when all 4 differ.
+    final allFourChanged = countyAllFourFieldsChanged(
+      name: _nameController.text,
+      address: _addressController.text,
+      contact: _contactController.text,
+      registration: _registrationController.text,
+      originalName: _originalName,
+      originalAddress: _originalAddress,
+      originalContact: _originalContact,
+      originalRegistration: _originalRegistration,
+    );
     var isNewCounty = false;
 
-    // Modal warning when ALL 4 fields changed — must type CONFIRM.
     if (allFourChanged) {
       final confirmed = await showNewCountyWarningDialog(context);
-      if (!confirmed) return;
+      if (!confirmed || !mounted) {
+        setState(() {}); // keep Save enabled; warning will show again next Save
+        return;
+      }
       isNewCounty = true;
     }
 
@@ -297,201 +309,282 @@ class _CountyInfoSettingsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('County Information (v1.17.2)'),
-        backgroundColor: AppTheme.forestGreen,
+        title: const Text('County Information'),
+        backgroundColor: const Color(0xFF0A0A0A),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: _showHelpDialog,
             tooltip: 'How it works',
+            color: Colors.white,
           ),
         ],
       ),
       body: ColoredBox(
         color: const Color(0xFF0A0A0A),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade900,
-                  borderRadius: BorderRadius.circular(8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 720;
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 900,
+                  minHeight: constraints.maxHeight < 650
+                      ? constraints.maxHeight
+                      : 650,
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.business, color: Colors.blue.shade300, size: 32),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'County Information',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                child: Container(
+                  margin: EdgeInsets.symmetric(
+                    horizontal: wide ? 48 : 16,
+                    vertical: wide ? 32 : 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade900,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade700),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(wide ? 40 : 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.business,
+                              color: Colors.blue.shade300,
+                              size: 32,
                             ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'County Information',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Update county details. Changing ALL 4 fields '
+                                    'registers a NEW county (CONFIRM required each time).',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                        _field(
+                          controller: _nameController,
+                          label: 'County Name',
+                          icon: Icons.business,
+                          changed: _nameChanged,
+                          isLarge: true,
+                        ),
+                        const SizedBox(height: 20),
+                        _field(
+                          controller: _addressController,
+                          label: 'County Address',
+                          icon: Icons.location_on,
+                          changed: _addressChanged,
+                          maxLines: 2,
+                          isLarge: true,
+                        ),
+                        const SizedBox(height: 20),
+                        if (wide)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _field(
+                                  controller: _contactController,
+                                  label: 'County Contact No.',
+                                  icon: Icons.phone,
+                                  changed: _contactChanged,
+                                  isLarge: true,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _field(
+                                  controller: _registrationController,
+                                  label: 'County Registration No.',
+                                  icon: Icons.numbers,
+                                  changed: _registrationChanged,
+                                  isLarge: true,
+                                ),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          _field(
+                            controller: _contactController,
+                            label: 'County Contact No.',
+                            icon: Icons.phone,
+                            changed: _contactChanged,
+                            isLarge: true,
                           ),
-                          Text(
-                            'Update county details. Changing ALL 4 fields registers a NEW county.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade400,
+                          const SizedBox(height: 20),
+                          _field(
+                            controller: _registrationController,
+                            label: 'County Registration No.',
+                            icon: Icons.numbers,
+                            changed: _registrationChanged,
+                            isLarge: true,
+                          ),
+                        ],
+                        if (_allFieldsChanged) ...[
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade900.withValues(alpha: 0.35),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.shade400),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.warning_amber,
+                                  color: Colors.red.shade200,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'NEW COUNTY: all 4 fields changed. '
+                                    'Each Save opens the CONFIRM warning dialog.',
+                                    style: TextStyle(
+                                      color: Colors.red.shade100,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: _canSave ? _saveCountyInfo : null,
+                            icon: _isSaving
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(
+                                    _allFieldsChanged
+                                        ? Icons.warning
+                                        : Icons.save,
+                                  ),
+                            label: Text(
+                              _isSaving
+                                  ? 'Saving...'
+                                  : _allFieldsChanged
+                                      ? 'Save (New County Warning)'
+                                      : 'Save Changes',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _allFieldsChanged
+                                  ? Colors.red.shade700
+                                  : (_canSave
+                                      ? Colors.blue
+                                      : Colors.grey.shade700),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: Colors.grey.shade700,
+                              disabledForegroundColor: Colors.grey.shade500,
+                            ),
+                          ),
+                        ),
+                        if (_countyInfo != null) ...[
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade800),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Current County Information',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade300,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                _infoRow('Name', _countyInfo!.countyName),
+                                _infoRow('Address', _countyInfo!.countyAddress),
+                                _infoRow(
+                                  'Contact',
+                                  _countyInfo!.countyContactNo.isEmpty
+                                      ? 'Not set'
+                                      : _countyInfo!.countyContactNo,
+                                ),
+                                _infoRow(
+                                  'Registration',
+                                  _countyInfo!.countyRegistrationNo,
+                                ),
+                                _infoRow(
+                                  'Last Updated',
+                                  _countyInfo!.lastUpdated
+                                      .toLocal()
+                                      .toString()
+                                      .substring(0, 16),
+                                ),
+                                if (_countyInfo!.resetCount > 0)
+                                  _infoRow(
+                                    'County Resets',
+                                    _countyInfo!.resetCount.toString(),
+                                  ),
+                                if (_countyInfo!.lastResetDate != null)
+                                  _infoRow(
+                                    'Last Reset',
+                                    _countyInfo!.lastResetDate!
+                                        .toLocal()
+                                        .toString()
+                                        .substring(0, 16),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Order: Name → Address → Contact → Registration
-              _field(
-                controller: _nameController,
-                label: 'County Name',
-                icon: Icons.business,
-                changed: _nameChanged,
-              ),
-              const SizedBox(height: 16),
-              _field(
-                controller: _addressController,
-                label: 'County Address',
-                icon: Icons.location_on,
-                changed: _addressChanged,
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              _field(
-                controller: _contactController,
-                label: 'County Contact No.',
-                icon: Icons.phone,
-                changed: _contactChanged,
-              ),
-              const SizedBox(height: 16),
-              _field(
-                controller: _registrationController,
-                label: 'County Registration No.',
-                icon: Icons.numbers,
-                changed: _registrationChanged,
-              ),
-              if (_allFieldsChanged) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade900.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade700),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber, color: Colors.orange.shade300),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'All 4 fields changed. Saving will open a New County confirmation dialog.',
-                          style: TextStyle(
-                            color: Colors.orange.shade100,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _canSave ? _saveCountyInfo : null,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Icon(
-                          _allFieldsChanged ? Icons.warning : Icons.save,
-                        ),
-                  label: Text(
-                    _isSaving
-                        ? 'Saving...'
-                        : _allFieldsChanged
-                            ? 'Save (New County Warning)'
-                            : 'Save Changes',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _allFieldsChanged
-                        ? Colors.red.shade700
-                        : (_canSave ? Colors.blue : Colors.grey.shade700),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    disabledBackgroundColor: Colors.grey.shade700,
-                    disabledForegroundColor: Colors.grey.shade500,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              if (_countyInfo != null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade900,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Current County Information',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade300,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _infoRow('Name', _countyInfo!.countyName),
-                      _infoRow('Address', _countyInfo!.countyAddress),
-                      _infoRow('Contact', _countyInfo!.countyContactNo),
-                      _infoRow(
-                        'Registration',
-                        _countyInfo!.countyRegistrationNo,
-                      ),
-                      _infoRow(
-                        'Last Updated',
-                        _countyInfo!.lastUpdated
-                            .toLocal()
-                            .toString()
-                            .substring(0, 16),
-                      ),
-                      if (_countyInfo!.resetCount > 0)
-                        _infoRow(
-                          'County Resets',
-                          _countyInfo!.resetCount.toString(),
-                        ),
-                      if (_countyInfo!.lastResetDate != null)
-                        _infoRow(
-                          'Last Reset',
-                          _countyInfo!.lastResetDate!
-                              .toLocal()
-                              .toString()
-                              .substring(0, 16),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -503,23 +596,50 @@ class _CountyInfoSettingsScreenState
     required IconData icon,
     required bool changed,
     int maxLines = 1,
+    bool isLarge = false,
   }) {
     return TextField(
       controller: controller,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: isLarge ? 16 : 14,
+      ),
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey.shade400),
+        labelStyle: TextStyle(
+          color: Colors.grey.shade400,
+          fontSize: isLarge ? 15 : 13,
+        ),
         hintText: 'Enter $label',
         hintStyle: TextStyle(color: Colors.grey.shade600),
         filled: true,
-        fillColor: Colors.grey.shade900,
+        fillColor: Colors.grey.shade800,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: isLarge ? 18 : 14,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        prefixIcon: Icon(icon, color: Colors.blue.shade300),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: changed ? Colors.orange.shade700 : Colors.grey.shade700,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: changed ? Colors.orange : Colors.blue,
+            width: 2,
+          ),
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: changed ? Colors.orange : Colors.blue.shade300,
+        ),
         suffixIcon: changed
             ? const Icon(Icons.edit, color: Colors.orange)
             : null,
@@ -529,7 +649,7 @@ class _CountyInfoSettingsScreenState
 
   Widget _infoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -537,13 +657,13 @@ class _CountyInfoSettingsScreenState
             width: 110,
             child: Text(
               '$label:',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               value.isEmpty ? '—' : value,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),
         ],

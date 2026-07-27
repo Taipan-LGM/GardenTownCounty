@@ -21,6 +21,7 @@ class AppDrawer extends ConsumerWidget {
     final profile = ref.watch(countyProfileProvider).valueOrNull;
     final countyName = profile?.countyName ?? 'Garden Town County';
     final countyAddress = profile?.countyAddress.trim() ?? '';
+    final countyContactNo = profile?.countyContactNo.trim() ?? '';
     final countyRegNo = profile?.countyRegNo.trim() ?? '';
 
     bool can(AppPermission p) =>
@@ -298,6 +299,11 @@ class AppDrawer extends ConsumerWidget {
                     _countyField(
                       label: strings.countyAddress,
                       value: countyAddress.isEmpty ? '—' : countyAddress,
+                    ),
+                    const SizedBox(height: 6),
+                    _countyField(
+                      label: strings.countyContactNo,
+                      value: countyContactNo.isEmpty ? 'Not set' : countyContactNo,
                     ),
                     const SizedBox(height: 6),
                     _countyField(

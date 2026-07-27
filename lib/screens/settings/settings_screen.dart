@@ -441,7 +441,10 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
     var isNewCounty = false;
     if (allFourChanged) {
       final confirmed = await showNewCountyWarningDialog(context);
-      if (!confirmed || !mounted) return;
+      if (!confirmed || !mounted) {
+        setState(() {}); // warning must show again on next Save
+        return;
+      }
       isNewCounty = true;
     }
 
@@ -500,14 +503,17 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
     profileAsync.whenData(_markLogosReady);
 
     return Dialog(
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+        constraints: BoxConstraints(
+          maxWidth: 900,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              padding: const EdgeInsets.fromLTRB(24, 16, 8, 0),
               child: Row(
                 children: [
                   Text(
@@ -529,12 +535,148 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
             const Divider(),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                 children: [
+                  // Identity first so fields visible without scrolling past logos.
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            strings.countyInfo,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _name,
+                            style: const TextStyle(fontSize: 16),
+                            decoration: InputDecoration(
+                              labelText: strings.countyName,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _address,
+                            style: const TextStyle(fontSize: 16),
+                            decoration: InputDecoration(
+                              labelText: strings.countyAddress,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                            ),
+                            maxLines: 2,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _contact,
+                                  style: const TextStyle(fontSize: 16),
+                                  decoration: InputDecoration(
+                                    labelText: strings.countyContactNo,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextField(
+                                  controller: _reg,
+                                  style: const TextStyle(fontSize: 16),
+                                  decoration: InputDecoration(
+                                    labelText: strings.countyRegNo,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Builder(
+                            builder: (context) {
+                              final allFour = countyAllFourFieldsChanged(
+                                name: _name.text,
+                                address: _address.text,
+                                contact: _contact.text,
+                                registration: _reg.text,
+                                originalName: _originalName,
+                                originalAddress: _originalAddress,
+                                originalContact: _originalContact,
+                                originalRegistration: _originalRegistration,
+                              );
+                              if (!allFour) {
+                                return Text(
+                                  'Changing ALL 4 fields opens a New County '
+                                  'warning (type CONFIRM) every time you Save.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                );
+                              }
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.red.shade300),
+                                ),
+                                child: Text(
+                                  'NEW COUNTY: all 4 fields changed. '
+                                  'Save will show CONFIRM warning each time.',
+                                  style: TextStyle(
+                                    color: Colors.red.shade800,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            height: 48,
+                            child: FilledButton.icon(
+                              onPressed: (_saving || !_identityReady)
+                                  ? null
+                                  : _saveCounty,
+                              icon: _saving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.save),
+                              label: Text(strings.save),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Card(
                     color: AppTheme.cream,
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -604,72 +746,6 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                               padding:
                                   const EdgeInsets.symmetric(vertical: 14),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            strings.countyInfo,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _name,
-                            decoration: InputDecoration(
-                              labelText: strings.countyName,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _address,
-                            decoration: InputDecoration(
-                              labelText: strings.countyAddress,
-                            ),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _contact,
-                            decoration: InputDecoration(
-                              labelText: strings.countyContactNo,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _reg,
-                            decoration: InputDecoration(
-                              labelText: strings.countyRegNo,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Changing ALL 4 fields opens a New County warning '
-                            '(type CONFIRM). Logos save separately above.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: (_saving || !_identityReady)
-                                ? null
-                                : _saveCounty,
-                            icon: _saving
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.save),
-                            label: Text(strings.save),
                           ),
                         ],
                       ),

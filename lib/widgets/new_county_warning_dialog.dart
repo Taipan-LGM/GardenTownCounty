@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 /// Returns true only if user types CONFIRM and taps Confirm New County.
 Future<bool> showNewCountyWarningDialog(BuildContext context) async {
   var confirmText = '';
+  // useRootNavigator: true — required when opened from County Settings Dialog
+  // so Cancel then Save again always shows a fresh warning (not swallowed).
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
+    useRootNavigator: true,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setDialogState) {
@@ -101,12 +104,14 @@ Future<bool> showNewCountyWarningDialog(BuildContext context) async {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.of(context, rootNavigator: true)
+                    .pop(false),
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed:
-                    canConfirm ? () => Navigator.pop(context, true) : null,
+                onPressed: canConfirm
+                    ? () => Navigator.of(context, rootNavigator: true).pop(true)
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       canConfirm ? Colors.red : Colors.grey.shade600,
