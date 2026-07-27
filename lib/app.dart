@@ -23,7 +23,6 @@ import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
 import 'widgets/app_drawer.dart';
 import 'widgets/app_top_bar.dart';
-import 'widgets/menu_guide_arrow.dart';
 import 'widgets/sync_status_indicator.dart';
 
 class GardenTownCountyApp extends ConsumerWidget {
@@ -55,10 +54,6 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _backupReminderShown = false;
-  bool _showMenuGuide = false;
-  bool _menuGuideShownThisSession = false;
-  final GlobalKey<MenuGuideArrowState> _menuGuideKey =
-      GlobalKey<MenuGuideArrowState>();
 
   @override
   void initState() {
@@ -86,25 +81,6 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 
-  Future<void> _maybeStartMenuGuide() async {
-    if (_showMenuGuide || _menuGuideShownThisSession) return;
-    if (!mounted) return;
-    // Prefer pending flag from login/session restore; still show once if
-    // legacy installs had the old 3-login cap cleared.
-    await takeMenuGuidePending();
-    if (!mounted) return;
-    _menuGuideShownThisSession = true;
-    setState(() => _showMenuGuide = true);
-  }
-
-  void _dismissMenuGuide() {
-    _menuGuideKey.currentState?.dismiss();
-  }
-
-  void _onMenuGuideFinished() {
-    if (!_showMenuGuide) return;
-    setState(() => _showMenuGuide = false);
-  }
 
   Future<void> _maybeRemindBackup() async {
     if (_backupReminderShown) return;
@@ -128,12 +104,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _onLandingFinished() {
     ref.read(landingCompleteProvider.notifier).state = true;
-    // Stay on Home — first logo remains fixed as background.
     ref.read(appSectionProvider.notifier).state = AppSection.home;
-    // After logo shrink+slide finishes, show one-time MENU arrow guide.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeStartMenuGuide();
-    });
   }
 
   @override
@@ -163,9 +134,6 @@ class _AppShellState extends ConsumerState<AppShell>
             )
           : null,
       drawer: const AppDrawer(),
-      onDrawerChanged: (opened) {
-        if (opened) _dismissMenuGuide();
-      },
       body: Column(
         children: [
           SafeArea(
@@ -174,7 +142,6 @@ class _AppShellState extends ConsumerState<AppShell>
               builder: (barContext) {
                 return AppTopBar(
                   onOpenMenu: () {
-                    _dismissMenuGuide();
                     Scaffold.of(barContext).openDrawer();
                   },
                 );
@@ -199,28 +166,8 @@ class _AppShellState extends ConsumerState<AppShell>
                           height: constraints.maxHeight,
                           width: constraints.maxWidth,
                           child: effectiveSection == AppSection.home
-                              ? Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    LandingScreen(
-                                      onFinished: _onLandingFinished,
-                                    ),
-                                    if (_showMenuGuide)
-                                      Positioned.fill(
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.translucent,
-                                          onTap: _dismissMenuGuide,
-                                          child: const SizedBox.expand(),
-                                        ),
-                                      ),
-                                    if (_showMenuGuide)
-                                      Positioned.fill(
-                                        child: MenuGuideArrow(
-                                          key: _menuGuideKey,
-                                          onFinished: _onMenuGuideFinished,
-                                        ),
-                                      ),
-                                  ],
+                              ? LandingScreen(
+                                  onFinished: _onLandingFinished,
                                 )
                               : KeyedSubtree(
                                   key: ValueKey(

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/providers.dart';
-import '../../widgets/menu_guide_arrow.dart';
 import '../../widgets/legal_disclaimer_dialog.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -61,9 +60,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
 
       ref.read(authUserProvider.notifier).state = user;
-
-      // Arm MENU guide for landing splash (every login).
-      await registerMenuGuideLoginAttempt();
 
       // Record login with GPS in background — do not block sign-in on GPS wait.
       unawaited(

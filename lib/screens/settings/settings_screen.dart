@@ -14,7 +14,6 @@ import '../../widgets/new_county_warning_dialog.dart';
 import 'county_info_settings_screen.dart';
 import 'remuneration_dashboard_screen.dart';
 import 'remuneration_settings_screen.dart';
-import 'video_info_management_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -154,23 +153,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => const CountyInfoSettingsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                // NEW ADDITION - Video & Info Management
-                ListTile(
-                  leading: const Icon(Icons.video_library, color: Colors.green),
-                  title: const Text('Video & Info Management'),
-                  subtitle: const Text(
-                    'Upload PDF articles and videos for members',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const VideoInfoManagementScreen(),
                       ),
                     );
                   },

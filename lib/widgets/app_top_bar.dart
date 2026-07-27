@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import 'county_logo.dart';
 
-/// Fixed top chrome: logos + county name | Videos · Info · Menu.
+/// Fixed top chrome: Logo 1 + county name | Videos · Info · Menu.
 ///
 /// // NEW ADDITION - Delete this file to revert top bar layout.
 class AppTopBar extends ConsumerWidget {
@@ -39,9 +39,7 @@ class AppTopBar extends ConsumerWidget {
         child: Row(
           children: [
             const RoundCountyLogo(size: 48),
-            const SizedBox(width: 8),
-            const RoundCountyLogo(secondary: true, size: 40),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 countyName,
@@ -74,7 +72,6 @@ class AppTopBar extends ConsumerWidget {
               label: 'Menu',
               selected: false,
               onTap: onOpenMenu,
-              highlight: true,
             ),
           ],
         ),
@@ -89,18 +86,15 @@ class _TabChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.highlight = false,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
-    final active = selected || highlight;
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Material(
@@ -115,9 +109,7 @@ class _TabChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: selected
                   ? Border.all(color: Colors.blue.shade300, width: 1.5)
-                  : highlight
-                      ? Border.all(color: Colors.amber.shade600, width: 1.5)
-                      : null,
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -125,13 +117,13 @@ class _TabChip extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: active ? Colors.white : Colors.grey.shade400,
+                  color: selected ? Colors.white : Colors.grey.shade400,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   label,
                   style: TextStyle(
-                    color: active ? Colors.white : Colors.grey.shade400,
+                    color: selected ? Colors.white : Colors.grey.shade400,
                     fontSize: 13,
                     fontWeight:
                         selected ? FontWeight.bold : FontWeight.normal,
