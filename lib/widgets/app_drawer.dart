@@ -339,15 +339,15 @@ class AppDrawer extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'This will create 10 demo members with:',
+              'This will create demo data for:',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text('• South African ID numbers'),
-            Text('• Realistic names (South African leaders)'),
-            Text('• Various step completions (1–3)'),
-            Text('• Some expired reminders'),
-            Text('• Mix of assigned / unassigned RS'),
+            Text('• 10 members + onboarding reminders'),
+            Text('• Duplicate Manager (3 pairs)'),
+            Text('• Cancellations (5 cancelled members)'),
+            Text('• Info (8 Garden Town articles)'),
+            Text('• Videos (6 member videos)'),
             SizedBox(height: 12),
             Text(
               'Adds to existing data (skips IDs that already exist).',
@@ -378,20 +378,27 @@ class AppDrawer extends ConsumerWidget {
           await ref.read(demoDataServiceProvider).generateDemoData();
       ref.invalidate(membersProvider);
       ref.invalidate(appUsersProvider);
+      ref.invalidate(cancelledMembersProvider);
       ref.invalidate(activeOnboardingRemindersProvider);
       ref.invalidate(reminderStatsProvider);
       ref.invalidate(activeReminderCountProvider);
+      ref.invalidate(publishedArticlesProvider);
+      ref.invalidate(activeVideosProvider);
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Demo data ready: ${result.membersCreated} members, '
-            '${result.remindersCreated} reminders created '
+            '${result.remindersCreated} reminders, '
+            '${result.duplicateMembersCreated} duplicates, '
+            '${result.cancelledMembersCreated} cancelled, '
+            '${result.articlesCreated} articles, '
+            '${result.videosCreated} videos '
             '(existing IDs skipped).',
           ),
           backgroundColor: Colors.green,
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
         ),
       );
     } catch (e) {

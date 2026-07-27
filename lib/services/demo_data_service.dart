@@ -1,11 +1,13 @@
 import '../models/app_user.dart';
+import '../models/county_article.dart';
+import '../models/county_video.dart';
 import '../models/member.dart';
 import '../models/reminder.dart';
 import '../models/user_role.dart';
 import 'database_service.dart';
 import 'password_hasher.dart';
 
-/// Generates 10 South African leader demo members + onboarding reminders.
+/// Generates demo members, reminders, duplicates, cancellations, Info & Videos.
 ///
 /// // NEW ADDITION - Delete this file to revert drawer Demo Data generation.
 class DemoDataService {
@@ -67,10 +69,608 @@ class DemoDataService {
       );
     }
 
+    final duplicatesCreated = await _generateDuplicateMembers(now);
+    final cancelledCreated = await _generateCancelledMembers(now);
+    final articlesCreated = await _generateInfoArticles(now);
+    final videosCreated = await _generateVideos(now);
+
     return DemoDataResult(
       membersCreated: membersCreated,
       remindersCreated: remindersCreated,
+      duplicateMembersCreated: duplicatesCreated,
+      cancelledMembersCreated: cancelledCreated,
+      articlesCreated: articlesCreated,
+      videosCreated: videosCreated,
     );
+  }
+
+  /// 3 duplicate pairs (6 members) for Duplicate Manager.
+  Future<int> _generateDuplicateMembers(DateTime now) async {
+    var created = 0;
+    for (final member in _buildDuplicateMembers(now)) {
+      if (await _db.getMemberById(member.id) != null) continue;
+      await _db.forceUpsertMember(member);
+      created++;
+    }
+    return created;
+  }
+
+  /// 5 cancelled members for Cancellations screen.
+  Future<int> _generateCancelledMembers(DateTime now) async {
+    var created = 0;
+    for (final member in _buildCancelledMembers(now)) {
+      if (await _db.getMemberById(member.id) != null) continue;
+      await _db.forceUpsertMember(member);
+      created++;
+    }
+    return created;
+  }
+
+  Future<int> _generateInfoArticles(DateTime now) async {
+    var created = 0;
+    final existing = await _db.getAllArticles();
+    final ids = existing.map((a) => a.id).toSet();
+    for (final article in _buildArticles(now)) {
+      if (ids.contains(article.id)) continue;
+      await _db.upsertArticle(article);
+      created++;
+    }
+    return created;
+  }
+
+  Future<int> _generateVideos(DateTime now) async {
+    var created = 0;
+    final existing = await _db.getAllVideos();
+    final ids = existing.map((v) => v.id).toSet();
+    for (final video in _buildVideos(now)) {
+      if (ids.contains(video.id)) continue;
+      await _db.upsertVideo(video);
+      created++;
+    }
+    return created;
+  }
+
+  List<Member> _buildDuplicateMembers(DateTime now) {
+    Member dup({
+      required String id,
+      required String saId,
+      required String gr,
+      required String name,
+      required String surname,
+      required String address,
+      required String suburb,
+      required String town,
+      required String postal,
+      required String c1,
+      required String c2,
+      required String email,
+      required String status,
+      required bool emailVerified,
+      required Duration age,
+    }) {
+      return Member(
+        id: id,
+        saId: saId,
+        globalRecordNo: gr,
+        memberName: name,
+        surname: surname,
+        address: address,
+        suburb: suburb,
+        townCity: town,
+        postalCode: postal,
+        contactNo1: c1,
+        contactNo2: c2,
+        emailAddress: email,
+        registrationStatus: status,
+        isEmailVerified: emailVerified,
+        step1MemberInfoComplete: true,
+        step2Global528Complete: status == 'complete',
+        step3Global928Complete: false,
+        step4LROComplete: false,
+        createdAt: now.subtract(age),
+        updatedAt: now,
+        pendingSync: true,
+        createdBy: 'demo',
+      );
+    }
+
+    return [
+      dup(
+        id: 'dup_001',
+        saId: '8111015009087',
+        gr: 'GRDUP001',
+        name: 'John',
+        surname: 'Doe',
+        address: '123 Main Street',
+        suburb: 'Sandton',
+        town: 'Johannesburg',
+        postal: '2196',
+        c1: '0821234567',
+        c2: '0827654321',
+        email: 'john.doe@email.com',
+        status: 'complete',
+        emailVerified: true,
+        age: const Duration(days: 10),
+      ),
+      dup(
+        id: 'dup_002',
+        saId: '8111015009087',
+        gr: 'GRDUP002',
+        name: 'Johnathan',
+        surname: 'Doherty',
+        address: '456 Oak Avenue',
+        suburb: 'Rosebank',
+        town: 'Johannesburg',
+        postal: '2196',
+        c1: '0834567890',
+        c2: '0830987654',
+        email: 'johnathan.doherty@email.com',
+        status: 'pending',
+        emailVerified: false,
+        age: const Duration(days: 5),
+      ),
+      dup(
+        id: 'dup_003',
+        saId: '8512012345678',
+        gr: 'GRDUP003',
+        name: 'Mary',
+        surname: 'Brown',
+        address: '789 Pine Road',
+        suburb: 'Melrose',
+        town: 'Johannesburg',
+        postal: '2196',
+        c1: '0845678901',
+        c2: '0841098765',
+        email: 'mary.brown@email.com',
+        status: 'complete',
+        emailVerified: true,
+        age: const Duration(days: 15),
+      ),
+      dup(
+        id: 'dup_004',
+        saId: '9015017890123',
+        gr: 'GRDUP003',
+        name: 'Maria',
+        surname: 'Browne',
+        address: '321 Elm Street',
+        suburb: 'Bryanston',
+        town: 'Johannesburg',
+        postal: '2196',
+        c1: '0856789012',
+        c2: '0852109876',
+        email: 'maria.browne@email.com',
+        status: 'in_progress',
+        emailVerified: true,
+        age: const Duration(days: 3),
+      ),
+      dup(
+        id: 'dup_005',
+        saId: '9516019876543',
+        gr: 'GRDUP004',
+        name: 'Peter',
+        surname: 'Wilson',
+        address: '789 Maputo Street',
+        suburb: 'Norwood',
+        town: 'Johannesburg',
+        postal: '2192',
+        c1: '0867890123',
+        c2: '0863210987',
+        email: 'peter.wilson@email.com',
+        status: 'complete',
+        emailVerified: true,
+        age: const Duration(days: 20),
+      ),
+      dup(
+        id: 'dup_006',
+        saId: '9516019876543',
+        gr: 'GRDUP004',
+        name: 'Petra',
+        surname: 'Wilsonson',
+        address: '456 Jazz Avenue',
+        suburb: 'Kliptown',
+        town: 'Johannesburg',
+        postal: '1804',
+        c1: '0878901234',
+        c2: '0874321098',
+        email: 'petra.wilsonson@email.com',
+        status: 'pending',
+        emailVerified: false,
+        age: const Duration(days: 1),
+      ),
+    ];
+  }
+
+  List<Member> _buildCancelledMembers(DateTime now) {
+    Member can({
+      required String id,
+      required String saId,
+      required String gr,
+      required String name,
+      required String surname,
+      required String address,
+      required String suburb,
+      required String town,
+      required String postal,
+      required String c1,
+      required String c2,
+      required String email,
+      required Duration createdAge,
+      required Duration cancelAge,
+      required String reason,
+    }) {
+      return Member(
+        id: id,
+        saId: saId,
+        globalRecordNo: gr,
+        memberName: name,
+        surname: surname,
+        address: address,
+        suburb: suburb,
+        townCity: town,
+        postalCode: postal,
+        contactNo1: c1,
+        contactNo2: c2,
+        emailAddress: email,
+        registrationStatus: 'cancelled',
+        isEmailVerified: true,
+        step1MemberInfoComplete: true,
+        step2Global528Complete: true,
+        step3Global928Complete: true,
+        step4LROComplete: false,
+        isCancelled: true,
+        cancellationDate: now.subtract(cancelAge),
+        cancellationReason: reason,
+        cancelledBy: 'demo',
+        isLocked: false,
+        createdAt: now.subtract(createdAge),
+        updatedAt: now,
+        pendingSync: true,
+        createdBy: 'demo',
+      );
+    }
+
+    return [
+      can(
+        id: 'can_001',
+        saId: '8603012345678',
+        gr: 'GRCAN001',
+        name: 'Alice',
+        surname: 'Johnson',
+        address: '123 Freedom Road',
+        suburb: 'Mamelodi',
+        town: 'Pretoria',
+        postal: '0122',
+        c1: '0889012345',
+        c2: '0885432109',
+        email: 'alice.johnson@email.com',
+        createdAge: const Duration(days: 90),
+        cancelAge: const Duration(days: 60),
+        reason: 'Member requested cancellation',
+      ),
+      can(
+        id: 'can_002',
+        saId: '8404012345678',
+        gr: 'GRCAN002',
+        name: 'Robert',
+        surname: 'Williams',
+        address: '456 Constitution Hill',
+        suburb: 'Braamfontein',
+        town: 'Johannesburg',
+        postal: '2001',
+        c1: '0890123456',
+        c2: '0896543210',
+        email: 'robert.williams@email.com',
+        createdAge: const Duration(days: 180),
+        cancelAge: const Duration(days: 30),
+        reason: 'Inactive for 6 months',
+      ),
+      can(
+        id: 'can_003',
+        saId: '8205012345678',
+        gr: 'GRCAN003',
+        name: 'Sarah',
+        surname: 'Jones',
+        address: '789 Vilakazi Street',
+        suburb: 'Soweto',
+        town: 'Johannesburg',
+        postal: '1804',
+        c1: '0822345678',
+        c2: '0828765432',
+        email: 'sarah.jones@email.com',
+        createdAge: const Duration(days: 120),
+        cancelAge: const Duration(days: 45),
+        reason: 'Transferred to another county',
+      ),
+      can(
+        id: 'can_004',
+        saId: '8906012345678',
+        gr: 'GRCAN004',
+        name: 'Michael',
+        surname: 'Taylor',
+        address: '321 Mandela Street',
+        suburb: 'Orlando West',
+        town: 'Johannesburg',
+        postal: '1804',
+        c1: '0833456789',
+        c2: '0839876543',
+        email: 'michael.taylor@email.com',
+        createdAge: const Duration(days: 60),
+        cancelAge: const Duration(days: 15),
+        reason: 'Membership fees not paid',
+      ),
+      can(
+        id: 'can_005',
+        saId: '8707012345678',
+        gr: 'GRCAN005',
+        name: 'Emma',
+        surname: 'Davis',
+        address: '789 Maponya Street',
+        suburb: 'Dube',
+        town: 'Johannesburg',
+        postal: '1804',
+        c1: '0844567890',
+        c2: '0841098765',
+        email: 'emma.davis@email.com',
+        createdAge: const Duration(days: 365),
+        cancelAge: const Duration(days: 90),
+        reason: 'Deceased member',
+      ),
+    ];
+  }
+
+  List<CountyArticle> _buildArticles(DateTime now) {
+    CountyArticle art({
+      required String id,
+      required String title,
+      required String content,
+      required String author,
+      required String category,
+      required Duration age,
+    }) {
+      return CountyArticle(
+        id: id,
+        title: title,
+        content: content.trim(),
+        author: author,
+        category: category,
+        isPublished: true,
+        createdAt: now.subtract(age),
+        updatedAt: now.subtract(age),
+        createdBy: 'demo',
+        syncStatus: 'pending',
+      );
+    }
+
+    return [
+      art(
+        id: 'art_001',
+        title: 'Welcome to Garden Town County',
+        author: 'Admin',
+        category: 'general',
+        age: const Duration(days: 30),
+        content: '''
+Garden Town County is a vibrant community dedicated to sustainable living,
+community development, and environmental stewardship. Our county spans over
+500 hectares of lush gardens, parks, and residential areas.
+We pride ourselves on being a model for sustainable urban development in
+South Africa. Our community members enjoy access to world-class facilities,
+educational programs, and a supportive network of neighbors.
+Join us in building a greener, more connected future for generations to come.
+''',
+      ),
+      art(
+        id: 'art_002',
+        title: 'Community Garden Project Launch',
+        author: 'Sarah Johnson',
+        category: 'news',
+        age: const Duration(days: 20),
+        content: '''
+We are excited to announce the launch of our new Community Garden Project!
+This initiative aims to create sustainable food sources for our residents
+while promoting environmental education.
+The project will feature:
+- 50 community garden plots
+- Educational workshops on sustainable farming
+- A farmers market every Saturday
+- Youth gardening programs
+Registration opens on the 1st of August. Please contact the County Office
+for more information.
+''',
+      ),
+      art(
+        id: 'art_003',
+        title: 'Water Conservation Guidelines',
+        author: 'Environmental Department',
+        category: 'announcement',
+        age: const Duration(days: 15),
+        content: '''
+As part of our commitment to environmental sustainability, Garden Town County
+has implemented new water conservation guidelines for all residents.
+Key guidelines include:
+- Use of rainwater harvesting systems
+- Greywater recycling for gardens
+- Smart irrigation systems
+- Water-wise landscaping requirements
+These guidelines will help us reduce water consumption by 30% over the next year.
+''',
+      ),
+      art(
+        id: 'art_004',
+        title: 'Annual Garden Festival 2026',
+        author: 'Events Committee',
+        category: 'event',
+        age: const Duration(days: 10),
+        content: '''
+Mark your calendars! The Annual Garden Town County Festival will take place
+from December 10-12, 2026.
+This year's festival will feature:
+- Flower exhibition and competition
+- Gardening workshops
+- Local food and craft stalls
+- Live music and entertainment
+- Children's activities
+We invite all residents and visitors to join this celebration of our beautiful
+county. Volunteers are needed - please sign up at the County Office.
+''',
+      ),
+      art(
+        id: 'art_005',
+        title: 'New Recycling Program',
+        author: 'Sustainability Team',
+        category: 'announcement',
+        age: const Duration(days: 7),
+        content: '''
+Garden Town County is proud to announce our new comprehensive recycling program.
+This initiative aims to reduce waste and promote a circular economy.
+Recycling services now include:
+- Weekly curbside collection for recyclables
+- Electronic waste drop-off points
+- Composting facilities
+- Recycling education programs
+Together, we can work towards a zero-waste community!
+''',
+      ),
+      art(
+        id: 'art_006',
+        title: 'Meet Our New County Manager',
+        author: 'County Office',
+        category: 'news',
+        age: const Duration(days: 5),
+        content: '''
+We are pleased to welcome Dr. Michael Thompson as our new County Manager.
+Dr. Thompson brings over 20 years of experience in community development
+and sustainable urban planning.
+His vision for Garden Town County includes:
+- Enhanced community engagement
+- Sustainable development initiatives
+- Improved public services
+- Economic growth and job creation
+Please join us in welcoming Dr. Thompson at the next community meeting on
+August 15th.
+''',
+      ),
+      art(
+        id: 'art_007',
+        title: 'Home Gardening Tips for Beginners',
+        author: 'Gardening Club',
+        category: 'general',
+        age: const Duration(days: 3),
+        content: '''
+Starting your own garden can be a rewarding experience. Here are some tips
+to get you started in Garden Town County:
+1. Start small with a few easy-to-grow plants
+2. Choose native plants that thrive in our climate
+3. Use quality soil and compost
+4. Water deeply but less frequently
+5. Join the community garden club for support
+Our gardening experts are available every Saturday at the Community Center
+for advice and guidance.
+''',
+      ),
+      art(
+        id: 'art_008',
+        title: 'County Development Plan 2026-2030',
+        author: 'Planning Department',
+        category: 'announcement',
+        age: const Duration(days: 1),
+        content: '''
+Garden Town County has unveiled its five-year development plan for 2026-2030.
+This comprehensive plan outlines our vision for sustainable growth and
+community development.
+Key priorities include:
+- Infrastructure development and maintenance
+- Environmental conservation
+- Economic diversification
+- Social inclusion and housing
+- Digital transformation
+The full plan is available for review at the County Office or on our website.
+''',
+      ),
+    ];
+  }
+
+  List<CountyVideo> _buildVideos(DateTime now) {
+    CountyVideo vid({
+      required String id,
+      required String title,
+      required String description,
+      required String file,
+      required String duration,
+      required String category,
+      required Duration age,
+    }) {
+      return CountyVideo(
+        id: id,
+        title: title,
+        description: description,
+        videoLocalPath: 'demo://videos/$file.mp4',
+        videoUrl: 'https://example.com/videos/$file.mp4',
+        thumbnailUrl: 'https://example.com/thumbnails/$file.jpg',
+        duration: duration,
+        category: category,
+        isActive: true,
+        uploadedAt: now.subtract(age),
+        uploadedBy: 'demo',
+        syncStatus: 'pending',
+      );
+    }
+
+    return [
+      vid(
+        id: 'vid_001',
+        title: 'Welcome to Garden Town County',
+        description: 'A warm welcome to our beautiful county',
+        file: 'welcome',
+        duration: '2:30',
+        category: 'general',
+        age: const Duration(days: 30),
+      ),
+      vid(
+        id: 'vid_002',
+        title: 'Sustainable Living Tips',
+        description: 'Learn how to live sustainably in our community',
+        file: 'sustainable_living',
+        duration: '5:15',
+        category: 'tutorial',
+        age: const Duration(days: 25),
+      ),
+      vid(
+        id: 'vid_003',
+        title: 'Community Garden Tour',
+        description: 'Take a tour of our beautiful community gardens',
+        file: 'garden_tour',
+        duration: '8:45',
+        category: 'event',
+        age: const Duration(days: 20),
+      ),
+      vid(
+        id: 'vid_004',
+        title: 'Water Conservation Workshop',
+        description: 'Workshop on water conservation techniques',
+        file: 'water_conservation',
+        duration: '12:20',
+        category: 'tutorial',
+        age: const Duration(days: 15),
+      ),
+      vid(
+        id: 'vid_005',
+        title: 'Garden Festival Highlights 2025',
+        description: 'Highlights from our annual garden festival',
+        file: 'festival',
+        duration: '10:30',
+        category: 'event',
+        age: const Duration(days: 45),
+      ),
+      vid(
+        id: 'vid_006',
+        title: 'How to Start a Home Garden',
+        description: 'Step-by-step guide to starting your own garden',
+        file: 'home_garden',
+        duration: '15:00',
+        category: 'tutorial',
+        age: const Duration(days: 10),
+      ),
+    ];
   }
 
   Future<String?> _secretaryIdByUsername(String username) async {
@@ -567,8 +1167,16 @@ class DemoDataResult {
   const DemoDataResult({
     required this.membersCreated,
     required this.remindersCreated,
+    this.duplicateMembersCreated = 0,
+    this.cancelledMembersCreated = 0,
+    this.articlesCreated = 0,
+    this.videosCreated = 0,
   });
 
   final int membersCreated;
   final int remindersCreated;
+  final int duplicateMembersCreated;
+  final int cancelledMembersCreated;
+  final int articlesCreated;
+  final int videosCreated;
 }

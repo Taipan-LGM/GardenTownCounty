@@ -16,13 +16,34 @@ void main() {
   });
 
   group('DemoDataService', () {
-    test('creates 10 members and 10 reminders', () async {
+    test('creates members, reminders, duplicates, cancellations, media',
+        () async {
       final result = await DemoDataService(db).generateDemoData();
       expect(result.membersCreated, 10);
       expect(result.remindersCreated, 10);
+      expect(result.duplicateMembersCreated, 6);
+      expect(result.cancelledMembersCreated, 5);
+      expect(result.articlesCreated, 8);
+      expect(result.videosCreated, 6);
 
       final members = await db.getAllMembers();
-      expect(members.where((m) => m.id.startsWith('demo_')).length, 10);
+      expect(
+        members.where((m) => RegExp(r'^demo_\d{3}$').hasMatch(m.id)).length,
+        10,
+      );
+      expect(members.where((m) => m.id.startsWith('dup_')).length, 6);
+
+      final cancelled = await db.getCancelledMembers();
+      expect(cancelled.where((m) => m.id.startsWith('can_')).length, 5);
+
+      final groups = await db.findDuplicateMemberGroups();
+      expect(groups.length, greaterThanOrEqualTo(3));
+
+      final articles = await db.getAllArticles();
+      expect(articles.where((a) => a.id.startsWith('art_')).length, 8);
+
+      final videos = await db.getAllVideos();
+      expect(videos.where((v) => v.id.startsWith('vid_')).length, 6);
 
       final rem002 = await db.getReminderById('rem_demo_002');
       expect(rem002?.assignedSecretaryId, isNotNull);

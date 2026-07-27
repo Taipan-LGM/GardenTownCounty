@@ -121,7 +121,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 17,
+      version: 18,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -431,6 +431,97 @@ class DatabaseService {
     if (oldVersion < 17) {
       await _createCountyMediaTables(database);
     }
+    // v18: drop UNIQUE on saId/globalRecordNo so Duplicate Manager can
+    // surface (and demo can seed) true collisions. App-level checks remain.
+    if (oldVersion < 18) {
+      await _migrateMembersDropUniques(database);
+    }
+  }
+
+  /// Rebuild members without UNIQUE(saId) / UNIQUE(globalRecordNo).
+  Future<void> _migrateMembersDropUniques(Database database) async {
+    await database.execute('PRAGMA foreign_keys = OFF');
+    await database.execute('ALTER TABLE members RENAME TO members_v17');
+    await database.execute('''
+      CREATE TABLE members (
+        id TEXT PRIMARY KEY,
+        saId TEXT NOT NULL,
+        globalRecordNo TEXT NOT NULL,
+        lroRecordNo TEXT,
+        memberName TEXT NOT NULL,
+        surname TEXT NOT NULL,
+        address TEXT NOT NULL DEFAULT '',
+        suburb TEXT NOT NULL DEFAULT '',
+        townCity TEXT NOT NULL DEFAULT '',
+        postalCode TEXT NOT NULL DEFAULT '',
+        contactNo1 TEXT NOT NULL DEFAULT '',
+        contactNo2 TEXT NOT NULL DEFAULT '',
+        emailAddress TEXT NOT NULL DEFAULT '',
+        comment TEXT NOT NULL DEFAULT '',
+        photoLocalPath TEXT,
+        photoUrl TEXT,
+        userId TEXT,
+        registrationStatus TEXT,
+        isEmailVerified INTEGER,
+        emailVerifiedDate TEXT,
+        registrationDate TEXT,
+        step1MemberInfoComplete INTEGER,
+        step2Global528Complete INTEGER,
+        step3Global928Complete INTEGER,
+        step4LROComplete INTEGER,
+        step1CompletionDate TEXT,
+        step2CompletionDate TEXT,
+        step3CompletionDate TEXT,
+        step4CompletionDate TEXT,
+        step1ApprovedBy TEXT,
+        step2ApprovedBy TEXT,
+        step3ApprovedBy TEXT,
+        step4ApprovedBy TEXT,
+        isLocked INTEGER,
+        lockedDate TEXT,
+        lockedBy TEXT,
+        lockedReason TEXT,
+        completedBy TEXT,
+        completedDate TEXT,
+        temporaryAccessCode TEXT,
+        temporaryAccessExpiry TEXT,
+        temporaryAccessGrantedBy TEXT,
+        temporaryAccessGrantedTo TEXT,
+        temporaryAccessReason TEXT,
+        isCancelled INTEGER,
+        cancellationDate TEXT,
+        cancelledBy TEXT,
+        cancellationReason TEXT,
+        reinstatedDate TEXT,
+        reinstatedBy TEXT,
+        assignedSecretaryId TEXT,
+        assignedSecretaryName TEXT,
+        assignedDate TEXT,
+        assignedBy TEXT,
+        assignmentMethod TEXT,
+        createdBy TEXT,
+        lastModifiedBy TEXT,
+        createdAt TEXT,
+        updatedAt TEXT NOT NULL,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await database.execute(
+      'INSERT INTO members SELECT * FROM members_v17',
+    );
+    await database.execute('DROP TABLE members_v17');
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_members_saId ON members(saId)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_members_globalRecordNo '
+      'ON members(globalRecordNo)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lroRecordNo ON members(lroRecordNo)',
+    );
+    await database.execute('PRAGMA foreign_keys = ON');
   }
 
   // NEW ADDITION - Delete method to revert remuneration tables helper
@@ -697,8 +788,8 @@ class DatabaseService {
     await database.execute('''
       CREATE TABLE members (
         id TEXT PRIMARY KEY,
-        saId TEXT NOT NULL UNIQUE,
-        globalRecordNo TEXT NOT NULL UNIQUE,
+        saId TEXT NOT NULL,
+        globalRecordNo TEXT NOT NULL,
         lroRecordNo TEXT,
         memberName TEXT NOT NULL,
         surname TEXT NOT NULL,
@@ -1632,6 +1723,15 @@ class DatabaseService {
       }
     }
 
+    await _writeMemberRow(member);
+  }
+
+  /// Insert/update member without uniqueness checks (demo / data-repair only).
+  Future<void> forceUpsertMember(Member member) async {
+    await _writeMemberRow(member);
+  }
+
+  Future<void> _writeMemberRow(Member member) async {
     if (_memoryMode) {
       _members[member.id] = member;
       return;
