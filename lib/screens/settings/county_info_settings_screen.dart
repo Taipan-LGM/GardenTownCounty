@@ -20,25 +20,25 @@ class _CountyInfoSettingsScreenState
     extends ConsumerState<CountyInfoSettingsScreen> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
+  final _contactController = TextEditingController();
   final _registrationController = TextEditingController();
-  final _confirmController = TextEditingController();
 
   CountyInfo? _countyInfo;
   bool _isLoading = true;
   bool _isSaving = false;
-  bool _confirmReset = false;
 
   String _originalName = '';
   String _originalAddress = '';
+  String _originalContact = '';
   String _originalRegistration = '';
 
   @override
   void initState() {
     super.initState();
-    _nameController.addListener(_onChanged);
-    _addressController.addListener(_onChanged);
-    _registrationController.addListener(_onChanged);
-    _confirmController.addListener(_onChanged);
+    _nameController.addListener(_checkChanges);
+    _addressController.addListener(_checkChanges);
+    _contactController.addListener(_checkChanges);
+    _registrationController.addListener(_checkChanges);
     _loadCountyInfo();
   }
 
@@ -46,45 +46,52 @@ class _CountyInfoSettingsScreenState
   void dispose() {
     _nameController.dispose();
     _addressController.dispose();
+    _contactController.dispose();
     _registrationController.dispose();
-    _confirmController.dispose();
     super.dispose();
   }
 
-  void _onChanged() {
-    if (mounted) setState(() {});
+  void _checkChanges() {
+    if (!mounted) return;
+    assert(() {
+      debugPrint('📝 County Info Changes:');
+      debugPrint('  Name changed: $_nameChanged');
+      debugPrint('  Address changed: $_addressChanged');
+      debugPrint('  Contact changed: $_contactChanged');
+      debugPrint('  Registration changed: $_registrationChanged');
+      debugPrint('  All 4 changed: $_allFieldsChanged');
+      return true;
+    }());
+    setState(() {});
   }
 
   bool get _nameChanged =>
       _nameController.text.trim() != _originalName.trim();
   bool get _addressChanged =>
       _addressController.text.trim() != _originalAddress.trim();
+  bool get _contactChanged =>
+      _contactController.text.trim() != _originalContact.trim();
   bool get _registrationChanged =>
       _registrationController.text.trim() != _originalRegistration.trim();
 
   bool get _hasAnyChange =>
-      _nameChanged || _addressChanged || _registrationChanged;
+      _nameChanged ||
+      _addressChanged ||
+      _contactChanged ||
+      _registrationChanged;
 
   bool get _allFieldsChanged =>
-      _nameChanged && _addressChanged && _registrationChanged;
-
-  bool get _willReset =>
-      _allFieldsChanged &&
-      _confirmReset &&
-      _confirmController.text.trim() == 'CONFIRM';
+      _nameChanged &&
+      _addressChanged &&
+      _contactChanged &&
+      _registrationChanged;
 
   bool get _canSave {
     if (_isSaving || !_hasAnyChange) return false;
-    if (_nameController.text.trim().isEmpty ||
-        _addressController.text.trim().isEmpty ||
-        _registrationController.text.trim().isEmpty) {
-      return false;
-    }
-    // All three changed + checkbox on → require CONFIRM.
-    if (_allFieldsChanged && _confirmReset) {
-      return _confirmController.text.trim() == 'CONFIRM';
-    }
-    return true;
+    return _nameController.text.trim().isNotEmpty &&
+        _addressController.text.trim().isNotEmpty &&
+        _contactController.text.trim().isNotEmpty &&
+        _registrationController.text.trim().isNotEmpty;
   }
 
   Future<void> _loadCountyInfo() async {
@@ -94,12 +101,12 @@ class _CountyInfoSettingsScreenState
       _countyInfo = info;
       _originalName = info.countyName;
       _originalAddress = info.countyAddress;
+      _originalContact = info.countyContactNo;
       _originalRegistration = info.countyRegistrationNo;
       _nameController.text = info.countyName;
       _addressController.text = info.countyAddress;
+      _contactController.text = info.countyContactNo;
       _registrationController.text = info.countyRegistrationNo;
-      _confirmController.clear();
-      _confirmReset = false;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,15 +126,25 @@ class _CountyInfoSettingsScreenState
     if (admin == null || !admin.isAdmin) return;
     if (!_canSave) return;
 
+    final allFourChanged = _allFieldsChanged;
+    var isNewCounty = false;
+
+    // Modal warning when ALL 4 fields changed — must type CONFIRM.
+    if (allFourChanged) {
+      final confirmed = await _showNewCountyWarningDialog();
+      if (!confirmed) return;
+      isNewCounty = true;
+    }
+
     setState(() => _isSaving = true);
     try {
-      final didReset = _willReset;
       await ref.read(countyInfoServiceProvider).updateCountyInfo(
             countyName: _nameController.text.trim(),
             countyAddress: _addressController.text.trim(),
+            countyContactNo: _contactController.text.trim(),
             countyRegistrationNo: _registrationController.text.trim(),
             admin: admin,
-            isNewCounty: didReset,
+            isNewCounty: isNewCounty,
           );
 
       ref.invalidate(countyProfileProvider);
@@ -141,7 +158,7 @@ class _CountyInfoSettingsScreenState
       if (!mounted) return;
       setState(() => _isSaving = false);
 
-      if (didReset) {
+      if (isNewCounty) {
         await _showNewCountySuccessDialog();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -164,6 +181,127 @@ class _CountyInfoSettingsScreenState
         ),
       );
     }
+  }
+
+  Future<bool> _showNewCountyWarningDialog() async {
+    var confirmText = '';
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final canConfirm = confirmText.trim() == 'CONFIRM';
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.red, size: 28),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('NEW COUNTY DETECTED')),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'You have changed ALL 4 county information fields.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'This will register a NEW COUNTY and will:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '• DELETE all existing member data',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          const Text(
+                            '• DELETE all case data (528, 928, LRO)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          const Text(
+                            '• DELETE all file uploads',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          const Text(
+                            '• DELETE all reminders',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          const Text(
+                            '• DELETE all users (except Admin)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          const Text(
+                            '• DELETE all remuneration records',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Type "CONFIRM" to proceed:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      autofocus: true,
+                      onChanged: (value) {
+                        setDialogState(() => confirmText = value);
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Type CONFIRM',
+                        border: const OutlineInputBorder(),
+                        errorText: confirmText.isNotEmpty && !canConfirm
+                            ? 'Must type "CONFIRM" exactly'
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed:
+                      canConfirm ? () => Navigator.pop(context, true) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        canConfirm ? Colors.red : Colors.grey.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Confirm New County'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return result ?? false;
   }
 
   Future<void> _showNewCountySuccessDialog() {
@@ -224,16 +362,15 @@ class _CountyInfoSettingsScreenState
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text('• Change 1–2 fields → Normal update'),
-            Text('• Change ALL 3 fields → New County option appears'),
+            Text('• Change 1–3 fields → Normal update'),
+            Text('• Change ALL 4 fields → Warning popup'),
             SizedBox(height: 12),
             Text(
               'NEW County Registration:',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text('• Check the confirmation box'),
-            Text('• Type CONFIRM'),
+            Text('• Type CONFIRM in the warning dialog'),
             Text('• ALL existing operational data is deleted'),
             Text('• Admin account is preserved'),
             SizedBox(height: 12),
@@ -321,7 +458,7 @@ class _CountyInfoSettingsScreenState
                             ),
                           ),
                           Text(
-                            'Update county details. Changing ALL 3 fields can register a NEW county.',
+                            'Update county details. Changing ALL 4 fields registers a NEW county.',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade400,
@@ -334,6 +471,7 @@ class _CountyInfoSettingsScreenState
                 ),
               ),
               const SizedBox(height: 24),
+              // Order: Name → Address → Contact → Registration
               _field(
                 controller: _nameController,
                 label: 'County Name',
@@ -350,95 +488,40 @@ class _CountyInfoSettingsScreenState
               ),
               const SizedBox(height: 16),
               _field(
+                controller: _contactController,
+                label: 'County Contact No.',
+                icon: Icons.phone,
+                changed: _contactChanged,
+              ),
+              const SizedBox(height: 16),
+              _field(
                 controller: _registrationController,
                 label: 'County Registration No.',
                 icon: Icons.numbers,
                 changed: _registrationChanged,
               ),
               if (_allFieldsChanged) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade900.withValues(alpha: 0.25),
+                    color: Colors.orange.shade900.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade700),
+                    border: Border.all(color: Colors.orange.shade700),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.warning, color: Colors.red.shade300),
-                          const SizedBox(width: 8),
-                          Text(
-                            'NEW COUNTY DETECTED',
-                            style: TextStyle(
-                              color: Colors.red.shade300,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'All 3 fields have been changed. Check the box and type CONFIRM to delete all existing data and register a new county. Leave unchecked to save details only.',
-                        style: TextStyle(
-                          color: Colors.red.shade200,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _confirmReset,
-                            onChanged: (value) {
-                              setState(() {
-                                _confirmReset = value ?? false;
-                                if (!_confirmReset) {
-                                  _confirmController.clear();
-                                }
-                              });
-                            },
-                            activeColor: Colors.red,
-                          ),
-                          const Expanded(
-                            child: Text(
-                              'I confirm this is a NEW county. All existing data will be DELETED.',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_confirmReset) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Type "CONFIRM" to proceed:',
+                      Icon(Icons.warning_amber, color: Colors.orange.shade300),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'All 4 fields changed. Saving will open a New County confirmation dialog.',
                           style: TextStyle(
-                            color: Colors.grey.shade400,
+                            color: Colors.orange.shade100,
                             fontSize: 12,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: _confirmController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Type CONFIRM',
-                            hintStyle: TextStyle(color: Colors.grey.shade600),
-                            filled: true,
-                            fillColor: Colors.grey.shade800,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
@@ -457,16 +540,18 @@ class _CountyInfoSettingsScreenState
                             color: Colors.white,
                           ),
                         )
-                      : Icon(_willReset ? Icons.warning : Icons.save),
+                      : Icon(
+                          _allFieldsChanged ? Icons.warning : Icons.save,
+                        ),
                   label: Text(
                     _isSaving
                         ? 'Saving...'
-                        : _willReset
-                            ? 'Register NEW County (All Data Will Be Deleted)'
+                        : _allFieldsChanged
+                            ? 'Save (New County Warning)'
                             : 'Save Changes',
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _willReset
+                    backgroundColor: _allFieldsChanged
                         ? Colors.red.shade700
                         : (_canSave ? Colors.blue : Colors.grey.shade700),
                     foregroundColor: Colors.white,
@@ -497,6 +582,7 @@ class _CountyInfoSettingsScreenState
                       const SizedBox(height: 8),
                       _infoRow('Name', _countyInfo!.countyName),
                       _infoRow('Address', _countyInfo!.countyAddress),
+                      _infoRow('Contact', _countyInfo!.countyContactNo),
                       _infoRow(
                         'Registration',
                         _countyInfo!.countyRegistrationNo,
@@ -576,7 +662,7 @@ class _CountyInfoSettingsScreenState
           ),
           Expanded(
             child: Text(
-              value,
+              value.isEmpty ? '—' : value,
               style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ),

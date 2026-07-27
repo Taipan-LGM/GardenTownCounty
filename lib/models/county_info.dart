@@ -8,6 +8,7 @@ class CountyInfo {
   final String? firestoreId;
   final String countyName;
   final String countyAddress;
+  final String countyContactNo;
   final String countyRegistrationNo;
   final DateTime lastUpdated;
   final String updatedBy;
@@ -22,6 +23,7 @@ class CountyInfo {
     this.firestoreId,
     required this.countyName,
     required this.countyAddress,
+    this.countyContactNo = '',
     required this.countyRegistrationNo,
     required this.lastUpdated,
     required this.updatedBy,
@@ -36,6 +38,7 @@ class CountyInfo {
     return CountyInfo(
       countyName: 'Garden Town County',
       countyAddress: '123 Main Street, Sandton, Johannesburg',
+      countyContactNo: '011 123 4567',
       countyRegistrationNo: 'CT2026-001',
       lastUpdated: DateTime.now().toUtc(),
       updatedBy: updatedBy,
@@ -43,11 +46,25 @@ class CountyInfo {
     );
   }
 
+  /// True when name, address, contact, and registration all differ.
+  bool allFourFieldsDiffer({
+    required String countyName,
+    required String countyAddress,
+    required String countyContactNo,
+    required String countyRegistrationNo,
+  }) {
+    return this.countyName.trim() != countyName.trim() &&
+        this.countyAddress.trim() != countyAddress.trim() &&
+        this.countyContactNo.trim() != countyContactNo.trim() &&
+        this.countyRegistrationNo.trim() != countyRegistrationNo.trim();
+  }
+
   CountyInfo copyWith({
     String? id,
     String? firestoreId,
     String? countyName,
     String? countyAddress,
+    String? countyContactNo,
     String? countyRegistrationNo,
     DateTime? lastUpdated,
     String? updatedBy,
@@ -65,6 +82,7 @@ class CountyInfo {
       firestoreId: clearFirestoreId ? null : (firestoreId ?? this.firestoreId),
       countyName: countyName ?? this.countyName,
       countyAddress: countyAddress ?? this.countyAddress,
+      countyContactNo: countyContactNo ?? this.countyContactNo,
       countyRegistrationNo:
           countyRegistrationNo ?? this.countyRegistrationNo,
       lastUpdated: lastUpdated ?? this.lastUpdated,
@@ -83,6 +101,7 @@ class CountyInfo {
         'firestoreId': firestoreId,
         'countyName': countyName,
         'countyAddress': countyAddress,
+        'countyContactNo': countyContactNo,
         'countyRegistrationNo': countyRegistrationNo,
         'lastUpdated': lastUpdated.toIso8601String(),
         'updatedBy': updatedBy,
@@ -99,6 +118,7 @@ class CountyInfo {
       firestoreId: map['firestoreId'] as String?,
       countyName: map['countyName'] as String? ?? 'Garden Town County',
       countyAddress: map['countyAddress'] as String? ?? '',
+      countyContactNo: map['countyContactNo'] as String? ?? '',
       countyRegistrationNo: map['countyRegistrationNo'] as String? ?? '',
       lastUpdated: DateTime.tryParse(map['lastUpdated'] as String? ?? '') ??
           DateTime.now().toUtc(),

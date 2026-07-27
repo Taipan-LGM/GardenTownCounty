@@ -32,15 +32,19 @@ class CountyInfoService {
 
     // Seed from branding prefs when present, else defaults.
     final profile = await _countySettings.load();
-    final seeded = CountyInfo.defaults().copyWith(
+    final defaults = CountyInfo.defaults();
+    final seeded = defaults.copyWith(
       countyName: profile.countyName.trim().isEmpty
-          ? 'Garden Town County'
+          ? defaults.countyName
           : profile.countyName.trim(),
       countyAddress: profile.countyAddress.trim().isEmpty
-          ? CountyInfo.defaults().countyAddress
+          ? defaults.countyAddress
           : profile.countyAddress.trim(),
+      countyContactNo: profile.countyContactNo.trim().isEmpty
+          ? defaults.countyContactNo
+          : profile.countyContactNo.trim(),
       countyRegistrationNo: profile.countyRegNo.trim().isEmpty
-          ? CountyInfo.defaults().countyRegistrationNo
+          ? defaults.countyRegistrationNo
           : profile.countyRegNo.trim(),
       syncStatus: 'synced',
     );
@@ -49,11 +53,12 @@ class CountyInfoService {
     return seeded;
   }
 
-  /// Update county fields. When [isNewCounty] is true and all three fields
+  /// Update county fields. When [isNewCounty] is true and all four fields
   /// changed, clears operational data (keeps Admin account).
   Future<CountyInfo> updateCountyInfo({
     required String countyName,
     required String countyAddress,
+    required String countyContactNo,
     required String countyRegistrationNo,
     required AuthUser admin,
     bool isNewCounty = false,
@@ -64,19 +69,26 @@ class CountyInfoService {
 
     final name = countyName.trim();
     final address = countyAddress.trim();
+    final contact = countyContactNo.trim();
     final reg = countyRegistrationNo.trim();
-    if (name.isEmpty || address.isEmpty || reg.isEmpty) {
-      throw Exception('County Name, Address, and Registration No. are required.');
+    if (name.isEmpty || address.isEmpty || contact.isEmpty || reg.isEmpty) {
+      throw Exception(
+        'County Name, Address, Contact No., and Registration No. are required.',
+      );
     }
 
     final current = await getCountyInfo();
-    final allFieldsChanged = current.countyName.trim() != name &&
-        current.countyAddress.trim() != address &&
-        current.countyRegistrationNo.trim() != reg;
+    final allFieldsChanged = current.allFourFieldsDiffer(
+      countyName: name,
+      countyAddress: address,
+      countyContactNo: contact,
+      countyRegistrationNo: reg,
+    );
 
     var next = current.copyWith(
       countyName: name,
       countyAddress: address,
+      countyContactNo: contact,
       countyRegistrationNo: reg,
       lastUpdated: DateTime.now().toUtc(),
       updatedBy: admin.id,
@@ -113,6 +125,7 @@ class CountyInfoService {
       profile.copyWith(
         countyName: next.countyName,
         countyAddress: next.countyAddress,
+        countyContactNo: next.countyContactNo,
         countyRegNo: next.countyRegistrationNo,
       ),
     );

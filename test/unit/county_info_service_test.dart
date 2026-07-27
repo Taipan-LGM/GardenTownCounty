@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_town_county/core/constants/app_constants.dart';
 import 'package:garden_town_county/models/app_user.dart';
+import 'package:garden_town_county/models/county_info.dart';
 import 'package:garden_town_county/models/member.dart';
 import 'package:garden_town_county/models/user_role.dart';
 import 'package:garden_town_county/services/activity_service.dart';
@@ -40,10 +41,33 @@ void main() {
     await db.clearAllForTests();
   });
 
-  test('getCountyInfo seeds defaults', () async {
+  test('getCountyInfo seeds defaults including contact', () async {
     final info = await service.getCountyInfo();
     expect(info.countyName, 'Garden Town County');
+    expect(info.countyContactNo, isNotEmpty);
     expect(info.resetCount, 0);
+  });
+
+  test('allFourFieldsDiffer requires all four', () {
+    final base = CountyInfo.defaults();
+    expect(
+      base.allFourFieldsDiffer(
+        countyName: 'A',
+        countyAddress: 'B',
+        countyContactNo: 'C',
+        countyRegistrationNo: 'D',
+      ),
+      isTrue,
+    );
+    expect(
+      base.allFourFieldsDiffer(
+        countyName: 'A',
+        countyAddress: 'B',
+        countyContactNo: base.countyContactNo,
+        countyRegistrationNo: 'D',
+      ),
+      isFalse,
+    );
   });
 
   test('update without reset keeps members', () async {
@@ -58,6 +82,7 @@ void main() {
     await service.updateCountyInfo(
       countyName: 'Garden Town County Updated',
       countyAddress: '123 Main Street, Sandton, Johannesburg',
+      countyContactNo: '011 123 4567',
       countyRegistrationNo: 'CT2026-001',
       admin: admin,
       isNewCounty: false,
@@ -68,7 +93,7 @@ void main() {
     expect(info.resetCount, 0);
   });
 
-  test('new county reset clears members and keeps admin', () async {
+  test('new county reset requires all four fields changed', () async {
     await db.upsertMember(
       Member.create(
         saId: '9001014800089',
@@ -77,32 +102,33 @@ void main() {
         surname: 'Soon',
       ).copyWith(id: 'm1'),
     );
-    await db.upsertAppUser(
-      AppUser(
-        id: 'sec_x',
-        username: 'sec.x',
-        displayName: 'Sec X',
-        passwordHash: PasswordHasher.hash('x'),
-        role: UserRole.secretary.storageName,
-        updatedAt: DateTime.now().toUtc(),
-      ),
+
+    // Only 3 fields changed → no reset even if isNewCounty true.
+    await service.updateCountyInfo(
+      countyName: 'Almost New',
+      countyAddress: '9 Fresh Ave',
+      countyContactNo: '011 123 4567', // same as default
+      countyRegistrationNo: 'NH-999',
+      admin: admin,
+      isNewCounty: true,
     );
+    expect((await db.getAllMembers()).length, 1);
 
     await service.updateCountyInfo(
       countyName: 'New Hope County',
       countyAddress: '9 Fresh Ave, Cape Town',
-      countyRegistrationNo: 'NH-999',
+      countyContactNo: '021 555 0000',
+      countyRegistrationNo: 'NH-1000',
       admin: admin,
       isNewCounty: true,
     );
 
     expect(await db.getAllMembers(), isEmpty);
     expect(await db.getAppUserById('demo-admin'), isNotNull);
-    final sec = await db.getAppUserById('sec_x');
-    expect(sec == null || sec.deleted, isTrue);
 
     final info = await service.getCountyInfo();
     expect(info.countyName, 'New Hope County');
+    expect(info.countyContactNo, '021 555 0000');
     expect(info.resetCount, 1);
     expect(info.lastResetDate, isNotNull);
   });

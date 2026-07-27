@@ -115,7 +115,7 @@ class DatabaseService {
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 15,
+      version: 16,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -412,6 +412,15 @@ class DatabaseService {
     // NEW ADDITION - county_info table (Delete block to revert v15)
     if (oldVersion < 15) {
       await _createCountyInfoTable(database);
+    }
+    // NEW ADDITION - countyContactNo (Delete block to revert v16)
+    if (oldVersion < 16) {
+      await _addColumnIfMissing(
+        database,
+        'county_info',
+        'countyContactNo',
+        "TEXT NOT NULL DEFAULT ''",
+      );
     }
   }
 
@@ -831,6 +840,7 @@ class DatabaseService {
         firestoreId TEXT,
         countyName TEXT NOT NULL,
         countyAddress TEXT NOT NULL,
+        countyContactNo TEXT NOT NULL DEFAULT '',
         countyRegistrationNo TEXT NOT NULL,
         lastUpdated TEXT NOT NULL,
         updatedBy TEXT NOT NULL DEFAULT 'system',
