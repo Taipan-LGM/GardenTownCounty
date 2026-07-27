@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
+import '../models/county_info.dart';
 import '../models/county_profile.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
@@ -20,6 +21,7 @@ import '../services/backup_auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/bulk_import_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/county_info_service.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/data_access_service.dart';
@@ -74,6 +76,20 @@ final appPreferencesServiceProvider = Provider<AppPreferencesService>((ref) {
 
 final countySettingsServiceProvider = Provider<CountySettingsService>((ref) {
   return CountySettingsService();
+});
+
+// NEW ADDITION - County Information service/providers (Delete to revert)
+final countyInfoServiceProvider = Provider<CountyInfoService>((ref) {
+  return CountyInfoService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(activityServiceProvider),
+    ref.watch(countySettingsServiceProvider),
+  );
+});
+
+final countyInfoProvider =
+    FutureProvider.autoDispose<CountyInfo>((ref) async {
+  return ref.watch(countyInfoServiceProvider).getCountyInfo();
 });
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);

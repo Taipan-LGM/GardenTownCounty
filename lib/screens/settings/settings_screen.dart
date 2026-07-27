@@ -9,6 +9,7 @@ import '../../models/county_profile.dart';
 import '../../providers/providers.dart';
 import '../../services/app_preferences_service.dart';
 import '../../widgets/county_logo.dart';
+import 'county_info_settings_screen.dart';
 import 'remuneration_dashboard_screen.dart';
 import 'remuneration_settings_screen.dart';
 
@@ -134,11 +135,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
-          // NEW ADDITION - RS remuneration + test data (Delete block to revert)
           const SizedBox(height: 12),
           Card(
             child: Column(
               children: [
+                // NEW ADDITION - County Information (Delete ListTile to revert)
+                ListTile(
+                  leading: const Icon(Icons.business, color: Colors.blue),
+                  title: const Text('County Information'),
+                  subtitle: const Text(
+                    'Update county details and register a new county',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CountyInfoSettingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.attach_money, color: Colors.green),
                   title: const Text('RS Remuneration'),
