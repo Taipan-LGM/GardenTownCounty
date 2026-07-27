@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/county_info.dart';
 import '../../providers/providers.dart';
+import '../../widgets/new_county_warning_dialog.dart';
 
 /// Admin screen: update county identity; optional full data reset for new county.
 ///
@@ -131,7 +132,7 @@ class _CountyInfoSettingsScreenState
 
     // Modal warning when ALL 4 fields changed — must type CONFIRM.
     if (allFourChanged) {
-      final confirmed = await _showNewCountyWarningDialog();
+      final confirmed = await showNewCountyWarningDialog(context);
       if (!confirmed) return;
       isNewCounty = true;
     }
@@ -181,127 +182,6 @@ class _CountyInfoSettingsScreenState
         ),
       );
     }
-  }
-
-  Future<bool> _showNewCountyWarningDialog() async {
-    var confirmText = '';
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final canConfirm = confirmText.trim() == 'CONFIRM';
-            return AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.red, size: 28),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('NEW COUNTY DETECTED')),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'You have changed ALL 4 county information fields.',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'This will register a NEW COUNTY and will:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red.shade700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            '• DELETE all existing member data',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const Text(
-                            '• DELETE all case data (528, 928, LRO)',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const Text(
-                            '• DELETE all file uploads',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const Text(
-                            '• DELETE all reminders',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const Text(
-                            '• DELETE all users (except Admin)',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const Text(
-                            '• DELETE all remuneration records',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Type "CONFIRM" to proceed:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      autofocus: true,
-                      onChanged: (value) {
-                        setDialogState(() => confirmText = value);
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Type CONFIRM',
-                        border: const OutlineInputBorder(),
-                        errorText: confirmText.isNotEmpty && !canConfirm
-                            ? 'Must type "CONFIRM" exactly'
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed:
-                      canConfirm ? () => Navigator.pop(context, true) : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        canConfirm ? Colors.red : Colors.grey.shade600,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Confirm New County'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-    return result ?? false;
   }
 
   Future<void> _showNewCountySuccessDialog() {
@@ -417,7 +297,7 @@ class _CountyInfoSettingsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('County Information'),
+        title: const Text('County Information (v1.17.2)'),
         backgroundColor: AppTheme.forestGreen,
         foregroundColor: Colors.white,
         actions: [

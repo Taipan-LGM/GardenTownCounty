@@ -9,6 +9,7 @@ import '../../models/county_profile.dart';
 import '../../providers/providers.dart';
 import '../../services/app_preferences_service.dart';
 import '../../widgets/county_logo.dart';
+import '../../widgets/new_county_warning_dialog.dart';
 import 'county_info_settings_screen.dart';
 import 'remuneration_dashboard_screen.dart';
 import 'remuneration_settings_screen.dart';
@@ -126,7 +127,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               onPressed: () => showCountySettingsDialog(context, ref),
               child: const Text(
-                'County Settings',
+                'County Settings (logos)',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -291,27 +292,58 @@ class CountySettingsDialog extends ConsumerStatefulWidget {
 class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
   final _name = TextEditingController();
   final _address = TextEditingController();
-  final _reg = TextEditingController();
   final _contact = TextEditingController();
-  bool _hydrated = false;
+  final _reg = TextEditingController();
+  bool _logosReady = false;
+  bool _identityReady = false;
   bool _saving = false;
+
+  String _originalName = '';
+  String _originalAddress = '';
+  String _originalContact = '';
+  String _originalRegistration = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadIdentity());
+  }
 
   @override
   void dispose() {
     _name.dispose();
     _address.dispose();
-    _reg.dispose();
     _contact.dispose();
+    _reg.dispose();
     super.dispose();
   }
 
-  void _hydrate(CountyProfile profile) {
-    if (_hydrated) return;
-    _name.text = profile.countyName;
-    _address.text = profile.countyAddress;
-    _reg.text = profile.countyRegNo;
-    _contact.text = profile.countyContactNo;
-    _hydrated = true;
+  Future<void> _loadIdentity() async {
+    try {
+      final info = await ref.read(countyInfoServiceProvider).getCountyInfo();
+      if (!mounted) return;
+      setState(() {
+        _originalName = info.countyName;
+        _originalAddress = info.countyAddress;
+        _originalContact = info.countyContactNo;
+        _originalRegistration = info.countyRegistrationNo;
+        _name.text = info.countyName;
+        _address.text = info.countyAddress;
+        _contact.text = info.countyContactNo;
+        _reg.text = info.countyRegistrationNo;
+        _identityReady = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading county info: $e')),
+      );
+    }
+  }
+
+  void _markLogosReady(CountyProfile profile) {
+    if (_logosReady) return;
+    _logosReady = true;
   }
 
   Future<void> _pickLogo({required bool secondary}) async {
@@ -372,23 +404,88 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
   }
 
   Future<void> _saveCounty() async {
+    final admin = ref.read(authUserProvider);
+    if (admin == null || !admin.isAdmin) return;
+    if (!_identityReady) return;
+
+    final name = _name.text.trim().isEmpty
+        ? 'Garden Town County'
+        : _name.text.trim();
+    final address = _address.text.trim();
+    final contact = _contact.text.trim();
+    final registration = _reg.text.trim();
+
+    if (address.isEmpty || contact.isEmpty || registration.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Address, Contact No., and Registration No. are required.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final allFourChanged = countyAllFourFieldsChanged(
+      name: name,
+      address: address,
+      contact: contact,
+      registration: registration,
+      originalName: _originalName,
+      originalAddress: _originalAddress,
+      originalContact: _originalContact,
+      originalRegistration: _originalRegistration,
+    );
+
+    var isNewCounty = false;
+    if (allFourChanged) {
+      final confirmed = await showNewCountyWarningDialog(context);
+      if (!confirmed || !mounted) return;
+      isNewCounty = true;
+    }
+
     setState(() => _saving = true);
     try {
-      final current =
-          ref.read(countyProfileProvider).valueOrNull ?? const CountyProfile();
-      final updated = current.copyWith(
-        countyName: _name.text.trim().isEmpty
-            ? 'Garden Town County'
-            : _name.text.trim(),
-        countyAddress: _address.text.trim(),
-        countyRegNo: _reg.text.trim(),
-        countyContactNo: _contact.text.trim(),
-      );
-      await ref.read(countySettingsServiceProvider).save(updated);
+      await ref.read(countyInfoServiceProvider).updateCountyInfo(
+            countyName: name,
+            countyAddress: address,
+            countyContactNo: contact,
+            countyRegistrationNo: registration,
+            admin: admin,
+            isNewCounty: isNewCounty,
+          );
+
       ref.invalidate(countyProfileProvider);
+      ref.invalidate(countyInfoProvider);
+      if (isNewCounty) {
+        ref.invalidate(membersProvider);
+        ref.invalidate(appUsersProvider);
+        ref.invalidate(activitiesProvider);
+        ref.invalidate(remindersProvider);
+        ref.invalidate(activeOnboardingRemindersProvider);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isNewCounty
+                ? 'New county registered — operational data cleared'
+                : 'County information saved',
+          ),
+          backgroundColor: isNewCounty ? Colors.orange.shade800 : Colors.green,
+        ),
+      );
+      if (isNewCounty) {
+        Navigator.pop(context);
+      } else {
+        await _loadIdentity();
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('County information saved')),
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -400,7 +497,7 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
   Widget build(BuildContext context) {
     final strings = AppStrings(ref.watch(appLanguageProvider));
     final profileAsync = ref.watch(countyProfileProvider);
-    profileAsync.whenData(_hydrate);
+    profileAsync.whenData(_markLogosReady);
 
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
@@ -540,21 +637,29 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                           ),
                           const SizedBox(height: 12),
                           TextField(
-                            controller: _reg,
-                            decoration: InputDecoration(
-                              labelText: strings.countyRegNo,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
                             controller: _contact,
                             decoration: InputDecoration(
                               labelText: strings.countyContactNo,
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _reg,
+                            decoration: InputDecoration(
+                              labelText: strings.countyRegNo,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Changing ALL 4 fields opens a New County warning '
+                            '(type CONFIRM). Logos save separately above.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
-                            onPressed: _saving ? null : _saveCounty,
+                            onPressed: (_saving || !_identityReady)
+                                ? null
+                                : _saveCounty,
                             icon: _saving
                                 ? const SizedBox(
                                     width: 16,
