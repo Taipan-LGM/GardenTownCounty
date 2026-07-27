@@ -652,7 +652,7 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                 TextField(
                   controller: _address,
                   style: const TextStyle(color: Colors.white, fontSize: 14),
-                  maxLines: 2,
+                  maxLines: 4,
                   decoration: _darkFieldDecoration(strings.countyAddress),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -701,9 +701,14 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                // 3. SAVE + CANCEL — form ends here (no scrollbar)
+                // Cancel left, Save right
                 Row(
                   children: [
+                    CancelButton(
+                      onPressed: () => Navigator.pop(context),
+                      text: 'Cancel',
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: SizedBox(
                         height: 45,
@@ -738,11 +743,6 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    CancelButton(
-                      onPressed: () => Navigator.pop(context),
-                      text: 'Cancel',
-                    ),
                   ],
                 ),
               ],
@@ -756,7 +756,7 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
   InputDecoration _darkFieldDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+      labelStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
       filled: true,
       fillColor: Colors.grey.shade800,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
