@@ -38,10 +38,15 @@ jobs:
           # Stamp build id into index.html so browsers bust cached bootstrap/JS.
           BUILD_ID="$(grep '^version:' pubspec.yaml | awk '{print $2}' | tr -d '"')"
           sed -i "s/__APP_BUILD__/${BUILD_ID}/g" build/web/index.html
+          # Cache-bust main.dart.js (GitHub Pages CDN caches it ~10 min otherwise).
+          if [ -f build/web/flutter_bootstrap.js ]; then
+            sed -i "s|main\\.dart\\.js|main.dart.js?v=${BUILD_ID}|g" build/web/flutter_bootstrap.js
+          fi
           # Also rewrite any plain flutter_bootstrap.js references with ?v=
           sed -i "s|flutter_bootstrap.js\"|flutter_bootstrap.js?v=${BUILD_ID}\"|g" build/web/index.html || true
           echo "Stamped web build as ${BUILD_ID}"
-          grep -n "GTC_BUILD\|flutter_bootstrap" build/web/index.html | head -20
+          grep -n "GTC_BUILD\|flutter_bootstrap\|main.dart.js" build/web/index.html | head -20
+          grep -o "main\\.dart\\.js[^\"']*" build/web/flutter_bootstrap.js | sort -u | head -10
 
       - uses: actions/upload-pages-artifact@v3
         with:
