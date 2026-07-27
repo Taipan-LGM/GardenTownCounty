@@ -63,15 +63,25 @@ void main() {
       );
     });
 
-    test('merge always keeps required and strips admin-only', () {
+    test('merge strips admin-only and does not force defaults', () {
       final merged = AppPermission.mergeSecretaryPermissions([
         AppPermission.onboarding,
         AppPermission.backupRestore,
       ]);
-      expect(merged, contains(AppPermission.search));
-      expect(merged, contains(AppPermission.reminders));
       expect(merged, contains(AppPermission.onboarding));
       expect(merged, isNot(contains(AppPermission.backupRestore)));
+      expect(merged, isNot(contains(AppPermission.search)));
+    });
+
+    test('admin can clear a default secretary right', () {
+      final merged = AppPermission.mergeSecretaryPermissions([
+        AppPermission.search,
+        AppPermission.memberInfo,
+      ]);
+      expect(merged, contains(AppPermission.search));
+      expect(merged, contains(AppPermission.memberInfo));
+      expect(merged, isNot(contains(AppPermission.sos)));
+      expect(merged, isNot(contains(AppPermission.reminders)));
     });
   });
 

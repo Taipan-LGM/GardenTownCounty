@@ -51,8 +51,7 @@ class _PermissionEditorDialogState
   void initState() {
     super.initState();
     _granted = {
-      ...AppPermission.requiredSecretary,
-      ...widget.user.permissions.where((p) => p.isOptionalForSecretary),
+      ...AppPermission.mergeSecretaryPermissions(widget.user.permissions),
     };
   }
 
@@ -102,23 +101,14 @@ class _PermissionEditorDialogState
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              ...AppPermission.requiredSecretary.map(
-                (p) => _tile(
-                  permission: p,
-                  checked: true,
-                  enabled: false,
-                  badge: 'Required',
-                  badgeColor: Colors.red,
-                ),
-              ),
-              const Divider(),
-              ...AppPermission.optionalSecretary.map(
+              ...AppPermission.assignable.map(
                 (p) => _tile(
                   permission: p,
                   checked: _granted.contains(p),
                   enabled: true,
-                  badge: 'Optional',
-                  badgeColor: Colors.green,
+                  badge: p.isDefaultForSecretary ? 'Default' : 'Optional',
+                  badgeColor:
+                      p.isDefaultForSecretary ? Colors.green : Colors.orange,
                 ),
               ),
               const Divider(),
@@ -152,15 +142,15 @@ class _PermissionEditorDialogState
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Required: Cannot be removed (essential for Recording Secretaries)',
+                      'Default: Suggested on promote — Admin may turn on/off',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    const Text(
+                      'Optional: Extra rights Admin may grant',
                       style: TextStyle(fontSize: 11),
                     ),
                     const Text(
                       'Admin Only: Reserved for System Administrator',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    const Text(
-                      'Optional: Can be toggled on/off by Admin',
                       style: TextStyle(fontSize: 11),
                     ),
                   ],

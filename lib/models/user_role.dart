@@ -81,6 +81,7 @@ enum AppPermission {
   ];
 
   /// Default rights on promote → Recording Secretary (matches drawer defaults).
+  /// Admin may later turn any of these off in RS Rights.
   static const defaultSecretary = [
     home,
     search,
@@ -95,15 +96,15 @@ enum AppPermission {
     activities,
   ];
 
-  /// Cannot be removed from Recording Secretaries.
-  static const requiredSecretary = defaultSecretary;
+  /// Formerly locked-on rights. Empty: Admin may deactivate any assignable right.
+  static const requiredSecretary = <AppPermission>[];
 
-  /// Admin may toggle these on/off for Secretaries.
+  /// Extra rights Admin may grant beyond [defaultSecretary].
   static const optionalSecretary = [
     onboarding,
   ];
 
-  /// May be granted to Recording Secretaries (required + optional).
+  /// May be granted to Recording Secretaries.
   static const assignable = [
     ...defaultSecretary,
     ...optionalSecretary,
@@ -125,11 +126,14 @@ enum AppPermission {
 
   bool get isOptionalForSecretary => optionalSecretary.contains(this);
 
-  /// Merge requested rights with required defaults; strip Admin-only.
+  bool get isDefaultForSecretary => defaultSecretary.contains(this);
+
+  /// Normalize requested rights: drop Admin-only; keep only assignable.
+  /// Does **not** force defaults back on — Admin may clear any right.
   static List<AppPermission> mergeSecretaryPermissions(
     Iterable<AppPermission> requested,
   ) {
-    final selected = <AppPermission>{...requiredSecretary};
+    final selected = <AppPermission>{};
     for (final p in requested) {
       if (p.isAdminOnly) continue;
       if (assignable.contains(p)) {

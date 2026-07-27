@@ -324,11 +324,10 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         final label = catalog?.label ?? permission.label;
         final icon = catalog?.icon;
         final adminOnly = permission.isAdminOnly;
-        final required = permission.isRequiredForSecretary;
-        final checked = adminOnly
-            ? false
-            : (required || _draftPerms.contains(permission));
-        final enabled = !adminOnly && !required;
+        final isDefault = permission.isDefaultForSecretary;
+        final checked =
+            !adminOnly && _draftPerms.contains(permission);
+        final enabled = !adminOnly;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
@@ -360,13 +359,13 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   style: TextStyle(
                     color: adminOnly ? Colors.grey.shade500 : Colors.white,
                     fontWeight:
-                        required ? FontWeight.bold : FontWeight.normal,
+                        isDefault ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
               if (adminOnly)
                 _badge('Admin Only', Colors.blue)
-              else if (required)
+              else if (isDefault)
                 _badge('Default', Colors.green)
               else
                 _badge('Optional', Colors.orange),

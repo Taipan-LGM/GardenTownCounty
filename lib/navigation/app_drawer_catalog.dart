@@ -64,7 +64,7 @@ class AppDrawerCatalog {
       permission: AppPermission.home,
       alwaysVisible: true,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'search',
@@ -73,7 +73,7 @@ class AppDrawerCatalog {
       action: AppDrawerAction.search,
       permission: AppPermission.search,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'application_form',
@@ -83,7 +83,7 @@ class AppDrawerCatalog {
       section: AppSection.memberInfo,
       permission: AppPermission.memberInfo,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'step1_global528',
@@ -93,7 +93,7 @@ class AppDrawerCatalog {
       section: AppSection.global528,
       permission: AppPermission.global528,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'step2_global528',
@@ -103,7 +103,7 @@ class AppDrawerCatalog {
       section: AppSection.global528Step2,
       permission: AppPermission.global528Step2,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'step3_global928',
@@ -113,7 +113,7 @@ class AppDrawerCatalog {
       section: AppSection.global928,
       permission: AppPermission.global928,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'step4_lro',
@@ -123,7 +123,7 @@ class AppDrawerCatalog {
       section: AppSection.lro,
       permission: AppPermission.lro,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'step5_credential',
@@ -133,7 +133,7 @@ class AppDrawerCatalog {
       section: AppSection.credentialCard,
       permission: AppPermission.credentialCard,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
       showDividerAfter: true,
     ),
     AppDrawerItemDef(
@@ -182,7 +182,7 @@ class AppDrawerCatalog {
       section: AppSection.sos,
       permission: AppPermission.sos,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
     ),
     AppDrawerItemDef(
       id: 'reminders',
@@ -192,7 +192,7 @@ class AppDrawerCatalog {
       section: AppSection.reminders,
       permission: AppPermission.reminders,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
       showReminderBadge: true,
     ),
     AppDrawerItemDef(
@@ -203,7 +203,7 @@ class AppDrawerCatalog {
       section: AppSection.activities,
       permission: AppPermission.activities,
       defaultSecretary: true,
-      requiredSecretary: true,
+      requiredSecretary: false,
       showDividerAfter: true,
     ),
     AppDrawerItemDef(
