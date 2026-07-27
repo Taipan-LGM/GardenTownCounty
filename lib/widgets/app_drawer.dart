@@ -7,6 +7,7 @@ import '../l10n/app_strings.dart';
 import '../models/user_role.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
+import 'cancel_button.dart';
 import 'county_logo.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -389,9 +390,9 @@ class AppDrawer extends ConsumerWidget {
           ],
         ),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),

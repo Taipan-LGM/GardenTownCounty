@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/lookup_item.dart';
 import '../../providers/providers.dart';
+import '../../widgets/cancel_button.dart';
 import '../../widgets/form_dialog_title.dart';
 
 Future<void> showLookupManagerDialog(
@@ -68,9 +69,9 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
         title: const Text('Delete lookup?'),
         content: Text('Remove "${item.value}"?'),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),

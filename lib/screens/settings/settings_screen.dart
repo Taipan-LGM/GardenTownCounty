@@ -8,6 +8,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/county_profile.dart';
 import '../../providers/providers.dart';
 import '../../services/app_preferences_service.dart';
+import '../../widgets/cancel_button.dart';
 import '../../widgets/county_logo.dart';
 import '../../widgets/new_county_warning_dialog.dart';
 import 'county_info_settings_screen.dart';
@@ -237,9 +238,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -502,270 +503,274 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
     final profileAsync = ref.watch(countyProfileProvider);
     profileAsync.whenData(_markLogosReady);
 
+    final allFour = countyAllFourFieldsChanged(
+      name: _name.text,
+      address: _address.text,
+      contact: _contact.text,
+      registration: _reg.text,
+      originalName: _originalName,
+      originalAddress: _originalAddress,
+      originalContact: _originalContact,
+      originalRegistration: _originalRegistration,
+    );
+
     return Dialog(
+      backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 900,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 8, 0),
-              child: Row(
-                children: [
-                  Text(
-                    'County Settings',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppTheme.bodyText,
+        constraints: const BoxConstraints(maxWidth: 700),
+        child: Material(
+          color: Colors.grey.shade900,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'County Settings',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                children: [
-                  // Identity first so fields visible without scrolling past logos.
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            strings.countyInfo,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _name,
-                            style: const TextStyle(fontSize: 16),
-                            decoration: InputDecoration(
-                              labelText: strings.countyName,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _address,
-                            style: const TextStyle(fontSize: 16),
-                            decoration: InputDecoration(
-                              labelText: strings.countyAddress,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            maxLines: 2,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _contact,
-                                  style: const TextStyle(fontSize: 16),
-                                  decoration: InputDecoration(
-                                    labelText: strings.countyContactNo,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
-                                    ),
-                                  ),
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: TextField(
-                                  controller: _reg,
-                                  style: const TextStyle(fontSize: 16),
-                                  decoration: InputDecoration(
-                                    labelText: strings.countyRegNo,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
-                                    ),
-                                  ),
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Builder(
-                            builder: (context) {
-                              final allFour = countyAllFourFieldsChanged(
-                                name: _name.text,
-                                address: _address.text,
-                                contact: _contact.text,
-                                registration: _reg.text,
-                                originalName: _originalName,
-                                originalAddress: _originalAddress,
-                                originalContact: _originalContact,
-                                originalRegistration: _originalRegistration,
-                              );
-                              if (!allFour) {
-                                return Text(
-                                  'Changing ALL 4 fields opens a New County '
-                                  'warning (type CONFIRM) every time you Save.',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                );
-                              }
-                              return Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: Colors.red.shade300),
-                                ),
-                                child: Text(
-                                  'NEW COUNTY: all 4 fields changed. '
-                                  'Save will show CONFIRM warning each time.',
-                                  style: TextStyle(
-                                    color: Colors.red.shade800,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            height: 48,
-                            child: FilledButton.icon(
-                              onPressed: (_saving || !_identityReady)
-                                  ? null
-                                  : _saveCounty,
-                              icon: _saving
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.save),
-                              label: Text(strings.save),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    color: AppTheme.cream,
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Logos (Admin)',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: AppTheme.bodyText,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'First logo = fixed Home background. '
-                            'Second logo = corner emblem after animation.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Column(
-                                children: [
-                                  const RoundCountyLogo(size: 96),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'First logo',
-                                    style:
-                                        Theme.of(context).textTheme.labelLarge,
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  const RoundCountyLogo(
-                                    secondary: true,
-                                    size: 72,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Second logo',
-                                    style:
-                                        Theme.of(context).textTheme.labelLarge,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: () => _pickLogo(secondary: false),
-                            icon: const Icon(Icons.upload),
-                            label: Text(strings.uploadLogo),
-                            style: FilledButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: () => _pickLogo(secondary: true),
-                            icon: const Icon(Icons.upload_file),
-                            label: Text(strings.uploadSecondaryLogo),
-                            style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                          ),
-                        ],
-                      ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 12),
+                // 1. LOGOS ON TOP
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade800,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade700),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Logos (Admin)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Column(
+                            children: [
+                              RoundCountyLogo(size: 72),
+                              SizedBox(height: 6),
+                              Text(
+                                'First logo',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              RoundCountyLogo(secondary: true, size: 56),
+                              SizedBox(height: 6),
+                              Text(
+                                'Second logo',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _pickLogo(secondary: false),
+                              icon: const Icon(Icons.upload, size: 18),
+                              label: Text(strings.uploadLogo),
+                              style: FilledButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _pickLogo(secondary: true),
+                              icon: const Icon(Icons.upload_file, size: 18),
+                              label: Text(strings.uploadSecondaryLogo),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white54),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // 2. FORM FIELDS
+                Text(
+                  strings.countyInfo,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _name,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: _darkFieldDecoration(strings.countyName),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _address,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  maxLines: 2,
+                  decoration: _darkFieldDecoration(strings.countyAddress),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _contact,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration:
+                            _darkFieldDecoration(strings.countyContactNo),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _reg,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: _darkFieldDecoration(strings.countyRegNo),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+                if (allFour) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade900.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade400),
+                    ),
+                    child: const Text(
+                      'NEW COUNTY: all 4 fields changed. Save shows CONFIRM each time.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                // 3. SAVE + CANCEL — form ends here (no scrollbar)
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 45,
+                        child: ElevatedButton.icon(
+                          onPressed: (_saving || !_identityReady)
+                              ? null
+                              : _saveCounty,
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Icon(allFour ? Icons.warning : Icons.save),
+                          label: Text(
+                            _saving
+                                ? 'Saving...'
+                                : allFour
+                                    ? 'Register New County'
+                                    : strings.save,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: allFour
+                                ? Colors.red.shade700
+                                : Colors.green.shade700,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    CancelButton(
+                      onPressed: () => Navigator.pop(context),
+                      text: 'Cancel',
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  InputDecoration _darkFieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+      filled: true,
+      fillColor: Colors.grey.shade800,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade700),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.blue, width: 2),
       ),
     );
   }

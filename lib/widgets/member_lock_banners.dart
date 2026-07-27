@@ -11,6 +11,7 @@ import '../../models/member.dart';
 import '../../models/temporary_access_log.dart';
 import '../../providers/providers.dart';
 import '../../services/auth_service.dart';
+import 'cancel_button.dart';
 import 'form_dialog_title.dart';
 
 final _dateFmt = DateFormat('yyyy-MM-dd HH:mm');
@@ -365,9 +366,9 @@ Future<void> showGrantTemporaryAccessDialog({
               ),
             ),
             actions: [
-              TextButton(
+              CancelButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
+                text: 'Cancel',
               ),
               FilledButton(
                 onPressed: () async {
@@ -549,9 +550,9 @@ Future<bool> showEnterTemporaryAccessCodeDialog({
               ],
             ),
             actions: [
-              TextButton(
+              CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                text: 'Cancel',
               ),
               FilledButton(
                 onPressed: attempts >= 3

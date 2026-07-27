@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/remuneration_settings.dart';
 import '../../providers/providers.dart';
+import '../../widgets/cancel_button.dart';
 
 /// Admin screen to configure RS step amounts + extra services.
 ///
@@ -135,9 +136,9 @@ class _RemunerationSettingsScreenState
           ],
         ),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           ElevatedButton(
             onPressed: () {
@@ -183,9 +184,9 @@ class _RemunerationSettingsScreenState
         title: const Text('Delete Extra Service?'),
         content: Text('Delete "${service.description}"?'),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),

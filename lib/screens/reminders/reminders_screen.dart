@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
+import '../../widgets/cancel_button.dart';
 import '../../widgets/form_dialog_title.dart';
 import '../../widgets/reminders/reminder_rs_assignment_row.dart';
 
@@ -120,9 +121,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                       'Dismiss reminder for ${reminder.displayName}?',
                     ),
                     actions: [
-                      TextButton(
+                      CancelButton(
                         onPressed: () => Navigator.pop(dCtx, false),
-                        child: const Text('Cancel'),
+                        text: 'Cancel',
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(dCtx, true),

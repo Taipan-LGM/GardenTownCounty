@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_user.dart';
 import '../models/user_role.dart'; // AppPermission
 import '../providers/providers.dart';
+import 'cancel_button.dart';
 
 /// Admin dialog to edit Recording Secretary permissions.
 ///
@@ -170,9 +171,9 @@ class _PermissionEditorDialogState
         ),
       ),
       actions: [
-        TextButton(
+        CancelButton(
           onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          text: 'Cancel',
         ),
         ElevatedButton.icon(
           onPressed: _saving ? null : _save,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/role_definition.dart';
 import '../../providers/providers.dart';
+import '../../widgets/cancel_button.dart';
 import '../../widgets/form_dialog_title.dart';
 
 Future<void> showRoleManagerDialog(BuildContext context, WidgetRef ref) {
@@ -64,9 +65,9 @@ class _RoleManagerDialogState extends ConsumerState<RoleManagerDialog> {
         title: const Text('Delete role?'),
         content: Text('Remove "${role.name}"?'),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),

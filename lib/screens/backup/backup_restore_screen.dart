@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../providers/providers.dart';
+import '../../widgets/cancel_button.dart';
 
 class BackupRestoreScreen extends ConsumerStatefulWidget {
   const BackupRestoreScreen({super.key});
@@ -48,9 +49,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            CancelButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              text: 'Cancel',
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, controller.text.trim()),
@@ -206,9 +207,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
           'This will overwrite ALL cloud data with this backup. Continue?',
         ),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -526,9 +527,9 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
         ],
       ),
       actions: [
-        TextButton(
+        CancelButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          text: 'Cancel',
         ),
         FilledButton(
           onPressed: ok ? () => Navigator.pop(context, true) : null,

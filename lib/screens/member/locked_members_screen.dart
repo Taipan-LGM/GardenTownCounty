@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
+import '../../widgets/cancel_button.dart';
 import '../../widgets/member_lock_banners.dart';
 
 /// Admin dashboard: locked members + lock statistics.
@@ -176,9 +177,9 @@ class LockedMembersScreen extends ConsumerWidget {
                         'Unlock ${member.fullName}? Recording Secretaries will be able to edit again.',
                       ),
                       actions: [
-                        TextButton(
+                        CancelButton(
                           onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel'),
+                          text: 'Cancel',
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx, true),

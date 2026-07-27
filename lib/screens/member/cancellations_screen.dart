@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
 import '../../services/cancellation_service.dart';
+import '../../widgets/cancel_button.dart';
 import 'member_files_dialog.dart';
 
 /// Admin dashboard: soft-cancelled memberships + reinstate + files.
@@ -196,9 +197,9 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
           'Reinstate ${member.fullName}? All data and files remain available.',
         ),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),

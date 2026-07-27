@@ -22,6 +22,7 @@ import '../../services/sa_id_validator.dart';
 import '../../services/step1_validator.dart';
 import '../../services/secure_screen_service.dart';
 import '../../services/temporary_access_service.dart';
+import '../../widgets/cancel_button.dart';
 import '../../widgets/cancel_membership_dialog.dart';
 import '../../widgets/duplicate_warning_widget.dart';
 import '../../widgets/file_image_stub.dart'
@@ -1541,9 +1542,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               'You have unsaved changes. Please save before uploading files.',
             ),
             actions: [
-              TextButton(
+              CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                text: 'Cancel',
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -1882,9 +1883,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               'Promote ${member.fullName} to Recording Secretary?',
             ),
             actions: [
-              TextButton(
+              CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                text: 'Cancel',
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -1921,9 +1922,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               'Demote ${member.fullName} to Regular Member?',
             ),
             actions: [
-              TextButton(
+              CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                text: 'Cancel',
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -2038,9 +2039,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         'You have unsaved changes. Please save before uploading files.',
                       ),
                       actions: [
-                        TextButton(
+                        CancelButton(
                           onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel'),
+                          text: 'Cancel',
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx, true),
@@ -2137,9 +2138,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ),
                 ),
               if (_isEditing) ...[
-                TextButton(
+                CancelButton(
                   onPressed: _saving ? null : _cancelEdit,
-                  child: const Text('❌ Cancel'),
+                  text: 'Cancel',
                 ),
                 const SizedBox(width: 8),
                 // ElevatedButton — FilledButton theme forces forestGreen otherwise.
@@ -2665,9 +2666,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 title: const Text('Unlock Member'),
                 content: Text('Unlock ${member.fullName}?'),
                 actions: [
-                  TextButton(
+                  CancelButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
+                    text: 'Cancel',
                   ),
                   FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
@@ -2857,9 +2858,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           'edit this member without temporary access from the Administrator.',
         ),
         actions: [
-          TextButton(
+          CancelButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            text: 'Cancel',
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
