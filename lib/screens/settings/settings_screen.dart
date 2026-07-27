@@ -11,7 +11,6 @@ import '../../services/app_preferences_service.dart';
 import '../../widgets/cancel_button.dart';
 import '../../widgets/county_logo.dart';
 import '../../widgets/new_county_warning_dialog.dart';
-import 'county_info_settings_screen.dart';
 import 'remuneration_dashboard_screen.dart';
 import 'remuneration_settings_screen.dart';
 
@@ -141,23 +140,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Card(
             child: Column(
               children: [
-                // NEW ADDITION - County Information (Delete ListTile to revert)
-                ListTile(
-                  leading: const Icon(Icons.business, color: Colors.blue),
-                  title: const Text('County Information'),
-                  subtitle: const Text(
-                    'Update county details and register a new county',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const CountyInfoSettingsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.attach_money, color: Colors.green),
                   title: const Text('RS Remuneration'),
@@ -204,8 +186,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const Padding(
             padding: EdgeInsets.only(top: 24),
             child: Text(
-              'Sign in as Admin to open County Settings '
-              '(logos and County information).',
+              'Sign in as Admin to open County Settings (logos).',
               textAlign: TextAlign.center,
             ),
           ),

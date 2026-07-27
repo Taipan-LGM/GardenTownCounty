@@ -123,6 +123,7 @@ class _AppShellState extends ConsumerState<AppShell>
     }
 
     final isHomeHub = effectiveSection == AppSection.home ||
+        effectiveSection == AppSection.settings ||
         effectiveSection == AppSection.countyInfo ||
         effectiveSection == AppSection.countyVideos;
     final showAppBar = !isHomeHub;

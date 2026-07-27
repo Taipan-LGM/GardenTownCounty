@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import 'county_logo.dart';
 
-/// Fixed top chrome: Logo 1 + county name | Videos · Info · Menu.
+/// Fixed top chrome: Logo 1 + county name | Settings · Videos · Info · Menu.
 ///
 /// // NEW ADDITION - Delete this file to revert top bar layout.
 class AppTopBar extends ConsumerWidget {
@@ -52,7 +52,14 @@ class AppTopBar extends ConsumerWidget {
                 ),
               ),
             ),
-            // Order L→R: Videos, Info, Menu (Menu farthest right)
+            // Order L→R: Settings → Videos → Info → Menu
+            _TabChip(
+              icon: Icons.settings,
+              label: 'Settings',
+              selected: section == AppSection.settings,
+              onTap: () => ref.read(appSectionProvider.notifier).state =
+                  AppSection.settings,
+            ),
             _TabChip(
               icon: Icons.video_library,
               label: 'Videos',
