@@ -198,7 +198,7 @@ class AppDrawer extends ConsumerWidget {
           context,
           ref,
           icon: item.icon,
-          label: item.label,
+          label: strings.drawerLabel(item.id),
           selected: false,
           onTap: () async {
             Navigator.of(context).pop();
@@ -212,12 +212,12 @@ class AppDrawer extends ConsumerWidget {
             color: item.accentColor ?? Colors.purpleAccent,
           ),
           title: Text(
-            item.label,
+            strings.drawerLabel(item.id),
             style: const TextStyle(color: Colors.white),
           ),
-          subtitle: const Text(
-            'Generate 10 demo members',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
+          subtitle: Text(
+            strings.demoDataSubtitle,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
           onTap: () => _generateDemoData(context, ref),
         );
@@ -228,7 +228,7 @@ class AppDrawer extends ConsumerWidget {
             color: item.accentColor ?? Colors.redAccent,
           ),
           title: Text(
-            item.label,
+            strings.drawerLabel(item.id),
             style: TextStyle(
               color: item.accentColor ?? Colors.redAccent,
             ),
@@ -242,7 +242,7 @@ class AppDrawer extends ConsumerWidget {
           context,
           ref,
           icon: item.icon,
-          label: item.label,
+          label: strings.drawerLabel(item.id),
           selected: section == target,
           onTap: () => _go(context, ref, target),
           iconColor: item.accentColor,

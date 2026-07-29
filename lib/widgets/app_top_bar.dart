@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_strings.dart';
 import '../providers/providers.dart';
 import 'county_logo.dart';
 
@@ -20,6 +21,7 @@ class AppTopBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(appSectionProvider);
+    final strings = AppStrings(ref.watch(appLanguageProvider));
     final profile = ref.watch(countyProfileProvider).valueOrNull;
     final countyName = profile?.countyName.trim().isNotEmpty == true
         ? profile!.countyName
@@ -55,28 +57,28 @@ class AppTopBar extends ConsumerWidget {
             // Order L→R: Settings → Videos → Info → Menu
             _TabChip(
               icon: Icons.settings,
-              label: 'Settings',
+              label: strings.settings,
               selected: section == AppSection.settings,
               onTap: () => ref.read(appSectionProvider.notifier).state =
                   AppSection.settings,
             ),
             _TabChip(
               icon: Icons.video_library,
-              label: 'Videos',
+              label: strings.videos,
               selected: section == AppSection.countyVideos,
               onTap: () => ref.read(appSectionProvider.notifier).state =
                   AppSection.countyVideos,
             ),
             _TabChip(
               icon: Icons.info_outline,
-              label: 'Info',
+              label: strings.info,
               selected: section == AppSection.countyInfo,
               onTap: () => ref.read(appSectionProvider.notifier).state =
                   AppSection.countyInfo,
             ),
             _TabChip(
               icon: Icons.menu,
-              label: 'Menu',
+              label: strings.menu,
               selected: false,
               onTap: onOpenMenu,
             ),

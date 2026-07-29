@@ -116,6 +116,12 @@ final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 final appLanguageProvider =
     StateProvider<AppLanguage>((ref) => AppLanguage.english);
 
+/// Apply language immediately in UI, then persist (so the first tap works).
+Future<void> setAppLanguage(Ref ref, AppLanguage lang) async {
+  ref.read(appLanguageProvider.notifier).state = lang;
+  await ref.read(appPreferencesServiceProvider).saveLanguage(lang);
+}
+
 final countyProfileProvider =
     FutureProvider.autoDispose<CountyProfile>((ref) async {
   return ref.watch(countySettingsServiceProvider).load();

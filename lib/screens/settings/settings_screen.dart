@@ -87,6 +87,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 SegmentedButton<AppLanguage>(
+                  emptySelectionAllowed: false,
+                  showSelectedIcon: true,
                   segments: [
                     ButtonSegment(
                       value: AppLanguage.english,
@@ -99,11 +101,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                   selected: {language},
                   onSelectionChanged: (set) async {
+                    if (set.isEmpty) return;
                     final lang = set.first;
-                    ref.read(appLanguageProvider.notifier).state = lang;
-                    await ref
-                        .read(appPreferencesServiceProvider)
-                        .saveLanguage(lang);
+                    await setAppLanguage(ref, lang);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(AppStrings(lang).languageApplied),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
                   },
                 ),
               ],

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'l10n/app_strings.dart';
 import 'models/user_role.dart';
 import 'providers/providers.dart';
+import 'services/app_preferences_service.dart';
 import 'services/auth_service.dart';
 import 'services/reminder_expiry_service.dart';
 import 'screens/activities/activities_screen.dart';
@@ -28,10 +30,15 @@ import 'widgets/sync_status_indicator.dart';
 class GardenTownCountyApp extends ConsumerWidget {
   const GardenTownCountyApp({super.key});
 
+  /// Prefer rebuilding chrome without remounting MaterialApp (keeps session).
+  /// Locale still drives Flutter's locale resolution for any Material widgets.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authUserProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final language = ref.watch(appLanguageProvider);
+    final locale =
+        language == AppLanguage.afrikaans ? const Locale('af') : const Locale('en');
 
     return MaterialApp(
       title: AppConstants.appName,
@@ -39,6 +46,11 @@ class GardenTownCountyApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      locale: locale,
+      supportedLocales: const [
+        Locale('en'),
+        Locale('af'),
+      ],
       home: user == null ? const LoginScreen() : const AppShell(),
     );
   }
@@ -112,6 +124,8 @@ class _AppShellState extends ConsumerState<AppShell>
     final section = ref.watch(appSectionProvider);
     final refreshTick = ref.watch(appRefreshTickProvider);
     final user = ref.watch(authUserProvider);
+    final language = ref.watch(appLanguageProvider);
+    final strings = AppStrings(language);
     final effectiveSection = !_canAccessSection(section, user)
         ? AppSection.home
         : section;
@@ -131,7 +145,7 @@ class _AppShellState extends ConsumerState<AppShell>
     return Scaffold(
       appBar: showAppBar
           ? AppBar(
-              title: Text(_titleFor(effectiveSection)),
+              title: Text(strings.sectionTitle(effectiveSection)),
             )
           : null,
       drawer: const AppDrawer(),
@@ -172,7 +186,7 @@ class _AppShellState extends ConsumerState<AppShell>
                                 )
                               : KeyedSubtree(
                                   key: ValueKey(
-                                    'section-$effectiveSection-$refreshTick',
+                                    'section-$effectiveSection-$refreshTick-${language.name}',
                                   ),
                                   child: _bodyFor(effectiveSection),
                                 ),
@@ -226,45 +240,6 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.countyInfo:
       case AppSection.countyVideos:
         return true;
-    }
-  }
-
-  String _titleFor(AppSection section) {
-    switch (section) {
-      case AppSection.home:
-        return 'Home';
-      case AppSection.settings:
-        return 'Settings';
-      case AppSection.memberInfo:
-        return 'Member Application Form';
-      case AppSection.sos:
-        return 'SOS';
-      case AppSection.reminders:
-        return 'Reminders';
-      case AppSection.activities:
-        return 'Activities';
-      case AppSection.addUser:
-        return 'Recording Secretary Rights';
-      case AppSection.backupRestore:
-        return 'Backup & Restore';
-      case AppSection.global528:
-        return 'Step 1_Global 528';
-      case AppSection.global528Step2:
-        return 'Step 2_Global 528';
-      case AppSection.global928:
-        return 'Step 3_Global 928';
-      case AppSection.lro:
-        return 'Step 4_LRO';
-      case AppSection.credentialCard:
-        return 'Step 5_Credential Card';
-      case AppSection.lockedMembers:
-        return 'Cancellations';
-      case AppSection.duplicateReport:
-        return 'Duplicate Manager';
-      case AppSection.countyInfo:
-        return 'County Info';
-      case AppSection.countyVideos:
-        return 'County Videos';
     }
   }
 
