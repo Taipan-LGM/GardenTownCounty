@@ -23,8 +23,15 @@ RUN flutter pub get \
 # ── Serve ──────────────────────────────────────────────────────────────────
 FROM nginx:1.27-alpine
 
+# Drop default site so only our templated config is active
+RUN rm -f /etc/nginx/conf.d/default.conf
+
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/build/web /usr/share/nginx/html
 
+# Render provides PORT at runtime; default for local docker run
 ENV PORT=10000
 EXPOSE 10000
+
+# Explicit start: substitute only PORT, then validate + run nginx
+CMD ["/bin/sh", "-c", "envsubst '${PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -t && nginx -g 'daemon off;'"]
