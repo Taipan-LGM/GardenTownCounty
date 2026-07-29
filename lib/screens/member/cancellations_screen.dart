@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
 import '../../services/cancellation_service.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import 'member_files_dialog.dart';
 
 /// Admin dashboard: soft-cancelled memberships + reinstate + files.
@@ -201,10 +201,9 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             text: 'Cancel',
           ),
-          FilledButton(
+          ActionButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Yes, Reinstate'),
+            text: 'Yes, Reinstate',
           ),
         ],
       ),
@@ -336,23 +335,11 @@ class _CancelledCard extends StatelessWidget {
                 ],
               ),
             ),
-            // ElevatedButton avoids forestGreen FilledButton theme override.
-            ElevatedButton.icon(
+            ActionButton(
               onPressed: onReinstate,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text(
-                'Reinstate',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade700,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-              ),
+              text: 'Reinstate',
+              icon: Icons.refresh,
+              height: 40,
             ),
             IconButton(
               tooltip: 'View Files ($fileCount)',

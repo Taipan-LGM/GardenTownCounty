@@ -5,7 +5,7 @@ import 'package:open_file/open_file.dart';
 
 import '../../models/county_video.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Member-facing Videos tab.
 ///
@@ -44,19 +44,15 @@ class VideosContentScreen extends ConsumerWidget {
                       ),
                     ),
                     if (isAdmin)
-                      ElevatedButton.icon(
+                      AddButton(
                         onPressed: () async {
                           final ok = await showVideoEditorDialog(context, ref);
                           if (ok == true) {
                             ref.invalidate(activeVideosProvider);
                           }
                         },
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Video'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
+                        text: 'Add Video',
+                        icon: Icons.add,
                       ),
                   ],
                 ),
@@ -425,9 +421,9 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
                       ),
                     ),
                   ),
-                  ElevatedButton(
+                  AddButton(
                     onPressed: _pickVideo,
-                    child: const Text('Upload Video'),
+                    text: 'Upload Video',
                   ),
                 ],
               ),
@@ -447,9 +443,9 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
                       ),
                     ),
                   ),
-                  ElevatedButton(
+                  AddButton(
                     onPressed: _pickThumb,
-                    child: const Text('Thumbnail'),
+                    text: 'Thumbnail',
                   ),
                 ],
               ),
@@ -462,9 +458,10 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
           onPressed: () => Navigator.pop(context, false),
           text: 'Cancel',
         ),
-        ElevatedButton(
+        SaveButton(
           onPressed: _saving ? null : _save,
-          child: Text(widget.existing == null ? 'Publish' : 'Save'),
+          text: widget.existing == null ? 'Publish' : 'Save',
+          isLoading: _saving,
         ),
       ],
     );

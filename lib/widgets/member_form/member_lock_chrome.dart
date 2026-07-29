@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
 import '../../services/temporary_access_service.dart';
-import '../cancel_button.dart';
+import '../standard_buttons.dart';
 import '../member_lock_banners.dart';
 
 /// Lock / temporary-access banners shown above the member form.
@@ -62,9 +62,9 @@ class MemberLockChrome extends ConsumerWidget {
                     onPressed: () => Navigator.pop(ctx, false),
                     text: 'Cancel',
                   ),
-                  FilledButton(
+                  ActionButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Unlock'),
+                    text: 'Unlock',
                   ),
                 ],
               ),

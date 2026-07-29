@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 
 class BackupRestoreScreen extends ConsumerStatefulWidget {
   const BackupRestoreScreen({super.key});
@@ -91,7 +91,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               onPressed: () => Navigator.pop(context),
               text: 'Cancel',
             ),
-            FilledButton(
+            SubmitButton(
               onPressed: () {
                 final name = controller.text.trim();
                 final password = passwordController.text.trim();
@@ -101,7 +101,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 if (password != confirm) return;
                 Navigator.pop(context, (name: name, password: password));
               },
-              child: const Text('Confirm'),
+              text: 'Confirm',
             ),
           ],
         );
@@ -160,9 +160,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               onPressed: () => Navigator.pop(context),
               text: 'Cancel',
             ),
-            FilledButton(
+            ActionButton(
               onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('Continue'),
+              text: 'Continue',
             ),
           ],
         );
@@ -266,9 +266,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 : result.filePath,
           ),
           actions: [
-            FilledButton(
+            ActionButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              text: 'OK',
             ),
           ],
         ),
@@ -337,9 +337,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             onPressed: () => Navigator.pop(context, false),
             text: 'Cancel',
           ),
-          FilledButton(
+          ActionButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
+            text: 'Continue',
           ),
         ],
       ),
@@ -391,9 +391,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             'Data restored and synced. The app will return to Home.',
           ),
           actions: [
-            FilledButton(
+            ActionButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              text: 'OK',
             ),
           ],
         ),
@@ -480,9 +480,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                   ),
           ),
           actions: [
-            FilledButton(
+            ActionButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              text: 'Close',
             ),
           ],
         ),
@@ -554,9 +554,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             'The system is ready for new data.',
           ),
           actions: [
-            FilledButton(
+            ActionButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              text: 'OK',
             ),
           ],
         ),
@@ -839,6 +839,26 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     required Color textColor,
     required VoidCallback? onPressed,
   }) {
+    final actionText = label == 'DELETE ALL' ? 'Delete All' : 'Go';
+
+    Widget actionBtn;
+    switch (label) {
+      case 'Create Backup':
+        actionBtn = BackupButton(onPressed: onPressed, text: actionText);
+      case 'Restore Backup':
+        actionBtn = RestoreButton(onPressed: onPressed, text: actionText);
+      case 'View Backups':
+        actionBtn = ViewButton(onPressed: onPressed, text: actionText);
+      case 'DELETE ALL':
+        actionBtn = DeleteButton(
+          onPressed: onPressed,
+          text: actionText,
+          icon: Icons.delete_forever,
+        );
+      default:
+        actionBtn = EnableButton(onPressed: onPressed, text: actionText);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -881,18 +901,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed: onPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: backgroundColor,
-              foregroundColor: textColor,
-              disabledBackgroundColor: Colors.grey.shade700,
-              disabledForegroundColor: Colors.grey.shade400,
-              side: AppTheme.buttonWhiteBand,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-            child: Text(label == 'DELETE ALL' ? 'Delete All' : 'Go'),
-          ),
+          actionBtn,
         ],
       ),
     );
@@ -942,9 +951,9 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
           onPressed: () => Navigator.pop(context, false),
           text: 'Cancel',
         ),
-        FilledButton(
+        RestoreButton(
           onPressed: ok ? () => Navigator.pop(context, true) : null,
-          child: const Text('Restore'),
+          text: 'Restore',
         ),
       ],
     );
@@ -1081,13 +1090,9 @@ class _ConfirmDeleteAllDialogState extends State<_ConfirmDeleteAllDialog> {
           onPressed: () => Navigator.pop(context, false),
           text: 'Cancel',
         ),
-        ElevatedButton(
+        DeleteButton(
           onPressed: ok ? () => Navigator.pop(context, true) : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: ok ? Colors.red : Colors.grey.shade600,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Confirm Delete All'),
+          text: 'Confirm Delete All',
         ),
       ],
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/record_field_policy.dart';
 
+import 'standard_buttons.dart';
+
 /// Explains Global / LRO Record No. visibility rules.
 ///
 /// // NEW ADDITION - Delete this file to revert help dialog.
@@ -60,9 +62,9 @@ class RecordVisibilityDialog extends StatelessWidget {
         ],
       ),
       actions: [
-        TextButton(
+        ActionButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Got It'),
+          text: 'Got It',
         ),
       ],
     );

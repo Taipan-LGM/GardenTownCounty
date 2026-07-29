@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
+import '../standard_buttons.dart';
 
 /// Top bar shown while viewing a member profile — First / Prev / Next / Last.
 class ProfileNavigationBar extends StatelessWidget {
@@ -137,38 +138,53 @@ class ProfileNavigationBar extends StatelessWidget {
                     onChanged: onRsRadioChanged,
                   ),
                 if (onNew != null)
-                  _ActionChip(
-                    icon: Icons.person_add_outlined,
-                    label: 'New',
+                  _NavActionButton(
                     tooltip: 'New Member',
-                    onPressed: canNew ? onNew : null,
+                    child: AddButton(
+                      onPressed: canNew ? onNew : null,
+                      text: 'New',
+                      icon: Icons.person_add_outlined,
+                      height: 40,
+                    ),
                   ),
                 if (onEdit != null)
-                  _ActionChip(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit',
+                  _NavActionButton(
                     tooltip: 'Edit (Ctrl+E)',
-                    onPressed: canEdit ? onEdit : null,
+                    child: EditButton(
+                      onPressed: canEdit ? onEdit : null,
+                      text: 'Edit',
+                      icon: Icons.edit_outlined,
+                      height: 40,
+                    ),
                   ),
                 if (onUpload != null)
-                  _ActionChip(
-                    icon: Icons.attach_file,
-                    label: 'Upload',
+                  _NavActionButton(
                     tooltip: 'Upload Files (Ctrl+U)',
-                    onPressed: onUpload,
+                    child: AddButton(
+                      onPressed: onUpload,
+                      text: 'Upload',
+                      icon: Icons.attach_file,
+                      height: 40,
+                    ),
                   ),
                 if (onDelete != null)
-                  _ActionChip(
-                    icon: Icons.delete_outline,
-                    label: 'Delete',
+                  _NavActionButton(
                     tooltip: 'Delete (Ctrl+D)',
-                    onPressed: canDelete ? onDelete : null,
+                    child: DeleteButton(
+                      onPressed: canDelete ? onDelete : null,
+                      text: 'Delete',
+                      icon: Icons.delete_outline,
+                      height: 40,
+                    ),
                   ),
-                _ActionChip(
-                  icon: Icons.close,
-                  label: 'Close',
+                _NavActionButton(
                   tooltip: 'Close (Esc)',
-                  onPressed: onBack,
+                  child: ActionButton(
+                    onPressed: onBack,
+                    text: 'Close',
+                    icon: Icons.close,
+                    height: 40,
+                  ),
                 ),
               ],
             ),
@@ -316,18 +332,14 @@ class _RsRadioChip extends StatelessWidget {
   }
 }
 
-class _ActionChip extends StatelessWidget {
-  const _ActionChip({
-    required this.icon,
-    required this.label,
+class _NavActionButton extends StatelessWidget {
+  const _NavActionButton({
     required this.tooltip,
-    required this.onPressed,
+    required this.child,
   });
 
-  final IconData icon;
-  final String label;
   final String tooltip;
-  final VoidCallback? onPressed;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -335,17 +347,7 @@ class _ActionChip extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4),
       child: Tooltip(
         message: tooltip,
-        child: TextButton.icon(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
-            disabledForegroundColor: Colors.white38,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            minimumSize: const Size(0, 40),
-          ),
-          icon: Icon(icon, size: 18),
-          label: Text(label),
-        ),
+        child: child,
       ),
     );
   }

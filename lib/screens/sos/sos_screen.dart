@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../models/sos_preset.dart';
 import '../../providers/providers.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../services/messaging_service.dart';
 
 enum SosAudience { single, selected, all }
@@ -153,9 +154,9 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  OutlinedButton(
+                                  SaveButton(
                                     onPressed: _createPreset,
-                                    child: const Text('Save Preset'),
+                                    text: 'Save Preset',
                                   ),
                                 ],
                               ),
@@ -294,13 +295,12 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              FilledButton.icon(
+                              ActionButton(
                                 onPressed:
                                     _sending ? null : () => _send(members),
-                                icon: const Icon(Icons.send),
-                                label: Text(
-                                  _sending ? 'Sending…' : 'Send SOS',
-                                ),
+                                text: _sending ? 'Sending…' : 'Send SOS',
+                                isLoading: _sending,
+                                icon: Icons.send,
                               ),
                             ],
                           ),

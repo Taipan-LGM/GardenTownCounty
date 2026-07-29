@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/activity_log.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/form_dialog_title.dart';
 
 Future<void> showActivityMapDialog(
@@ -81,9 +82,9 @@ class ActivityMapDialog extends StatelessWidget {
         titlePadding: formDialogTitlePadding,
         content: const Text('No GPS coordinates for this activity.'),
         actions: [
-          TextButton(
+          ActionButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            text: 'Close',
           ),
         ],
       );
@@ -167,28 +168,25 @@ class ActivityMapDialog extends StatelessWidget {
                 runSpacing: 8,
                 alignment: WrapAlignment.end,
                 children: [
-                  OutlinedButton.icon(
+                  ActionButton(
                     onPressed: () => _printMap(context),
-                    icon: const Icon(Icons.print),
-                    label: const Text('Print'),
+                    text: 'Print',
+                    icon: Icons.print,
                   ),
-                  OutlinedButton.icon(
+                  ActionButton(
                     onPressed: _share,
-                    icon: const Icon(Icons.save_alt),
-                    label: const Text('Save / Share'),
+                    text: 'Save / Share',
+                    icon: Icons.save_alt,
                   ),
-                  FilledButton.icon(
+                  ActionButton(
                     onPressed: _whatsApp,
-                    icon: const Icon(Icons.chat),
-                    label: const Text('WhatsApp'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366),
-                    ),
+                    text: 'WhatsApp',
+                    icon: Icons.chat,
                   ),
-                  FilledButton.icon(
+                  ActionButton(
                     onPressed: _openMaps,
-                    icon: const Icon(Icons.map),
-                    label: const Text('Open Maps'),
+                    text: 'Open Maps',
+                    icon: Icons.map,
                   ),
                 ],
               ),

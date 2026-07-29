@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/lookup_item.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/form_dialog_title.dart';
 
 Future<void> showLookupManagerDialog(
@@ -73,9 +73,9 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
             onPressed: () => Navigator.pop(context, false),
             text: 'Cancel',
           ),
-          FilledButton(
+          DeleteButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            text: 'Delete',
           ),
         ],
       ),
@@ -109,10 +109,15 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _save,
-                  child: Text(_editing == null ? 'Add' : 'Save'),
-                ),
+                _editing == null
+                    ? AddButton(
+                        onPressed: _save,
+                        text: 'Add',
+                      )
+                    : SaveButton(
+                        onPressed: _save,
+                        text: 'Save',
+                      ),
               ],
             ),
             const SizedBox(height: 12),
@@ -128,7 +133,7 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.edit),
+                            icon: Icon(Icons.edit, color: AppButtonColors.editBg),
                             onPressed: () {
                               setState(() {
                                 _editing = item;
@@ -137,7 +142,10 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline),
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: AppButtonColors.deleteBg,
+                            ),
                             onPressed: () => _delete(item),
                           ),
                         ],
@@ -153,9 +161,9 @@ class _LookupManagerDialogState extends ConsumerState<LookupManagerDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        ActionButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          text: 'Close',
         ),
       ],
     );

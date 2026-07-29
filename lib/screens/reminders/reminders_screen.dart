@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/form_dialog_title.dart';
 import '../../widgets/reminders/reminder_rs_assignment_row.dart';
 
@@ -125,12 +125,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                         onPressed: () => Navigator.pop(dCtx, false),
                         text: 'Cancel',
                       ),
-                      FilledButton(
+                      DeleteButton(
                         onPressed: () => Navigator.pop(dCtx, true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        child: const Text('Dismiss'),
+                        text: 'Dismiss',
                       ),
                     ],
                   ),
@@ -278,30 +275,13 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               const SizedBox(width: 12),
               SizedBox(
                 height: 48,
-                child: ElevatedButton.icon(
+                child: ActionButton(
                   onPressed: unassignedCount == 0 || _isAutoAssigning
                       ? null
                       : _autoAssignAll,
-                  icon: _isAutoAssigning
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.auto_awesome),
-                  label: Text(
-                    _isAutoAssigning ? 'Assigning...' : 'Auto-Assign All',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber.shade700,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.amber.shade200,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                  ),
+                  text: _isAutoAssigning ? 'Assigning...' : 'Auto-Assign All',
+                  isLoading: _isAutoAssigning,
+                  icon: Icons.auto_awesome,
                 ),
               ),
             ],

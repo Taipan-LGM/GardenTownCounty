@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/secretary_remuneration.dart';
 import '../../providers/providers.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Admin-only overview of RS earnings (paid / pending / approved).
 ///
@@ -223,15 +224,15 @@ class _RemunerationDashboardScreenState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (record.status == 'pending')
-                        TextButton(
+                        ActionButton(
                           onPressed: () => _approve(record),
-                          child: const Text('Approve'),
+                          text: 'Approve',
                         ),
                       if (record.status == 'approved' ||
                           record.status == 'pending')
-                        TextButton(
+                        ActionButton(
                           onPressed: () => _pay(record),
-                          child: const Text('Pay'),
+                          text: 'Pay',
                         ),
                     ],
                   ),

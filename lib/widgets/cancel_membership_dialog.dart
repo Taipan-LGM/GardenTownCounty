@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/member.dart';
 import '../providers/providers.dart';
 import '../services/cancellation_service.dart';
+import 'standard_buttons.dart';
 
 /// Admin confirmation dialog to soft-cancel a membership.
 ///
@@ -112,23 +113,14 @@ class _CancelMembershipDialogState
         ],
       ),
       actions: [
-        TextButton(
+        CancelButton(
           onPressed: _loading ? null : () => Navigator.pop(context, false),
-          child: const Text('Keep Membership'),
+          text: 'Keep Membership',
         ),
-        FilledButton(
+        ActionButton(
           onPressed: _loading ? null : _confirm,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-          ),
-          child: _loading
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Cancel Membership'),
+          text: 'Cancel Membership',
+          isLoading: _loading,
         ),
       ],
     );

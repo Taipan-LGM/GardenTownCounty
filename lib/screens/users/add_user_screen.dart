@@ -6,6 +6,7 @@ import '../../models/member.dart';
 import '../../models/user_role.dart';
 import '../../navigation/app_drawer_catalog.dart';
 import '../../providers/providers.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Admin-only User Manager: Recording Secretary rights + RS list (black theme).
 ///
@@ -314,35 +315,17 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: SaveButton(
                 onPressed: (_dirty && !_saving)
                     ? () => _savePermissions(selected)
                     : null,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save),
-                label: Text(
-                  _saving
-                      ? 'Saving...'
-                      : _dirty
-                          ? 'Save Permissions'
-                          : 'No Changes',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _dirty ? Colors.blue.shade700 : Colors.grey.shade800,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade800,
-                  disabledForegroundColor: Colors.grey.shade500,
-                  padding: const EdgeInsets.all(16),
-                ),
+                text: _saving
+                    ? 'Saving...'
+                    : _dirty
+                        ? 'Save Permissions'
+                        : 'No Changes',
+                isLoading: _saving,
+                icon: Icons.save,
               ),
             ),
             const SizedBox(height: 8),

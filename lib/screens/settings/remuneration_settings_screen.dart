@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/remuneration_settings.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Admin screen to configure RS step amounts + extra services.
 ///
@@ -140,24 +140,45 @@ class _RemunerationSettingsScreenState
             onPressed: () => Navigator.pop(context),
             text: 'Cancel',
           ),
-          ElevatedButton(
-            onPressed: () {
-              final desc = descriptionController.text.trim();
-              final amount = double.tryParse(amountController.text.trim());
-              if (desc.isEmpty || amount == null) return;
-              Navigator.pop(
-                context,
-                ExtraService(
-                  id: service?.id ?? const Uuid().v4(),
-                  description: desc,
-                  amount: amount,
-                  isActive: true,
-                  createdAt: service?.createdAt ?? DateTime.now().toUtc(),
+          service == null
+              ? AddButton(
+                  onPressed: () {
+                    final desc = descriptionController.text.trim();
+                    final amount =
+                        double.tryParse(amountController.text.trim());
+                    if (desc.isEmpty || amount == null) return;
+                    Navigator.pop(
+                      context,
+                      ExtraService(
+                        id: service?.id ?? const Uuid().v4(),
+                        description: desc,
+                        amount: amount,
+                        isActive: true,
+                        createdAt: service?.createdAt ?? DateTime.now().toUtc(),
+                      ),
+                    );
+                  },
+                  text: 'Add',
+                )
+              : EditButton(
+                  onPressed: () {
+                    final desc = descriptionController.text.trim();
+                    final amount =
+                        double.tryParse(amountController.text.trim());
+                    if (desc.isEmpty || amount == null) return;
+                    Navigator.pop(
+                      context,
+                      ExtraService(
+                        id: service?.id ?? const Uuid().v4(),
+                        description: desc,
+                        amount: amount,
+                        isActive: true,
+                        createdAt: service?.createdAt ?? DateTime.now().toUtc(),
+                      ),
+                    );
+                  },
+                  text: 'Update',
                 ),
-              );
-            },
-            child: Text(service == null ? 'Add' : 'Update'),
-          ),
         ],
       ),
     );
@@ -188,13 +209,9 @@ class _RemunerationSettingsScreenState
             onPressed: () => Navigator.pop(context, false),
             text: 'Cancel',
           ),
-          ElevatedButton(
+          DeleteButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
+            text: 'Delete',
           ),
         ],
       ),
@@ -291,14 +308,10 @@ class _RemunerationSettingsScreenState
                             ),
                           ),
                         ),
-                        ElevatedButton.icon(
+                        AddButton(
                           onPressed: _addExtraService,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Service'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
+                          text: 'Add Service',
+                          icon: Icons.add,
                         ),
                       ],
                     ),
@@ -365,21 +378,11 @@ class _RemunerationSettingsScreenState
               ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            SaveButton(
               onPressed: _saving ? null : _saveSettings,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save),
-              label: const Text('Save Remuneration Settings'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(16),
-              ),
+              text: 'Save Remuneration Settings',
+              isLoading: _saving,
+              icon: Icons.save,
             ),
           ],
         ),

@@ -8,6 +8,7 @@ import '../../models/member.dart';
 import '../../models/member_file.dart';
 import '../../providers/providers.dart';
 import '../../widgets/form_dialog_title.dart';
+import '../../widgets/standard_buttons.dart';
 
 Future<void> showMemberFilesDialog(
   BuildContext context,
@@ -138,16 +139,10 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
+              child: AddButton(
                 onPressed: _uploading ? null : _upload,
-                icon: _uploading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.upload_file),
-                label: const Text('Pick from Documents / File Explorer'),
+                text: 'Pick from Documents / File Explorer',
+                icon: Icons.upload_file,
               ),
             ),
             const SizedBox(height: 8),
@@ -193,9 +188,9 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        ActionButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          text: 'Close',
         ),
       ],
     );
@@ -280,7 +275,7 @@ class _FileRowState extends State<_FileRow> {
           IconButton(
             tooltip: 'Delete',
             onPressed: widget.onDelete,
-            icon: const Icon(Icons.delete_outline),
+            icon: Icon(Icons.delete_outline, color: AppButtonColors.deleteBg),
           ),
         ],
       ),

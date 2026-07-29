@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/member.dart';
+import 'standard_buttons.dart';
 
 final _dayFmt = DateFormat('yyyy-MM-dd');
 
@@ -101,13 +102,10 @@ class OnboardingChecklistCard extends StatelessWidget {
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
+                child: SubmitButton(
                   onPressed: allDone && !readOnly ? onComplete : null,
-                  icon: const Icon(Icons.verified),
-                  label: const Text('Complete Member'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
+                  text: 'Complete Member',
+                  icon: Icons.verified,
                 ),
               ),
               if (!allDone)

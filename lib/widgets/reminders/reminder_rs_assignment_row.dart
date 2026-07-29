@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/app_user.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Dropdown + Save for reminder RS assignment (no per-card Auto-Assign).
 ///
@@ -139,19 +140,10 @@ class _ReminderRsAssignmentRowState
               ),
             ),
             const SizedBox(width: 8),
-            ElevatedButton(
+            SaveButton(
               onPressed: _saving ? null : _saveAssignment,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save'),
+              text: 'Save',
+              isLoading: _saving,
             ),
           ],
         ),

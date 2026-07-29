@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../providers/providers.dart';
 import '../../widgets/county_logo.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Splash / landing with shrink+slide second-logo animation.
 /// First (primary) logo stays fixed as background — never fades away.
@@ -135,18 +136,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 48),
-                  child: FilledButton(
+                  child: ActionButton(
                     onPressed: _beginTransition,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.gold,
-                      foregroundColor: Colors.white,
-                      side: AppTheme.buttonWhiteBand,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 14,
-                      ),
-                    ),
-                    child: Text(strings.continueLabel),
+                    text: strings.continueLabel,
                   ),
                 ),
               ),

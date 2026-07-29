@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/member.dart';
 import '../../providers/providers.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/form_dialog_title.dart';
 
 Future<void> showGlobalSearchDialog(BuildContext context, WidgetRef ref) {
@@ -127,13 +128,13 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        ActionButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          text: 'Close',
         ),
-        FilledButton(
+        ActionButton(
           onPressed: _search,
-          child: const Text('Search'),
+          text: 'Search',
         ),
       ],
     );

@@ -5,7 +5,7 @@ import 'package:open_file/open_file.dart';
 
 import '../../models/county_article.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Member-facing Info tab — published county articles.
 ///
@@ -44,7 +44,7 @@ class InfoContentScreen extends ConsumerWidget {
                       ),
                     ),
                     if (isAdmin)
-                      ElevatedButton.icon(
+                      AddButton(
                         onPressed: () async {
                           final ok =
                               await showArticleEditorDialog(context, ref);
@@ -52,12 +52,8 @@ class InfoContentScreen extends ConsumerWidget {
                             ref.invalidate(publishedArticlesProvider);
                           }
                         },
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Article'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
+                        text: 'Add Article',
+                        icon: Icons.add,
                       ),
                   ],
                 ),
@@ -150,7 +146,7 @@ class _ArticleCard extends ConsumerWidget {
           Row(
             children: [
               if (article.content.length > 200)
-                TextButton(
+                ViewButton(
                   onPressed: () {
                     showDialog<void>(
                       context: context,
@@ -178,15 +174,15 @@ class _ArticleCard extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: const Text('Read More →'),
+                  text: 'Read More →',
                 ),
               if (article.pdfLocalPath != null || article.pdfUrl != null)
-                TextButton(
+                ViewButton(
                   onPressed: () async {
                     final path = article.pdfLocalPath ?? article.pdfUrl!;
                     await OpenFile.open(path);
                   },
-                  child: const Text('Download PDF'),
+                  text: 'Download PDF',
                 ),
               if (isAdmin) ...[
                 const Spacer(),
@@ -383,9 +379,9 @@ class _ArticleEditorDialogState extends ConsumerState<_ArticleEditorDialog> {
                       ),
                     ),
                   ),
-                  ElevatedButton(
+                  AddButton(
                     onPressed: _pickPdf,
-                    child: const Text('Upload PDF'),
+                    text: 'Upload PDF',
                   ),
                 ],
               ),
@@ -398,9 +394,10 @@ class _ArticleEditorDialogState extends ConsumerState<_ArticleEditorDialog> {
           onPressed: () => Navigator.pop(context, false),
           text: 'Cancel',
         ),
-        ElevatedButton(
+        SaveButton(
           onPressed: _saving ? null : _save,
-          child: Text(widget.existing == null ? 'Publish' : 'Save'),
+          text: widget.existing == null ? 'Publish' : 'Save',
+          isLoading: _saving,
         ),
       ],
     );

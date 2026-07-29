@@ -8,7 +8,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/county_profile.dart';
 import '../../providers/providers.dart';
 import '../../services/app_preferences_service.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/county_logo.dart';
 import '../../widgets/new_county_warning_dialog.dart';
 import 'remuneration_dashboard_screen.dart';
@@ -115,25 +115,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: AppTheme.forestGreen,
-                side: const BorderSide(color: Colors.white, width: 2),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
+            child: ActionButton(
               onPressed: () => showCountySettingsDialog(context, ref),
-              child: const Text(
-                'County Settings (logos)',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
+              text: 'County Settings (logos)',
             ),
           ),
           const SizedBox(height: 12),
@@ -223,9 +207,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: () => Navigator.pop(context, false),
             text: 'Cancel',
           ),
-          ElevatedButton(
+          ActionButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Generate'),
+            text: 'Generate',
           ),
         ],
       ),
@@ -583,28 +567,18 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                       Row(
                         children: [
                           Expanded(
-                            child: FilledButton.icon(
+                            child: AddButton(
                               onPressed: () => _pickLogo(secondary: false),
-                              icon: const Icon(Icons.upload, size: 18),
-                              label: Text(strings.uploadLogo),
-                              style: FilledButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                              ),
+                              text: strings.uploadLogo,
+                              icon: Icons.upload,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: OutlinedButton.icon(
+                            child: AddButton(
                               onPressed: () => _pickLogo(secondary: true),
-                              icon: const Icon(Icons.upload_file, size: 18),
-                              label: Text(strings.uploadSecondaryLogo),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white54),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                              ),
+                              text: strings.uploadSecondaryLogo,
+                              icon: Icons.upload_file,
                             ),
                           ),
                         ],
@@ -691,38 +665,25 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: SizedBox(
-                        height: 45,
-                        child: ElevatedButton.icon(
-                          onPressed: (_saving || !_identityReady)
-                              ? null
-                              : _saveCounty,
-                          icon: _saving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Icon(allFour ? Icons.warning : Icons.save),
-                          label: Text(
-                            _saving
-                                ? 'Saving...'
-                                : allFour
-                                    ? 'Register New County'
-                                    : strings.save,
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: allFour
-                                ? Colors.red.shade700
-                                : Colors.green.shade700,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
+                      child: allFour
+                          ? ActionButton(
+                              onPressed: (_saving || !_identityReady)
+                                  ? null
+                                  : _saveCounty,
+                              text: _saving
+                                  ? 'Saving...'
+                                  : 'Register New County',
+                              isLoading: _saving,
+                              icon: Icons.warning,
+                            )
+                          : SaveButton(
+                              onPressed: (_saving || !_identityReady)
+                                  ? null
+                                  : _saveCounty,
+                              text: _saving ? 'Saving...' : strings.save,
+                              isLoading: _saving,
+                              icon: Icons.save,
+                            ),
                     ),
                   ],
                 ),

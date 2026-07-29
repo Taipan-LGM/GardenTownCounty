@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_theme.dart';
 import '../models/member.dart';
 import '../widgets/form_dialog_title.dart';
+import 'standard_buttons.dart';
 
 /// Inline warning shown under SA ID / Global Record when a duplicate is found.
 class DuplicateWarningWidget extends StatelessWidget {
@@ -58,9 +58,10 @@ class DuplicateWarningWidget extends StatelessWidget {
             ),
           ),
           if (onViewExisting != null)
-            TextButton(
+            ViewButton(
               onPressed: onViewExisting,
-              child: const Text('View Existing'),
+              text: 'View Existing',
+              height: 35,
             ),
         ],
       ),
@@ -129,20 +130,17 @@ class DuplicateErrorHandler {
           ],
         ),
         actions: [
-          TextButton(
+          ActionButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
+            text: 'OK',
           ),
           if (onViewExisting != null)
-            FilledButton(
+            ViewButton(
               onPressed: () {
                 Navigator.pop(ctx);
                 onViewExisting();
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.forestGreen,
-              ),
-              child: const Text('View Existing Member'),
+              text: 'View Existing Member',
             ),
         ],
       ),

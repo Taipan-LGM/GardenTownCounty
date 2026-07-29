@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/county_logo.dart';
 import '../../widgets/new_county_warning_dialog.dart';
 
@@ -230,9 +230,9 @@ class _CountyInfoSettingsScreenState
           ],
         ),
         actions: [
-          ElevatedButton(
+          ActionButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got It'),
+            text: 'Got It',
           ),
         ],
       ),
@@ -272,9 +272,9 @@ class _CountyInfoSettingsScreenState
           ],
         ),
         actions: [
-          TextButton(
+          ActionButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got It'),
+            text: 'Got It',
           ),
         ],
       ),
@@ -437,43 +437,23 @@ class _CountyInfoSettingsScreenState
                     Row(
                       children: [
                         Expanded(
-                          child: SizedBox(
-                            height: 45,
-                            child: ElevatedButton.icon(
-                              onPressed: _canSave ? _saveCountyInfo : null,
-                              icon: _isSaving
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Icon(
-                                      _allFieldsChanged
-                                          ? Icons.warning
-                                          : Icons.save,
-                                    ),
-                              label: Text(
-                                _isSaving
-                                    ? 'Saving...'
-                                    : _allFieldsChanged
-                                        ? 'Register New County'
-                                        : 'Save Changes',
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _allFieldsChanged
-                                    ? Colors.red.shade700
-                                    : (_canSave
-                                        ? Colors.green.shade700
-                                        : Colors.grey.shade700),
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor: Colors.grey.shade700,
-                                disabledForegroundColor: Colors.grey.shade500,
-                              ),
-                            ),
-                          ),
+                          child: _allFieldsChanged
+                              ? ActionButton(
+                                  onPressed: _canSave ? _saveCountyInfo : null,
+                                  text: _isSaving
+                                      ? 'Saving...'
+                                      : 'Register New County',
+                                  isLoading: _isSaving,
+                                  icon: Icons.warning,
+                                )
+                              : SaveButton(
+                                  onPressed: _canSave ? _saveCountyInfo : null,
+                                  text: _isSaving
+                                      ? 'Saving...'
+                                      : 'Save Changes',
+                                  isLoading: _isSaving,
+                                  icon: Icons.save,
+                                ),
                         ),
                         const SizedBox(width: 12),
                         CancelButton(

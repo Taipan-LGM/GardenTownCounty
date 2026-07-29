@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/activity_log.dart';
 import '../../providers/providers.dart';
+import '../../widgets/standard_buttons.dart';
 import 'activity_map_dialog.dart';
 
 class ActivitiesScreen extends ConsumerWidget {
@@ -59,15 +60,10 @@ class ActivitiesScreen extends ConsumerWidget {
               ),
               const Spacer(),
               activitiesAsync.maybeWhen(
-                data: (activities) => FilledButton.icon(
+                data: (activities) => ActionButton(
                   onPressed: () => _openGps(context, activities),
-                  icon: const Icon(Icons.gps_fixed, size: 18),
-                  label: const Text('GPS'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: Colors.white,
-                    side: AppTheme.buttonWhiteBand,
-                  ),
+                  text: 'GPS',
+                  icon: Icons.gps_fixed,
                 ),
                 orElse: () => const SizedBox.shrink(),
               ),

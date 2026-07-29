@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../standard_buttons.dart';
 import '../file_image_stub.dart'
     if (dart.library.io) '../file_image_io.dart' as file_img;
 
@@ -96,15 +97,24 @@ class MemberPhotoPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: (busy || readOnly) ? null : onPick,
-          icon: const Icon(Icons.photo_camera_outlined, size: 18),
-          label: Text(image == null ? 'Upload Photo' : 'Change Photo'),
-        ),
+        image == null
+            ? AddButton(
+                onPressed: (busy || readOnly) ? null : onPick,
+                text: 'Upload Photo',
+                icon: Icons.photo_camera_outlined,
+                height: 35,
+              )
+            : EditButton(
+                onPressed: (busy || readOnly) ? null : onPick,
+                text: 'Change Photo',
+                icon: Icons.photo_camera_outlined,
+                height: 35,
+              ),
         if (image != null && !readOnly)
-          TextButton(
+          DeleteButton(
             onPressed: busy ? null : onClear,
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+            text: 'Remove',
+            height: 35,
           ),
       ],
     );

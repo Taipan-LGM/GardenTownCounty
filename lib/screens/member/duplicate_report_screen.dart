@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
 import '../../widgets/form_dialog_title.dart';
+import '../../widgets/standard_buttons.dart';
 
 /// Admin dashboard listing SA ID / Global Record collisions (data repair).
 class DuplicateReportScreen extends ConsumerStatefulWidget {
@@ -157,9 +158,10 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
                                   subtitle: Text(
                                     'SA: ${m.saId} · GR: ${m.globalRecordNo}',
                                   ),
-                                  trailing: TextButton(
+                                  trailing: ViewButton(
                                     onPressed: () => _openMember(m),
-                                    child: const Text('Open'),
+                                    text: 'Open',
+                                    height: 35,
                                   ),
                                 ),
                             ],

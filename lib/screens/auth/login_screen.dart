@@ -8,6 +8,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/providers.dart';
 import '../../widgets/legal_disclaimer_dialog.dart';
+import '../../widgets/standard_buttons.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -171,15 +172,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                       const SizedBox(height: 24),
-                      FilledButton(
+                      SubmitButton(
                         onPressed: _loading ? null : _submit,
-                        child: _loading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Sign In'),
+                        text: 'Sign In',
+                        isLoading: _loading,
                       ),
                       if (_showDemoHint) ...[
                         const SizedBox(height: 12),

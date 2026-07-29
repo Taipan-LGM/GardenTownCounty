@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_user.dart';
 import '../models/user_role.dart'; // AppPermission
 import '../providers/providers.dart';
-import 'cancel_button.dart';
+import 'standard_buttons.dart';
 
 /// Admin dialog to edit Recording Secretary permissions.
 ///
@@ -165,20 +165,11 @@ class _PermissionEditorDialogState
           onPressed: _saving ? null : () => Navigator.pop(context),
           text: 'Cancel',
         ),
-        ElevatedButton.icon(
+        SaveButton(
           onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save),
-          label: const Text('Save Permissions'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-          ),
+          text: 'Save Permissions',
+          isLoading: _saving,
+          icon: Icons.save,
         ),
       ],
     );

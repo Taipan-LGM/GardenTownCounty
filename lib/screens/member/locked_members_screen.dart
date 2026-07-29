@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
 import '../../providers/providers.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/member_lock_banners.dart';
 
 /// Admin dashboard: locked members + lock statistics.
@@ -181,9 +181,9 @@ class LockedMembersScreen extends ConsumerWidget {
                           onPressed: () => Navigator.pop(ctx, false),
                           text: 'Cancel',
                         ),
-                        FilledButton(
+                        ActionButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Unlock'),
+                          text: 'Unlock',
                         ),
                       ],
                     ),
@@ -289,11 +289,12 @@ class _TempAccessPanel extends ConsumerWidget {
                     _MiniStat('Used', used, Colors.blue),
                     _MiniStat('Expired', expired, Colors.orange),
                     _MiniStat('Revoked', revoked, Colors.red),
-                    TextButton.icon(
+                    ActionButton(
                       onPressed: () =>
                           ref.invalidate(temporaryAccessLogsProvider),
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Refresh'),
+                      text: 'Refresh',
+                      icon: Icons.refresh,
+                      height: 35,
                     ),
                   ],
                 ),
@@ -329,7 +330,7 @@ class _TempAccessPanel extends ConsumerWidget {
                                 '$status',
                               ),
                               trailing: status == 'active'
-                                  ? TextButton(
+                                  ? ActionButton(
                                       onPressed: () async {
                                         final member = members
                                             .where((m) => m.id == log.memberId)
@@ -359,10 +360,8 @@ class _TempAccessPanel extends ConsumerWidget {
                                         ref.invalidate(membersProvider);
                                         ref.invalidate(lockedMembersProvider);
                                       },
-                                      child: const Text(
-                                        'Revoke',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
+                                      text: 'Revoke',
+                                      height: 35,
                                     )
                                   : null,
                             );

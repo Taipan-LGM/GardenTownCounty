@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'standard_buttons.dart';
 import 'form_dialog_title.dart';
 
 const _kConfidentialityAcceptedKey = 'gtc_confidentiality_accepted_v1';
@@ -37,13 +38,13 @@ Future<bool> ensureConfidentialityAccepted(
         ),
       ),
       actions: [
-        TextButton(
+        CancelButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Reject'),
+          text: 'Reject',
         ),
-        FilledButton(
+        SubmitButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('I Accept'),
+          text: 'I Accept',
         ),
       ],
     ),

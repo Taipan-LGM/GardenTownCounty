@@ -11,7 +11,7 @@ import '../../models/member.dart';
 import '../../models/temporary_access_log.dart';
 import '../../providers/providers.dart';
 import '../../services/auth_service.dart';
-import 'cancel_button.dart';
+import 'standard_buttons.dart';
 import 'form_dialog_title.dart';
 
 final _dateFmt = DateFormat('yyyy-MM-dd HH:mm');
@@ -65,15 +65,15 @@ class LockedMemberBanner extends StatelessWidget {
               spacing: 8,
               children: [
                 if (onEnterCode != null)
-                  FilledButton.tonalIcon(
+                  ActionButton(
                     onPressed: onEnterCode,
-                    icon: const Icon(Icons.vpn_key),
-                    label: const Text('Enter Temporary Access Code'),
+                    text: 'Enter Temporary Access Code',
+                    icon: Icons.vpn_key,
                   ),
                 if (onRequestAccess != null)
-                  OutlinedButton(
+                  ActionButton(
                     onPressed: onRequestAccess,
-                    child: const Text('Request Access from Admin'),
+                    text: 'Request Access from Admin',
                   ),
               ],
             ),
@@ -135,22 +135,22 @@ class AdminLockedBanner extends StatelessWidget {
               runSpacing: 8,
               children: [
                 if (onUnlock != null)
-                  FilledButton.icon(
+                  ActionButton(
                     onPressed: onUnlock,
-                    icon: const Icon(Icons.lock_open),
-                    label: const Text('Unlock Member'),
+                    text: 'Unlock Member',
+                    icon: Icons.lock_open,
                   ),
                 if (onGrantAccess != null)
-                  FilledButton.tonalIcon(
+                  ActionButton(
                     onPressed: onGrantAccess,
-                    icon: const Icon(Icons.vpn_key),
-                    label: const Text('Grant Temporary Access'),
+                    text: 'Grant Temporary Access',
+                    icon: Icons.vpn_key,
                   ),
                 if (onRevokeAccess != null && member.hasActiveTemporaryAccess)
-                  OutlinedButton.icon(
+                  ActionButton(
                     onPressed: onRevokeAccess,
-                    icon: const Icon(Icons.block),
-                    label: const Text('Revoke Access'),
+                    text: 'Revoke Access',
+                    icon: Icons.block,
                   ),
               ],
             ),
@@ -258,9 +258,9 @@ class _TemporaryAccessActiveBannerState
             ),
             if (widget.onRevoke != null) ...[
               const SizedBox(height: 8),
-              OutlinedButton(
+              ActionButton(
                 onPressed: widget.onRevoke,
-                child: const Text('Revoke Access'),
+                text: 'Revoke Access',
               ),
             ],
           ],
@@ -370,7 +370,7 @@ Future<void> showGrantTemporaryAccessDialog({
                 onPressed: () => Navigator.pop(ctx),
                 text: 'Cancel',
               ),
-              FilledButton(
+              ActionButton(
                 onPressed: () async {
                   final admin = ref.read(authUserProvider);
                   if (admin == null || secretaryId == null) return;
@@ -412,7 +412,7 @@ Future<void> showGrantTemporaryAccessDialog({
                     }
                   }
                 },
-                child: const Text('🔑 Generate Code & Grant Access'),
+                text: '🔑 Generate Code & Grant Access',
               ),
             ],
           );
@@ -453,16 +453,16 @@ Future<void> showGrantTemporaryAccessDialog({
           ],
         ),
         actions: [
-          TextButton(
+          ActionButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: granted.code));
               ScaffoldMessenger.of(ctx).showSnackBar(
                 const SnackBar(content: Text('Code copied')),
               );
             },
-            child: const Text('Copy Code'),
+            text: 'Copy Code',
           ),
-          TextButton(
+          ActionButton(
             onPressed: () async {
               final uri = Uri(
                 scheme: 'mailto',
@@ -475,20 +475,20 @@ Future<void> showGrantTemporaryAccessDialog({
               );
               await launchUrl(uri);
             },
-            child: const Text('Send via Email'),
+            text: 'Send via Email',
           ),
-          TextButton(
+          ActionButton(
             onPressed: () async {
               final text = Uri.encodeComponent(
                 'Garden Town County temporary access for ${member.fullName}: ${granted.code}',
               );
               await launchUrl(Uri.parse('https://wa.me/?text=$text'));
             },
-            child: const Text('Send via WhatsApp'),
+            text: 'Send via WhatsApp',
           ),
-          FilledButton(
+          ActionButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
+            text: 'Close',
           ),
         ],
       );
@@ -554,7 +554,7 @@ Future<bool> showEnterTemporaryAccessCodeDialog({
                 onPressed: () => Navigator.pop(ctx, false),
                 text: 'Cancel',
               ),
-              FilledButton(
+              SubmitButton(
                 onPressed: attempts >= 3
                     ? null
                     : () async {
@@ -581,7 +581,7 @@ Future<bool> showEnterTemporaryAccessCodeDialog({
                           });
                         }
                       },
-                child: const Text('🔓 Verify Code'),
+                text: '🔓 Verify Code',
               ),
             ],
           );

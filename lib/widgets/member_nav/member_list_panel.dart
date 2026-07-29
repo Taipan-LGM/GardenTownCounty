@@ -10,6 +10,7 @@ import '../../models/member_navigation_state.dart';
 import '../../models/user_role.dart';
 import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
+import '../standard_buttons.dart';
 
 final _relativeFmt = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -223,14 +224,11 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
                     ),
                   ),
                   if (widget.onAddNew != null)
-                    FilledButton.tonalIcon(
+                    AddButton(
                       onPressed: widget.onAddNew,
-                      style: FilledButton.styleFrom(
-                        foregroundColor: AppTheme.labelText,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                      ),
-                      icon: const Icon(Icons.person_add, size: 18),
-                      label: const Text('New'),
+                      text: 'New',
+                      icon: Icons.person_add,
+                      height: 35,
                     ),
                 ],
               ),
@@ -647,9 +645,10 @@ class RecentlyViewedPanel extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(8),
-            child: TextButton(
+            child: ActionButton(
               onPressed: entries.isEmpty ? null : () => nav.clearRecent(),
-              child: const Text('Clear History'),
+              text: 'Clear History',
+              height: 35,
             ),
           ),
         ],

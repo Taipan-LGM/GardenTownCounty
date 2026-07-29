@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'cancel_button.dart';
+import 'standard_buttons.dart';
 
 /// Modal warning when Admin changes all 4 county identity fields.
 /// Returns true only if user types CONFIRM and taps Confirm New County.
@@ -110,16 +110,11 @@ Future<bool> showNewCountyWarningDialog(BuildContext context) async {
                     .pop(false),
                 text: 'Cancel',
               ),
-              ElevatedButton(
+              ActionButton(
                 onPressed: canConfirm
                     ? () => Navigator.of(context, rootNavigator: true).pop(true)
                     : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      canConfirm ? Colors.red : Colors.grey.shade600,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Confirm New County'),
+                text: 'Confirm New County',
               ),
             ],
           );

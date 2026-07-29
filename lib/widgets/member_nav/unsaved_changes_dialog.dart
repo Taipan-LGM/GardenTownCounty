@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../form_dialog_title.dart';
+import '../standard_buttons.dart';
 
 /// Result of the unsaved-changes navigation dialog.
 enum UnsavedChangesAction { save, discard, stay }
@@ -55,24 +56,19 @@ Future<UnsavedChangesAction?> showUnsavedChangesDialog(
         ],
       ),
       actions: [
-        TextButton(
+        DeleteButton(
           onPressed: () =>
               Navigator.pop(ctx, UnsavedChangesAction.discard),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('Discard Changes'),
+          text: 'Discard Changes',
         ),
-        TextButton(
+        CancelButton(
           onPressed: () => Navigator.pop(ctx, UnsavedChangesAction.stay),
-          child: const Text('Stay Here'),
+          text: 'Stay Here',
         ),
-        FilledButton.icon(
+        SaveButton(
           onPressed: () => Navigator.pop(ctx, UnsavedChangesAction.save),
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-          icon: const Icon(Icons.save, size: 18),
-          label: const Text('Save Changes'),
+          text: 'Save Changes',
+          icon: Icons.save,
         ),
       ],
     ),
@@ -92,17 +88,13 @@ Future<bool?> showDiscardEditsDialog(BuildContext context) {
         'You have unsaved changes. Are you sure you want to discard them?',
       ),
       actions: [
-        TextButton(
+        CancelButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Keep Editing'),
+          text: 'Keep Editing',
         ),
-        FilledButton(
+        DeleteButton(
           onPressed: () => Navigator.pop(ctx, true),
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Discard Changes'),
+          text: 'Discard Changes',
         ),
       ],
     ),

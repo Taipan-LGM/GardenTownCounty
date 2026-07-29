@@ -21,7 +21,7 @@ import '../../services/record_field_policy.dart';
 import '../../services/sa_id_validator.dart';
 import '../../services/step1_validator.dart';
 import '../../services/secure_screen_service.dart';
-import '../../widgets/cancel_button.dart';
+import '../../widgets/standard_buttons.dart';
 import '../../widgets/cancel_membership_dialog.dart';
 import '../../widgets/duplicate_warning_widget.dart';
 import '../../widgets/member_form/member_edit_mode_banner.dart';
@@ -1433,9 +1433,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 onPressed: () => Navigator.pop(ctx, false),
                 text: 'Cancel',
               ),
-              FilledButton(
+              SaveButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('💾 Save First'),
+                text: '💾 Save First',
               ),
             ],
           ),
@@ -1569,7 +1569,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       ),
                     ],
                     if (_viewerIsAdmin && cancelTarget != null)
-                      TextButton.icon(
+                      ActionButton(
                         onPressed: () async {
                           final target = cancelTarget!;
                           if (_loadedMember?.id != target.id) {
@@ -1578,21 +1578,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           if (!mounted) return;
                           await guardedCancelMembership();
                         },
-                        icon: const Icon(
-                          Icons.cancel_outlined,
-                          color: Colors.red,
-                          size: 28,
-                        ),
-                        label: const Text(
-                          'Cancel Membership',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
+                        text: 'Cancel Membership',
+                        icon: Icons.cancel_outlined,
                       ),
                     if (!isMemberOnly)
                       IconButton(
@@ -1774,13 +1761,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 onPressed: () => Navigator.pop(ctx, false),
                 text: 'Cancel',
               ),
-              ElevatedButton(
+              EnableButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Activate RS'),
+                text: 'Activate RS',
               ),
             ],
           ),
@@ -1813,13 +1796,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 onPressed: () => Navigator.pop(ctx, false),
                 text: 'Cancel',
               ),
-              ElevatedButton(
+              ActionButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Deactivate RS'),
+                text: 'Deactivate RS',
               ),
             ],
           ),
@@ -1930,9 +1909,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           onPressed: () => Navigator.pop(ctx, false),
                           text: 'Cancel',
                         ),
-                        FilledButton(
+                        SaveButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('💾 Save First'),
+                          text: '💾 Save First',
                         ),
                       ],
                     ),
@@ -1986,7 +1965,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               ),
               const Spacer(),
               if (_currentId != null && !_fieldsMasked)
-                OutlinedButton.icon(
+                AddButton(
                   onPressed: () async {
                     final m = _loadedMember;
                     if (m == null) return;
@@ -2002,28 +1981,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     }
                     await showMemberFilesDialog(context, ref, m);
                   },
-                  icon: const Icon(Icons.attach_file, color: Colors.white),
-                  // MODIFIED - Upload Files text white
-                  label: const Text(
-                    'Upload Files',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: AppTheme.forestGreen,
-                    side: const BorderSide(color: Colors.white, width: 1.5),
-                  ),
+                  text: 'Upload Files',
+                  icon: Icons.attach_file,
                 ),
               const SizedBox(width: 8),
               if (!_isEditing && _canEnterEditMode)
-                FilledButton.icon(
+                EditButton(
                   onPressed: _enterEditMode,
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Edit'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
+                  text: 'Edit',
+                  icon: Icons.edit,
                 ),
               if (_isEditing) ...[
                 CancelButton(
@@ -2031,34 +1997,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   text: 'Cancel',
                 ),
                 const SizedBox(width: 8),
-                // ElevatedButton — FilledButton theme forces forestGreen otherwise.
-                // MODIFIED - explicit green Save Member (Delete to revert)
-                ElevatedButton.icon(
+                SaveButton(
                   onPressed: _canPressSave ? () => _save() : null,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(
-                    _saving ? 'Saving...' : 'Save',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _canPressSave ? Colors.green : Colors.grey.shade700,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade700,
-                    disabledForegroundColor: Colors.grey.shade500,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
+                  text: 'Save',
+                  isLoading: _saving,
+                  icon: Icons.save,
                 ),
               ],
             ],
@@ -2174,17 +2117,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   if (_viewerIsAdmin || _viewerIsSecretary)
                                     Align(
                                       alignment: Alignment.centerRight,
-                                      child: TextButton.icon(
+                                      child: ActionButton(
                                         onPressed: () =>
                                             RecordVisibilityDialog.show(
                                           context,
                                         ),
-                                        icon: const Icon(Icons.info_outline,
-                                            size: 16),
-                                        label: const Text(
-                                          'Record visibility',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
+                                        text: 'Record visibility',
+                                        icon: Icons.info_outline,
+                                        height: 35,
                                       ),
                                     ),
                                   if (_isMemberOnly)
@@ -2616,9 +2556,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             text: 'Cancel',
           ),
-          FilledButton(
+          SubmitButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes, Complete'),
+            text: 'Yes, Complete',
           ),
         ],
       ),

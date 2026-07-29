@@ -12,44 +12,41 @@ class AppTheme {
   /// pure white on cream would be invisible).
   static const Color bodyText = Color(0xFF111111);
 
-  /// White band around action buttons (CancelButton keeps its own red border).
-  static const BorderSide buttonWhiteBand = BorderSide(
-    color: Colors.white,
-    width: 2,
-  );
+  /// Prefer [standard_buttons.dart] widgets for labeled actions.
+  /// Theme defaults match Action (blue) so stray buttons stay visible.
+  static final Color actionBlue = Colors.blue.shade700;
 
   static ButtonStyle get _filledStyle => FilledButton.styleFrom(
-        backgroundColor: forestGreen,
+        backgroundColor: actionBlue,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: buttonWhiteBand,
+        side: BorderSide(color: actionBlue),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       );
 
   static ButtonStyle get _elevatedStyle => ElevatedButton.styleFrom(
-        backgroundColor: forestGreen,
+        backgroundColor: actionBlue,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: buttonWhiteBand,
+        side: BorderSide(color: actionBlue),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       );
 
   static ButtonStyle get _outlinedStyle => OutlinedButton.styleFrom(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.grey.shade700,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: buttonWhiteBand,
+        side: BorderSide(color: Colors.grey.shade600),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       );
 
   static ButtonStyle get _textStyle => TextButton.styleFrom(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: buttonWhiteBand,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       );
@@ -76,11 +73,10 @@ class AppTheme {
       ),
       drawerTheme: const DrawerThemeData(backgroundColor: forestGreen),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: gold,
+        backgroundColor: actionBlue,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: buttonWhiteBand,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(style: _filledStyle),
@@ -121,11 +117,10 @@ class AppTheme {
       ),
       drawerTheme: const DrawerThemeData(backgroundColor: Color(0xFF0B1A14)),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: gold,
+        backgroundColor: actionBlue,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: buttonWhiteBand,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(style: _filledStyle),

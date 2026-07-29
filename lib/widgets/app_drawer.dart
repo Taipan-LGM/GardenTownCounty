@@ -8,7 +8,7 @@ import '../models/user_role.dart';
 import '../navigation/app_drawer_catalog.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
-import 'cancel_button.dart';
+import 'standard_buttons.dart';
 import 'county_logo.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -305,13 +305,9 @@ class AppDrawer extends ConsumerWidget {
             onPressed: () => Navigator.pop(ctx, false),
             text: 'Cancel',
           ),
-          ElevatedButton(
+          ActionButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(strings.signOut),
+            text: strings.signOut,
           ),
         ],
       ),
@@ -360,13 +356,9 @@ class AppDrawer extends ConsumerWidget {
             onPressed: () => Navigator.pop(ctx, false),
             text: 'Cancel',
           ),
-          ElevatedButton(
+          ActionButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Generate Demo Data'),
+            text: 'Generate Demo Data',
           ),
         ],
       ),

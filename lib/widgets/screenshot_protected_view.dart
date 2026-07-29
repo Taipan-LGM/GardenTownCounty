@@ -8,6 +8,7 @@ import '../core/constants/watermark_settings.dart';
 import '../models/member.dart';
 import '../services/auth_service.dart';
 import '../services/secure_screen_service.dart';
+import 'standard_buttons.dart';
 import 'form_dialog_title.dart';
 
 /// Top confidentiality strip shown on locked member profiles.
@@ -125,9 +126,9 @@ class _ScreenshotProtectedViewState extends State<ScreenshotProtectedView> {
           'this information.',
         ),
         actions: [
-          FilledButton(
+          ActionButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('I Understand'),
+            text: 'I Understand',
           ),
         ],
       ),
