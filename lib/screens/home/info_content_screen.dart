@@ -17,13 +17,15 @@ class InfoContentScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final articlesAsync = ref.watch(publishedArticlesProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    final strings = ref.watch(appStringsProvider);
 
     return ColoredBox(
       color: Colors.black,
       child: articlesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
+          child: Text('${strings.errorLabel}: $e',
+              style: const TextStyle(color: Colors.red)),
         ),
         data: (articles) {
           return Column(
@@ -33,10 +35,10 @@ class InfoContentScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'County Information',
-                        style: TextStyle(
+                        strings.countyInformation,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -52,7 +54,7 @@ class InfoContentScreen extends ConsumerWidget {
                             ref.invalidate(publishedArticlesProvider);
                           }
                         },
-                        text: 'Add Article',
+                        text: strings.addArticle,
                         icon: Icons.add,
                       ),
                   ],
@@ -62,7 +64,7 @@ class InfoContentScreen extends ConsumerWidget {
                 child: articles.isEmpty
                     ? Center(
                         child: Text(
-                          'No articles available.',
+                          strings.noArticles,
                           style: TextStyle(color: Colors.grey.shade500),
                         ),
                       )

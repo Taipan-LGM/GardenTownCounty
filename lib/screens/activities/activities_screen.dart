@@ -25,13 +25,15 @@ class ActivitiesScreen extends ConsumerWidget {
 
   Future<void> _openGps(
     BuildContext context,
+    WidgetRef ref,
     List<ActivityLog> activities, {
     ActivityLog? specific,
   }) async {
+    final strings = ref.read(appStringsProvider);
     final target = specific ?? _bestGpsActivity(activities);
     if (target == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No GPS location recorded yet.')),
+        SnackBar(content: Text(strings.noGpsYet)),
       );
       return;
     }
@@ -41,6 +43,7 @@ class ActivitiesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activitiesAsync = ref.watch(activitiesProvider);
+    final strings = ref.watch(appStringsProvider);
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
 
     return Padding(
@@ -50,9 +53,9 @@ class ActivitiesScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Text(
-                'Activities',
-                style: TextStyle(
+              Text(
+                strings.activitiesTitle,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.bodyText,
@@ -61,7 +64,7 @@ class ActivitiesScreen extends ConsumerWidget {
               const Spacer(),
               activitiesAsync.maybeWhen(
                 data: (activities) => ActionButton(
-                  onPressed: () => _openGps(context, activities),
+                  onPressed: () => _openGps(context, ref, activities),
                   text: 'GPS',
                   icon: Icons.gps_fixed,
                 ),
@@ -69,36 +72,32 @@ class ActivitiesScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'Refresh',
+                tooltip: strings.refresh,
                 onPressed: () => ref.invalidate(activitiesProvider),
                 icon: const Icon(Icons.refresh),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Login and member actions with GPS, date, time, and user name. '
-            'Tap GPS to view map — print, save, or share via WhatsApp.',
-          ),
+          Text(strings.activitiesSubtitle),
           const Divider(),
           Expanded(
             child: activitiesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              error: (e, _) =>
+                  Center(child: Text('${strings.errorLabel}: $e')),
               data: (activities) {
                 if (activities.isEmpty) {
-                  return const Center(
-                    child: Text('No activities recorded yet.'),
-                  );
+                  return Center(child: Text(strings.noActivitiesYet));
                 }
                 return SingleChildScrollView(
                   child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Date / Time')),
-                      DataColumn(label: Text('User')),
-                      DataColumn(label: Text('Action')),
-                      DataColumn(label: Text('GPS Location')),
-                      DataColumn(label: Text('Map')),
+                    columns: [
+                      DataColumn(label: Text(strings.dateTime)),
+                      DataColumn(label: Text(strings.user)),
+                      DataColumn(label: Text(strings.action)),
+                      DataColumn(label: Text(strings.gpsLocation)),
+                      DataColumn(label: Text(strings.map)),
                     ],
                     rows: activities.map((a) {
                       final hasGps =
@@ -114,13 +113,14 @@ class ActivitiesScreen extends ConsumerWidget {
                           DataCell(
                             hasGps
                                 ? IconButton(
-                                    tooltip: 'Open GPS map',
-                    icon: const Icon(
+                                    tooltip: strings.openGpsMap,
+                                    icon: const Icon(
                                       Icons.map_outlined,
                                       color: Colors.white,
                                     ),
                                     onPressed: () => _openGps(
                                       context,
+                                      ref,
                                       activities,
                                       specific: a,
                                     ),

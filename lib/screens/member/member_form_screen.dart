@@ -1546,9 +1546,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     // MODIFIED - controls aligned end (Delete Spacer block to revert)
                     const Spacer(),
                     if (_viewerIsAdmin) ...[
-                      const Text(
-                        'View Members:',
-                        style: TextStyle(
+                      Text(
+                        strings.viewMembers,
+                        style: const TextStyle(
                           color: AppTheme.labelText,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -1580,12 +1580,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           if (!mounted) return;
                           await guardedCancelMembership();
                         },
-                        text: 'Cancel Membership',
+                        text: strings.cancelMembership,
                         icon: Icons.cancel_outlined,
                       ),
                     if (!isMemberOnly)
                       IconButton(
-                        tooltip: 'Focus Search (Ctrl+F)',
+                        tooltip: strings.focusSearch,
                         color: AppTheme.labelText,
                         onPressed: () async {
                           if (showList) {
@@ -1733,14 +1733,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (_rsRadioBusy) return;
     final isAdmin = ref.read(isAdminProvider);
     if (!isAdmin) return;
+    final strings = ref.read(appStringsProvider);
 
     final member = _loadedMember;
     if (member == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Save or open a member before activating RS.'),
-        ),
+        SnackBar(content: Text(strings.saveOrCancelFirst)),
       );
       return;
     }
@@ -1754,18 +1753,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Activate Recording Secretary?'),
+            title: Text(strings.activateRs),
             content: Text(
               'Promote ${member.fullName} to Recording Secretary?',
             ),
             actions: [
               CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                text: 'Cancel',
+                text: strings.cancel,
               ),
               EnableButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                text: 'Activate RS',
+                text: strings.activateRsBtn,
               ),
             ],
           ),
@@ -1789,18 +1788,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Deactivate Recording Secretary?'),
+            title: Text(strings.deactivateRs),
             content: Text(
               'Demote ${member.fullName} to Regular Member?',
             ),
             actions: [
               CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                text: 'Cancel',
+                text: strings.cancel,
               ),
               ActionButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                text: 'Deactivate RS',
+                text: strings.deactivateRsBtn,
               ),
             ],
           ),
@@ -2124,7 +2123,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                             RecordVisibilityDialog.show(
                                           context,
                                         ),
-                                        text: 'Record visibility',
+                                        text: strings.recordVisibility,
                                         icon: Icons.info_outline,
                                         height: 35,
                                       ),
@@ -2141,7 +2140,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       controller: _globalRecordNo,
                                       enabled: !_globalRecordReadOnly,
                                       decoration: _fieldDecoration(
-                                        'Global Record No.',
+                                        strings.globalRecordNo,
                                         isDense: true,
                                         errorText: _globalRecordError,
                                         suffixIcon: _isCheckingGlobalRecord
@@ -2202,7 +2201,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       },
                                     ),
                                     DuplicateWarningWidget(
-                                      field: 'Global Record No.',
+                                      field: strings.globalRecordNo,
                                       value: _globalRecordNo.text.trim(),
                                       isDuplicate:
                                           _duplicateGlobalRecordMemberId !=
@@ -2216,7 +2215,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   SmartRecordField(
                                     label: strings.lroRecordNo,
                                     controller: _lroRecordNo,
-                                    hint: 'Enter LRO Record No.',
+                                    hint: strings.enterLroRecordNo,
                                     isEditing: _isEditing && !_formReadOnly,
                                     isAdmin: _viewerIsAdmin,
                                     isSecretary: _viewerIsSecretary,
@@ -2251,13 +2250,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     controller: _memberName,
                                     enabled: !_formReadOnly,
                                     decoration: _fieldDecoration(
-                                      'Member Name',
+                                      strings.memberName,
                                       isDense: true,
                                       filled: _memberName.text.trim().isNotEmpty,
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
-                                            ? 'Required'
+                                            ? strings.requiredField
                                             : null,
                                   ),
                                   const SizedBox(height: 8),
@@ -2265,13 +2264,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     controller: _surname,
                                     enabled: !_formReadOnly,
                                     decoration: _fieldDecoration(
-                                      'Surname',
+                                      strings.surname,
                                       isDense: true,
                                       filled: _surname.text.trim().isNotEmpty,
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
-                                            ? 'Required'
+                                            ? strings.requiredField
                                             : null,
                                   ),
                               ],
@@ -2346,7 +2345,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           controller: _contactNo1,
                           enabled: !_formReadOnly,
                           decoration: _fieldDecoration(
-                            'Contact No 1 * (max 12)',
+                            strings.contactNo1,
                             filled: _contactNo1.text.trim().isNotEmpty,
                           ),
                           maxLength: AppConstants.contactNoMaxLength,
@@ -2357,7 +2356,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             ),
                           ],
                           validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? 'Required' : null,
+                              (v == null || v.trim().isEmpty)
+                                  ? strings.requiredField
+                                  : null,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -2366,7 +2367,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           controller: _contactNo2,
                           enabled: !_formReadOnly,
                           decoration: _fieldDecoration(
-                            'Contact No 2 (max 12)',
+                            strings.contactNo2,
                             filled: _contactNo2.text.trim().isNotEmpty,
                           ),
                           maxLength: AppConstants.contactNoMaxLength,
@@ -2385,16 +2386,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     controller: _email,
                     enabled: !_formReadOnly,
                     decoration: _fieldDecoration(
-                      'Email Address *',
+                      strings.emailAddress,
                       filled: _email.text.trim().isNotEmpty,
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) {
                       final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Required';
+                      if (value.isEmpty) return strings.requiredField;
                       if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                           .hasMatch(value)) {
-                        return 'Enter a valid email';
+                        return strings.enterValidEmail;
                       }
                       return null;
                     },

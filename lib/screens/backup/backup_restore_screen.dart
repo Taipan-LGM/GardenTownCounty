@@ -807,7 +807,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               Icon(Icons.warning, color: Colors.red.shade300),
               const SizedBox(width: 8),
               Text(
-                'DANGER ZONE',
+                strings.dangerZone,
                 style: TextStyle(
                   color: Colors.red.shade300,
                   fontWeight: FontWeight.bold,
@@ -911,14 +911,15 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
 
 enum _BackupActionKind { create, restore, view, enable, deleteAll }
 
-class _ConfirmRestoreDialog extends StatefulWidget {
+class _ConfirmRestoreDialog extends ConsumerStatefulWidget {
   const _ConfirmRestoreDialog();
 
   @override
-  State<_ConfirmRestoreDialog> createState() => _ConfirmRestoreDialogState();
+  ConsumerState<_ConfirmRestoreDialog> createState() =>
+      _ConfirmRestoreDialogState();
 }
 
-class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
+class _ConfirmRestoreDialogState extends ConsumerState<_ConfirmRestoreDialog> {
   final _controller = TextEditingController();
 
   @override
@@ -929,9 +930,10 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final ok = _controller.text.trim() == 'CONFIRM';
     return AlertDialog(
-      title: const Text('WARNING'),
+      title: Text(strings.warning),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -952,11 +954,11 @@ class _ConfirmRestoreDialogState extends State<_ConfirmRestoreDialog> {
       actions: [
         CancelButton(
           onPressed: () => Navigator.pop(context, false),
-          text: 'Cancel',
+          text: strings.cancel,
         ),
         RestoreButton(
           onPressed: ok ? () => Navigator.pop(context, true) : null,
-          text: 'Restore',
+          text: strings.restore,
         ),
       ],
     );

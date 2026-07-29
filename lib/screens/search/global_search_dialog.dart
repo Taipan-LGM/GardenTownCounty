@@ -82,8 +82,9 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     return AlertDialog(
-      title: const FormDialogTitle(title: 'Global Search'),
+      title: FormDialogTitle(title: strings.globalSearch),
       titlePadding: formDialogTitlePadding,
       content: SizedBox(
         width: 520,
@@ -93,9 +94,9 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
             TextField(
               controller: _controller,
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Search all member fields…',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                hintText: strings.searchHint,
+                prefixIcon: const Icon(Icons.search),
               ),
               onSubmitted: (_) => _search(),
             ),
@@ -106,7 +107,7 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
                 child: CircularProgressIndicator(),
               )
             else if (_searched && _results.isEmpty)
-              const Text('No members matched.')
+              Text(strings.noMembersMatched)
             else
               Flexible(
                 child: ListView.builder(
@@ -130,11 +131,11 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
       actions: [
         ActionButton(
           onPressed: () => Navigator.of(context).pop(),
-          text: 'Close',
+          text: strings.close,
         ),
         ActionButton(
           onPressed: _search,
-          text: 'Search',
+          text: strings.search,
         ),
       ],
     );

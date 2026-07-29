@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
 import '../../widgets/standard_buttons.dart';
@@ -61,7 +62,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   }
 
   String _formatTimeRemaining(Duration duration) {
-    if (duration.isNegative) return 'Expired';
+    final strings = ref.read(appStringsProvider);
+    if (duration.isNegative) return strings.expired;
     if (duration.inDays > 0) {
       return '${duration.inDays}d ${duration.inHours % 24}h';
     }
@@ -69,10 +71,11 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
       return '${duration.inHours}h ${duration.inMinutes % 60}m';
     }
     if (duration.inMinutes > 0) return '${duration.inMinutes}m';
-    return 'Expiring soon';
+    return strings.expiringSoon;
   }
 
   Future<void> _showOptions(Reminder reminder) async {
+    final strings = ref.read(appStringsProvider);
     await showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -81,7 +84,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.person),
-              title: const Text('View Member'),
+              title: Text(strings.viewMember),
               onTap: () {
                 Navigator.pop(ctx);
                 _openMember(reminder.memberId);
@@ -89,7 +92,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.check_circle, color: Colors.green),
-              title: const Text('Mark as Completed'),
+              title: Text(strings.markAsCompleted),
               onTap: () async {
                 Navigator.pop(ctx);
                 final user = ref.read(authUserProvider);
@@ -100,8 +103,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 await _reload();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Reminder marked as completed'),
+                  SnackBar(
+                    content: Text(strings.reminderCompleted),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -109,25 +112,25 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Dismiss Reminder'),
+              title: Text(strings.dismissReminder),
               onTap: () async {
                 Navigator.pop(ctx);
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (dCtx) => AlertDialog(
-                    title: const FormDialogTitle(title: 'Dismiss Reminder?'),
+                    title: FormDialogTitle(title: strings.dismissReminderConfirm),
                     titlePadding: formDialogTitlePadding,
                     content: Text(
-                      'Dismiss reminder for ${reminder.displayName}?',
+                      '${strings.dismissReminder} — ${reminder.displayName}?',
                     ),
                     actions: [
                       CancelButton(
                         onPressed: () => Navigator.pop(dCtx, false),
-                        text: 'Cancel',
+                        text: strings.cancel,
                       ),
                       DeleteButton(
                         onPressed: () => Navigator.pop(dCtx, true),
-                        text: 'Dismiss',
+                        text: strings.dismiss,
                       ),
                     ],
                   ),
@@ -141,8 +144,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 await _reload();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Reminder dismissed'),
+                  SnackBar(
+                    content: Text(strings.reminderDismissed),
                     backgroundColor: Colors.orange,
                   ),
                 );
@@ -158,6 +161,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   Widget build(BuildContext context) {
     final remindersAsync = ref.watch(activeOnboardingRemindersProvider);
     final statsAsync = ref.watch(reminderStatsProvider);
+    final strings = ref.watch(appStringsProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -168,10 +172,10 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '⏰ Reminders',
-                    style: TextStyle(
+                    '⏰ ${strings.remindersTitle}',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.labelText,
@@ -179,7 +183,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Refresh',
+                  tooltip: strings.refresh,
                   color: AppTheme.labelText,
                   onPressed: _reload,
                   icon: const Icon(Icons.refresh),
@@ -192,20 +196,20 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
           loading: () => const SizedBox(height: 72),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(12),
-            child: Text('Stats error: $e'),
+            child: Text('${strings.errorLabel}: $e'),
           ),
-          data: _buildStatsCards,
+          data: (stats) => _buildStatsCards(stats, strings),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Wrap(
             spacing: 8,
             children: [
-              _filterChip('All', null),
-              _filterChip('Step 1', 1),
-              _filterChip('Step 2', 2),
-              _filterChip('Step 3', 3),
-              _filterChip('Step 4', 4),
+              _filterChip(strings.filterAll, null),
+              _filterChip('${strings.step} 1', 1),
+              _filterChip('${strings.step} 2', 2),
+              _filterChip('${strings.step} 3', 3),
+              _filterChip('${strings.step} 4', 4),
             ],
           ),
         ),
@@ -213,19 +217,19 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
         Expanded(
           child: remindersAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(child: Text('${strings.errorLabel}: $e')),
             data: (reminders) {
               final filtered = _filterStep == null
                   ? reminders
                   : reminders
                       .where((r) => r.stepNumber == _filterStep)
                       .toList();
-              if (filtered.isEmpty) return _buildEmptyState();
+              if (filtered.isEmpty) return _buildEmptyState(strings);
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 itemCount: filtered.length,
                 itemBuilder: (context, index) =>
-                    _buildReminderCard(filtered[index]),
+                    _buildReminderCard(filtered[index], strings),
               );
             },
           ),
@@ -234,13 +238,13 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
         remindersAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, _) => const SizedBox.shrink(),
-          data: (reminders) => _buildAutoAssignBar(reminders),
+          data: (reminders) => _buildAutoAssignBar(reminders, strings),
         ),
       ],
     );
   }
 
-  Widget _buildAutoAssignBar(List<Reminder> reminders) {
+  Widget _buildAutoAssignBar(List<Reminder> reminders, AppStrings strings) {
     final unassignedCount = reminders
         .where(
           (r) =>
@@ -261,8 +265,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               Expanded(
                 child: Text(
                   unassignedCount == 0
-                      ? 'All reminders have a Recording Secretary'
-                      : '$unassignedCount members without Recording Secretary',
+                      ? strings.allRemindersHaveRs
+                      : strings.membersWithoutRs(unassignedCount),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -279,7 +283,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                   onPressed: unassignedCount == 0 || _isAutoAssigning
                       ? null
                       : _autoAssignAll,
-                  text: _isAutoAssigning ? 'Assigning...' : 'Auto-Assign All',
+                  text: _isAutoAssigning
+                      ? strings.assigning
+                      : strings.autoAssignAll,
                   isLoading: _isAutoAssigning,
                   icon: Icons.auto_awesome,
                 ),
@@ -291,20 +297,20 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     );
   }
 
-  Widget _buildStatsCards(ReminderStats stats) {
+  Widget _buildStatsCards(ReminderStats stats, AppStrings strings) {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          _statCard('Total', stats.total, Colors.grey.shade700),
+          _statCard(strings.total, stats.total, Colors.grey.shade700),
           const SizedBox(width: 8),
-          _statCard('Step 1', stats.step1, ReminderStep.getColor(1)),
+          _statCard('${strings.step} 1', stats.step1, ReminderStep.getColor(1)),
           const SizedBox(width: 8),
-          _statCard('Step 2', stats.step2, ReminderStep.getColor(2)),
+          _statCard('${strings.step} 2', stats.step2, ReminderStep.getColor(2)),
           const SizedBox(width: 8),
-          _statCard('Step 3', stats.step3, ReminderStep.getColor(3)),
+          _statCard('${strings.step} 3', stats.step3, ReminderStep.getColor(3)),
           const SizedBox(width: 8),
-          _statCard('Step 4', stats.step4, ReminderStep.getColor(4)),
+          _statCard('${strings.step} 4', stats.step4, ReminderStep.getColor(4)),
         ],
       ),
     );
@@ -348,7 +354,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     );
   }
 
-  Widget _buildReminderCard(Reminder reminder) {
+  Widget _buildReminderCard(Reminder reminder, AppStrings strings) {
     final step = reminder.stepNumber ?? 0;
     final color = ReminderStep.getColor(step);
     final icon = ReminderStep.getIcon(step);
@@ -402,7 +408,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Step $step: ${reminder.stepDescription ?? ReminderStep.getDescription(step)}',
+                    '${strings.step} $step: ${reminder.stepDescription ?? ReminderStep.getDescription(step)}',
                     style: TextStyle(color: color, fontWeight: FontWeight.w600),
                   ),
                   Text(
@@ -439,7 +445,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                   if (urgent) ...[
                     const SizedBox(height: 4),
                     Text(
-                      '⚠️ EXPIRING SOON',
+                      strings.expiringSoon.toUpperCase(),
                       style: TextStyle(
                         fontSize: 9,
                         color: Colors.red.shade700,
@@ -464,7 +470,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(AppStrings strings) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -475,16 +481,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             color: Colors.green.shade300,
           ),
           const SizedBox(height: 16),
-          const Text(
-            'All Caught Up!',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
           Text(
-            _filterStep == null
-                ? 'No active onboarding reminders.'
-                : 'No reminders for Step $_filterStep.',
-            style: TextStyle(color: Colors.grey.shade600),
+            strings.noReminders,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ],
       ),

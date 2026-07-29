@@ -43,7 +43,8 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authUserProvider);
     if (user == null || !user.isAdmin) {
-      return const Center(child: Text('Admin access required.'));
+      final strings = ref.watch(appStringsProvider);
+      return Center(child: Text(strings.adminAccessRequired));
     }
 
     final cancelledAsync = ref.watch(cancelledMembersProvider);

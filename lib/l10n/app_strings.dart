@@ -137,6 +137,7 @@ class AppStrings {
   String get filterNew => isAf ? 'Nuut' : 'New';
   String get filterRs => 'RS';
   String get memberName => isAf ? 'Lidnaam' : 'Member Name';
+  String get surname => isAf ? 'Van' : 'Surname';
   String get suburb => isAf ? 'Voorstad' : 'Suburb';
   String get townCity => isAf ? 'Dorp / Stad' : 'Town / City';
   String get postalCode => isAf ? 'Poskode' : 'Postal Code';
@@ -166,6 +167,135 @@ class AppStrings {
   String get enableLocalBackup => isAf
       ? 'Aktiveer plaaslike rugsteun op hierdie PC'
       : 'Enable Local Backup on this PC';
+
+  // Search
+  String get globalSearch => isAf ? 'Globale soektog' : 'Global Search';
+  String get searchHint =>
+      isAf ? 'Soek alle lidvelde…' : 'Search all member fields…';
+  String get noMembersMatched =>
+      isAf ? 'Geen lede pas nie.' : 'No members matched.';
+
+  // SOS
+  String get sosMessaging => isAf ? 'SOS-boodskappe' : 'SOS Messaging';
+  String get sosMessage => isAf ? 'SOS-boodskap' : 'SOS Message';
+  String get standardisedSosTitle =>
+      isAf ? 'Gestandaardiseerde SOS-titel' : 'Standardised SOS title';
+  String get savePreset => isAf ? 'Stoor voorafstel' : 'Save Preset';
+  String get presets => isAf ? 'Voorafstellings' : 'Presets';
+  String get recipients => isAf ? 'Ontvangers' : 'Recipients';
+  String get singleMember => isAf ? 'Enkele lid' : 'Single Member';
+  String get selectedIndividuals =>
+      isAf ? 'Gekose individue' : 'Selected Individuals';
+  String get allMembers => isAf ? 'Alle lede' : 'All Members';
+  String get member => isAf ? 'Lid' : 'Member';
+  String get sendSos => isAf ? 'Stuur SOS' : 'Send SOS';
+  String get sending => isAf ? 'Stuur tans…' : 'Sending…';
+  String get presetNeedsTitleAndMessage => isAf
+      ? 'Voorafstel benodig ’n titel en boodskap.'
+      : 'Preset needs a title and message.';
+  String get email => isAf ? 'E-pos' : 'Email';
+
+  // Reminders
+  String get remindersTitle => isAf ? 'Herinnerings' : 'Reminders';
+  String get viewMember => isAf ? 'Bekyk lid' : 'View Member';
+  String get markAsCompleted =>
+      isAf ? 'Merk as voltooi' : 'Mark as Completed';
+  String get dismissReminder =>
+      isAf ? 'Verwerp herinnering' : 'Dismiss Reminder';
+  String get dismissReminderConfirm =>
+      isAf ? 'Verwerp herinnering?' : 'Dismiss Reminder?';
+  String get dismiss => isAf ? 'Verwerp' : 'Dismiss';
+  String get reminderDismissed =>
+      isAf ? 'Herinnering verwerp' : 'Reminder dismissed';
+  String get reminderCompleted => isAf
+      ? 'Herinnering as voltooi gemerk'
+      : 'Reminder marked as completed';
+  String get refresh => isAf ? 'Verfris' : 'Refresh';
+  String get total => isAf ? 'Totaal' : 'Total';
+  String get step => isAf ? 'Stap' : 'Step';
+  String get autoAssignAll =>
+      isAf ? 'Outo-ken almal toe' : 'Auto-Assign All';
+  String get assigning => isAf ? 'Ken tans toe...' : 'Assigning...';
+  String get allRemindersHaveRs => isAf
+      ? 'Alle herinnerings het ’n Opnamesekretaris'
+      : 'All reminders have a Recording Secretary';
+  String membersWithoutRs(int count) => isAf
+      ? '$count lede sonder Opnamesekretaris'
+      : '$count members without Recording Secretary';
+  String get expired => isAf ? 'Verstryk' : 'Expired';
+  String get expiringSoon => isAf ? 'Verstryk binnekort' : 'Expiring soon';
+  String get noReminders =>
+      isAf ? 'Geen aktiewe herinnerings nie.' : 'No active reminders.';
+
+  // Activities
+  String get activitiesTitle => isAf ? 'Aktiwiteite' : 'Activities';
+  String get activitiesSubtitle => isAf
+      ? 'Aanteken en lid-aksies met GPS, datum, tyd en gebruikersnaam. '
+          'Tik GPS om die kaart te sien — druk, stoor of deel via WhatsApp.'
+      : 'Login and member actions with GPS, date, time, and user name. '
+          'Tap GPS to view map — print, save, or share via WhatsApp.';
+  String get noGpsYet =>
+      isAf ? 'Nog geen GPS-ligging aangeteken nie.' : 'No GPS location recorded yet.';
+  String get noActivitiesYet =>
+      isAf ? 'Nog geen aktiwiteite aangeteken nie.' : 'No activities recorded yet.';
+  String get dateTime => isAf ? 'Datum / Tyd' : 'Date / Time';
+  String get user => isAf ? 'Gebruiker' : 'User';
+  String get action => isAf ? 'Aksie' : 'Action';
+  String get gpsLocation => isAf ? 'GPS-ligging' : 'GPS Location';
+  String get map => isAf ? 'Kaart' : 'Map';
+  String get openGpsMap => isAf ? 'Maak GPS-kaart oop' : 'Open GPS map';
+
+  // Info / Videos
+  String get countyInformation =>
+      isAf ? 'County-inligting' : 'County Information';
+  String get addArticle => isAf ? 'Voeg artikel by' : 'Add Article';
+  String get noArticles =>
+      isAf ? 'Geen artikels beskikbaar nie.' : 'No articles available.';
+  String get addVideo => isAf ? 'Voeg video by' : 'Add Video';
+  String get noVideos =>
+      isAf ? 'Geen video’s beskikbaar nie.' : 'No videos available.';
+
+  // Member form extras
+  String get viewMembers => isAf ? 'Bekyk lede:' : 'View Members:';
+  String get focusSearch =>
+      isAf ? 'Fokus soektog (Ctrl+F)' : 'Focus Search (Ctrl+F)';
+  String get globalRecordNo =>
+      isAf ? 'Globale rekordnr.' : 'Global Record No.';
+  String get contactNo1 =>
+      isAf ? 'Kontaknr. 1 * (maks. 12)' : 'Contact No 1 * (max 12)';
+  String get contactNo2 =>
+      isAf ? 'Kontaknr. 2 (maks. 12)' : 'Contact No 2 (max 12)';
+  String get emailAddress =>
+      isAf ? 'E-posadres *' : 'Email Address *';
+  String get enterValidEmail =>
+      isAf ? 'Voer ’n geldige e-pos in' : 'Enter a valid email';
+  String get recordVisibility =>
+      isAf ? 'Rekord-sigbaarheid' : 'Record visibility';
+  String get enterLroRecordNo =>
+      isAf ? 'Voer LRO-rekordnr. in' : 'Enter LRO Record No.';
+  String get activateRs =>
+      isAf ? 'Aktiveer Opnamesekretaris?' : 'Activate Recording Secretary?';
+  String get deactivateRs => isAf
+      ? 'Deaktiveer Opnamesekretaris?'
+      : 'Deactivate Recording Secretary?';
+  String get activateRsBtn => isAf ? 'Aktiveer OS' : 'Activate RS';
+  String get deactivateRsBtn => isAf ? 'Deaktiveer OS' : 'Deactivate RS';
+
+  // Backup snackbars / dialogs (common)
+  String get warning => isAf ? 'WAARSKUWING' : 'WARNING';
+  String get dangerZone => isAf ? 'GEVAARSONE' : 'DANGER ZONE';
+  String get backupAuthorized =>
+      isAf ? 'Rugsteun gemagtig.' : 'Backup authorized.';
+  String get backupAuthRequired => isAf
+      ? 'Rugsteun-magtiging vereis.'
+      : 'Backup authorization required.';
+  String get backupComplete =>
+      isAf ? 'Rugsteun voltooi' : 'Backup complete';
+  String get restoreComplete =>
+      isAf ? 'Herstel voltooi' : 'Restore Complete';
+  String get allDataDeleted =>
+      isAf ? 'Alle data geskrap' : 'All Data Deleted';
+  String get errorLabel => isAf ? 'Fout' : 'Error';
 
   /// Localized drawer row for [AppDrawerCatalog] item ids.
   String drawerLabel(String id) {

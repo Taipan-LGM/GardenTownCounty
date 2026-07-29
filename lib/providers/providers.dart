@@ -13,6 +13,7 @@ import '../models/sos_preset.dart';
 import '../models/temporary_access_log.dart';
 import '../models/user_role.dart';
 import '../navigation/app_section.dart';
+import '../l10n/app_strings.dart';
 
 export '../navigation/app_section.dart';
 
@@ -115,6 +116,10 @@ final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 
 final appLanguageProvider =
     StateProvider<AppLanguage>((ref) => AppLanguage.english);
+
+final appStringsProvider = Provider<AppStrings>((ref) {
+  return AppStrings(ref.watch(appLanguageProvider));
+});
 
 /// Apply language immediately in UI, then persist (so the first tap works).
 Future<void> setAppLanguage(WidgetRef ref, AppLanguage lang) async {

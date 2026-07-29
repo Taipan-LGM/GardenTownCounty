@@ -17,13 +17,15 @@ class VideosContentScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final videosAsync = ref.watch(activeVideosProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    final strings = ref.watch(appStringsProvider);
 
     return ColoredBox(
       color: Colors.black,
       child: videosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
+          child: Text('${strings.errorLabel}: $e',
+              style: const TextStyle(color: Colors.red)),
         ),
         data: (videos) {
           return Column(
@@ -33,10 +35,10 @@ class VideosContentScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'County Videos',
-                        style: TextStyle(
+                        strings.countyVideos,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -51,7 +53,7 @@ class VideosContentScreen extends ConsumerWidget {
                             ref.invalidate(activeVideosProvider);
                           }
                         },
-                        text: 'Add Video',
+                        text: strings.addVideo,
                         icon: Icons.add,
                       ),
                   ],
@@ -61,7 +63,7 @@ class VideosContentScreen extends ConsumerWidget {
                 child: videos.isEmpty
                     ? Center(
                         child: Text(
-                          'No videos available.',
+                          strings.noVideos,
                           style: TextStyle(color: Colors.grey.shade500),
                         ),
                       )

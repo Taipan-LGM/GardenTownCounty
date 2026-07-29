@@ -34,11 +34,12 @@ class _SosScreenState extends ConsumerState<SosScreen> {
   }
 
   Future<void> _createPreset() async {
+    final strings = ref.read(appStringsProvider);
     final title = _presetTitleController.text.trim();
     final message = _messageController.text.trim();
     if (title.isEmpty || message.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preset needs a title and message.')),
+        SnackBar(content: Text(strings.presetNeedsTitleAndMessage)),
       );
       return;
     }
@@ -103,19 +104,20 @@ class _SosScreenState extends ConsumerState<SosScreen> {
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(membersProvider);
     final presetsAsync = ref.watch(sosPresetsProvider);
+    final strings = ref.watch(appStringsProvider);
 
     return membersAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text('${strings.errorLabel}: $e')),
       data: (members) {
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'SOS Messaging',
-                style: TextStyle(
+              Text(
+                strings.sosMessaging,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.bodyText,
@@ -137,8 +139,8 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                               TextField(
                                 controller: _messageController,
                                 maxLines: 8,
-                                decoration: const InputDecoration(
-                                  labelText: 'SOS Message',
+                                decoration: InputDecoration(
+                                  labelText: strings.sosMessage,
                                   alignLabelWithHint: true,
                                 ),
                               ),
@@ -148,21 +150,21 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: _presetTitleController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Standardised SOS title',
+                                      decoration: InputDecoration(
+                                        labelText: strings.standardisedSosTitle,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   SaveButton(
                                     onPressed: _createPreset,
-                                    text: 'Save Preset',
+                                    text: strings.savePreset,
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Presets',
+                                strings.presets,
                                 style: Theme.of(context).textTheme.titleSmall,
                               ),
                               Expanded(
@@ -215,9 +217,9 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text('Recipients'),
+                              Text(strings.recipients),
                               RadioListTile<SosAudience>(
-                                title: const Text('Single Member'),
+                                title: Text(strings.singleMember),
                                 value: SosAudience.single,
                                 groupValue: _audience,
                                 onChanged: (v) =>
@@ -226,8 +228,8 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                               if (_audience == SosAudience.single)
                                 DropdownButtonFormField<String>(
                                   initialValue: _singleMemberId,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Member',
+                                  decoration: InputDecoration(
+                                    labelText: strings.member,
                                   ),
                                   items: members
                                       .map(
@@ -241,7 +243,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                                       setState(() => _singleMemberId = v),
                                 ),
                               RadioListTile<SosAudience>(
-                                title: const Text('Selected Individuals'),
+                                title: Text(strings.selectedIndividuals),
                                 value: SosAudience.selected,
                                 groupValue: _audience,
                                 onChanged: (v) =>
@@ -269,7 +271,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                                   ),
                                 ),
                               RadioListTile<SosAudience>(
-                                title: const Text('All Members'),
+                                title: Text(strings.allMembers),
                                 value: SosAudience.all,
                                 groupValue: _audience,
                                 onChanged: (v) =>
@@ -277,16 +279,16 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                               ),
                               const Divider(),
                               SegmentedButton<MessageChannel>(
-                                segments: const [
-                                  ButtonSegment(
+                                segments: [
+                                  const ButtonSegment(
                                     value: MessageChannel.whatsapp,
                                     label: Text('WhatsApp'),
                                     icon: Icon(Icons.chat),
                                   ),
                                   ButtonSegment(
                                     value: MessageChannel.email,
-                                    label: Text('Email'),
-                                    icon: Icon(Icons.email_outlined),
+                                    label: Text(strings.email),
+                                    icon: const Icon(Icons.email_outlined),
                                   ),
                                 ],
                                 selected: {_channel},
@@ -298,7 +300,9 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                               ActionButton(
                                 onPressed:
                                     _sending ? null : () => _send(members),
-                                text: _sending ? 'Sending…' : 'Send SOS',
+                                text: _sending
+                                    ? strings.sending
+                                    : strings.sendSos,
                                 isLoading: _sending,
                                 icon: Icons.send,
                               ),
