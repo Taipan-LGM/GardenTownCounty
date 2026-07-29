@@ -588,7 +588,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     final strings = AppStrings(ref.watch(appLanguageProvider));
 
     if (!isAdmin) {
-      return const Center(child: Text('Admin access required.'));
+      return Center(child: Text(strings.adminAccessRequired));
     }
 
     return Padding(
@@ -626,7 +626,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               const SizedBox(height: 16),
               _actionsCard(strings: strings, authorized: auth.authorized),
               const SizedBox(height: 16),
-              _dangerZoneCard(),
+              _dangerZoneCard(strings: strings),
               if (_busy) ...[
                 const SizedBox(height: 24),
                 LinearProgressIndicator(
@@ -743,20 +743,22 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
           const SizedBox(height: 12),
           _actionButton(
             icon: Icons.save,
-            label: 'Create Backup',
+            label: strings.createBackupShort,
             description: 'Create a new encrypted .gtb backup of all data',
             backgroundColor: Colors.blue.shade700,
             textColor: Colors.black,
             onPressed: _busy ? null : () => _createBackup(external: !kIsWeb),
+            kind: _BackupActionKind.create,
           ),
           const SizedBox(height: 8),
           _actionButton(
             icon: Icons.restore,
-            label: 'Restore Backup',
+            label: strings.restoreBackupShort,
             description: 'Restore data from a .gtb backup file',
             backgroundColor: Colors.amber.shade600,
             textColor: Colors.black,
             onPressed: _busy ? null : _restore,
+            kind: _BackupActionKind.restore,
           ),
           const SizedBox(height: 8),
           _actionButton(
@@ -772,22 +774,24 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             backgroundColor: Colors.green.shade700,
             textColor: Colors.white,
             onPressed: (_busy || authorized) ? null : _enableLocalBackup,
+            kind: _BackupActionKind.enable,
           ),
           const SizedBox(height: 8),
           _actionButton(
             icon: Icons.list_alt,
-            label: 'View Backups',
+            label: strings.viewBackups,
             description: 'View existing .gtb backup files',
             backgroundColor: Colors.grey.shade700,
             textColor: Colors.white,
             onPressed: _busy ? null : _viewBackups,
+            kind: _BackupActionKind.view,
           ),
         ],
       ),
     );
   }
 
-  Widget _dangerZoneCard() {
+  Widget _dangerZoneCard({required AppStrings strings}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -820,11 +824,12 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
           const SizedBox(height: 12),
           _actionButton(
             icon: Icons.delete_forever,
-            label: 'DELETE ALL',
+            label: strings.deleteAll,
             description: 'Permanently delete ALL data (Admin kept)',
             backgroundColor: Colors.red.shade700,
             textColor: Colors.white,
             onPressed: _busy ? null : _showDeleteAllDialog,
+            kind: _BackupActionKind.deleteAll,
           ),
         ],
       ),
@@ -838,20 +843,21 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     required Color backgroundColor,
     required Color textColor,
     required VoidCallback? onPressed,
+    required _BackupActionKind kind,
   }) {
-    final actionText = label == 'DELETE ALL' ? 'Delete All' : 'Go';
-
-    final Widget actionBtn = switch (label) {
-      'Create Backup' => BackupButton(onPressed: onPressed, text: actionText),
-      'Restore Backup' =>
-        RestoreButton(onPressed: onPressed, text: actionText),
-      'View Backups' => ViewButton(onPressed: onPressed, text: actionText),
-      'DELETE ALL' => DeleteButton(
+    final Widget actionBtn = switch (kind) {
+      _BackupActionKind.create =>
+        BackupButton(onPressed: onPressed, text: 'Go'),
+      _BackupActionKind.restore =>
+        RestoreButton(onPressed: onPressed, text: 'Go'),
+      _BackupActionKind.view => ViewButton(onPressed: onPressed, text: 'Go'),
+      _BackupActionKind.deleteAll => DeleteButton(
           onPressed: onPressed,
-          text: actionText,
+          text: label,
           icon: Icons.delete_forever,
         ),
-      _ => EnableButton(onPressed: onPressed, text: actionText),
+      _BackupActionKind.enable =>
+        EnableButton(onPressed: onPressed, text: 'Go'),
     };
 
     return Container(
@@ -902,6 +908,8 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     );
   }
 }
+
+enum _BackupActionKind { create, restore, view, enable, deleteAll }
 
 class _ConfirmRestoreDialog extends StatefulWidget {
   const _ConfirmRestoreDialog();

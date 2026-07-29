@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
@@ -30,8 +31,6 @@ import 'widgets/sync_status_indicator.dart';
 class GardenTownCountyApp extends ConsumerWidget {
   const GardenTownCountyApp({super.key});
 
-  /// Prefer rebuilding chrome without remounting MaterialApp (keeps session).
-  /// Locale still drives Flutter's locale resolution for any Material widgets.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authUserProvider);
@@ -50,6 +49,11 @@ class GardenTownCountyApp extends ConsumerWidget {
       supportedLocales: const [
         Locale('en'),
         Locale('af'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
       home: user == null ? const LoginScreen() : const AppShell(),
     );
@@ -105,11 +109,9 @@ class _AppShellState extends ConsumerState<AppShell>
     if (!overdue || !mounted) return;
     _backupReminderShown = true;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "It's been 7 days since your last backup. Please backup your data.",
-        ),
-        duration: Duration(seconds: 6),
+      SnackBar(
+        content: Text(AppStrings(ref.read(appLanguageProvider)).backupOverdue),
+        duration: const Duration(seconds: 6),
       ),
     );
   }

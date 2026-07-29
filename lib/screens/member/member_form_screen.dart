@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/exceptions/duplicate_exception.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/lookup_item.dart';
 import '../../models/member.dart';
 import '../../models/member_form_mode.dart';
@@ -1332,6 +1333,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     final navState = ref.watch(memberNavigationProvider);
     final nav = ref.read(memberNavigationProvider.notifier);
+    final strings = AppStrings(ref.watch(appLanguageProvider));
     final isMemberOnly = _isMemberOnly;
     final showList = !isMemberOnly && navState.currentView == MemberNavView.list;
     final listSource = _adminViewMembers;
@@ -1553,17 +1555,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         ),
                       ),
                       _adminViewRadio(
-                        label: 'All',
+                        label: strings.filterAll,
                         count: _countAll,
                         value: AdminViewFilter.all,
                       ),
                       _adminViewRadio(
-                        label: 'New',
+                        label: strings.filterNew,
                         count: _countNew,
                         value: AdminViewFilter.newMembers,
                       ),
                       _adminViewRadio(
-                        label: 'RS',
+                        label: strings.filterRs,
                         count: _countRs,
                         value: AdminViewFilter.rs,
                       ),
@@ -1981,25 +1983,25 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     }
                     await showMemberFilesDialog(context, ref, m);
                   },
-                  text: 'Upload Files',
+                  text: strings.uploadFiles,
                   icon: Icons.attach_file,
                 ),
               const SizedBox(width: 8),
               if (!_isEditing && _canEnterEditMode)
                 EditButton(
                   onPressed: _enterEditMode,
-                  text: 'Edit',
+                  text: strings.edit,
                   icon: Icons.edit,
                 ),
               if (_isEditing) ...[
                 CancelButton(
                   onPressed: _saving ? null : _cancelEdit,
-                  text: 'Cancel',
+                  text: strings.cancel,
                 ),
                 const SizedBox(width: 8),
                 SaveButton(
                   onPressed: _canPressSave ? () => _save() : null,
-                  text: 'Save',
+                  text: strings.save,
                   isLoading: _saving,
                   icon: Icons.save,
                 ),
@@ -2212,7 +2214,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     ),
                                   ],
                                   SmartRecordField(
-                                    label: 'LRO Record No.',
+                                    label: strings.lroRecordNo,
                                     controller: _lroRecordNo,
                                     hint: 'Enter LRO Record No.',
                                     isEditing: _isEditing && !_formReadOnly,
@@ -2305,7 +2307,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ),
                   const SizedBox(height: 8),
                   _lookupDropdown(
-                    label: 'Suburb',
+                    label: strings.suburb,
                     type: LookupType.suburb,
                     value: _suburb,
                     required: true,
@@ -2316,7 +2318,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ),
                   const SizedBox(height: 8),
                   _lookupDropdown(
-                    label: 'Town / City',
+                    label: strings.townCity,
                     type: LookupType.townCity,
                     value: _townCity,
                     required: true,
@@ -2327,7 +2329,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ),
                   const SizedBox(height: 8),
                   _lookupDropdown(
-                    label: 'Postal Code',
+                    label: strings.postalCode,
                     type: LookupType.postalCode,
                     value: _postalCode,
                     required: true,

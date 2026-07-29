@@ -14,7 +14,7 @@ class AppStrings {
   String get home => isAf ? 'Tuis' : 'Home';
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
-  String get videos => isAf ? 'Video\'s' : 'Videos';
+  String get videos => isAf ? "Video's" : 'Videos';
   String get info => isAf ? 'Inligting' : 'Info';
   String get menu => isAf ? 'Kieslys' : 'Menu';
 
@@ -44,7 +44,7 @@ class AppStrings {
   String get demoDataSubtitle => isAf
       ? 'Skep 10 demo-lede'
       : 'Generate 10 demo members';
-  String get countyVideos => isAf ? 'County-video\'s' : 'County Videos';
+  String get countyVideos => isAf ? "County-video's" : 'County Videos';
   String get countyInfoShort => isAf ? 'County-inligting' : 'County Info';
 
   String get theme => isAf ? 'Tema' : 'Theme';
@@ -71,7 +71,86 @@ class AppStrings {
   String get uploadSecondaryLogo =>
       isAf ? 'Laai tweede logo op' : 'Upload second (corner) logo';
   String get save => isAf ? 'Stoor' : 'Save';
+  String get cancel => isAf ? 'Kanselleer' : 'Cancel';
+  String get edit => isAf ? 'Wysig' : 'Edit';
+  String get delete => isAf ? 'Skrap' : 'Delete';
+  String get close => isAf ? 'Maak toe' : 'Close';
   String get continueLabel => isAf ? 'Gaan voort' : 'Continue';
+  String get guest => isAf ? 'Gas' : 'Guest';
+  String get notSet => isAf ? 'Nie gestel nie' : 'Not set';
+  String get requiredField => isAf ? 'Verpligtend' : 'Required';
+
+  // Login
+  String get signIn => isAf ? 'Teken in' : 'Sign In';
+  String get signInToContinue =>
+      isAf ? 'Teken in om voort te gaan' : 'Sign in to continue';
+  String get usernameOrEmail =>
+      isAf ? 'Gebruikersnaam / E-pos' : 'Username / Email';
+  String get password => isAf ? 'Wagwoord' : 'Password';
+  String get mustAcceptAgreement => isAf
+      ? 'Jy moet die vertroulikheidsooreenkoms aanvaar.'
+      : 'You must accept the confidentiality agreement.';
+
+  // Settings extras
+  String get countySettingsLogos =>
+      isAf ? 'County-instellings (logos)' : 'County Settings (logos)';
+  String get rsRemuneration =>
+      isAf ? 'RS-vergoeding' : 'RS Remuneration';
+  String get rsRemunerationSubtitle => isAf
+      ? 'Stel Opnamesekretaris-betalingsbedrae'
+      : 'Configure Recording Secretary payment amounts';
+  String get remunerationDashboard =>
+      isAf ? 'Vergoedingspaneel' : 'Remuneration Dashboard';
+  String get remunerationDashboardSubtitle => isAf
+      ? 'Hangende / goedgekeur / betaal oorsig'
+      : 'Pending / approved / paid overview';
+  String get generateTestData =>
+      isAf ? 'Genereer toetsdata' : 'Generate Test Data';
+  String get generateTestDataSubtitle => isAf
+      ? 'Sekretarisse, lede, herinnerings, vergoeding'
+      : 'Secretaries, members, reminders, remuneration';
+  String get adminOnlyCountySettings => isAf
+      ? 'Teken in as Admin om County-instellings (logos) oop te maak.'
+      : 'Sign in as Admin to open County Settings (logos).';
+  String get countySettings =>
+      isAf ? 'County-instellings' : 'County Settings';
+  String get logosAdmin => isAf ? 'Logos (Admin)' : 'Logos (Admin)';
+  String get firstLogo => isAf ? 'Eerste logo' : 'First logo';
+  String get secondLogo => isAf ? 'Tweede logo' : 'Second logo';
+  String get registerNewCounty =>
+      isAf ? 'Registreer nuwe county' : 'Register New County';
+  String get saving => isAf ? 'Stoor tans...' : 'Saving...';
+
+  // Common dialogs
+  String get signOutConfirm => isAf
+      ? 'Is jy seker jy wil uitteken?'
+      : 'Are you sure you want to sign out?';
+  String get unsavedChanges =>
+      isAf ? '⚠ Ongestoorde veranderinge' : '⚠️ Unsaved Changes';
+  String get saveOrCancelFirst => isAf
+      ? 'Stoor of kanselleer eers wysigings'
+      : 'Please save or cancel edits first';
+  String get uploadFiles => isAf ? 'Laai lêers op' : 'Upload Files';
+  String get cancelMembership =>
+      isAf ? 'Kanselleer lidmaatskap' : 'Cancel Membership';
+  String get filterAll => isAf ? 'Alles' : 'All';
+  String get filterNew => isAf ? 'Nuut' : 'New';
+  String get filterRs => 'RS';
+  String get memberName => isAf ? 'Lidnaam' : 'Member Name';
+  String get suburb => isAf ? 'Voorstad' : 'Suburb';
+  String get townCity => isAf ? 'Dorp / Stad' : 'Town / City';
+  String get postalCode => isAf ? 'Poskode' : 'Postal Code';
+  String get lroRecordNo => isAf ? 'LRO-rekordnr.' : 'LRO Record No.';
+  String get backupOverdue => isAf
+      ? 'Dit is 7 dae sedert jou laaste rugsteun. Maak asseblief \'n rugsteun.'
+      : "It's been 7 days since your last backup. Please backup your data.";
+  String get adminAccessRequired =>
+      isAf ? 'Admin-toegang vereis.' : 'Admin access required.';
+  String get viewBackups => isAf ? 'Bekyk rugsteun' : 'View Backups';
+  String get deleteAll => isAf ? 'SKRAP ALLES' : 'DELETE ALL';
+  String get createBackupShort => isAf ? 'Skep rugsteun' : 'Create Backup';
+  String get restoreBackupShort =>
+      isAf ? 'Herstel rugsteun' : 'Restore Backup';
 
   String get backupCenter =>
       isAf ? 'Rugsteun & Herstel Sentrum' : 'Backup & Restore Center';

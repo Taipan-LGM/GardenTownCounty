@@ -31,5 +31,7 @@ void main() {
     expect(af.videos, "Video's");
     expect(af.menu, 'Kieslys');
     expect(en.menu, 'Menu');
+    expect(af.signIn, 'Teken in');
+    expect(af.cancel, 'Kanselleer');
   });
 }

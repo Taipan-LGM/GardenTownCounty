@@ -72,7 +72,7 @@ class AppDrawer extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          user?.displayName ?? 'Guest',
+                          user?.displayName ?? strings.guest,
                           style: const TextStyle(color: Colors.white70),
                         ),
                         if (user != null)
@@ -156,7 +156,7 @@ class AppDrawer extends ConsumerWidget {
                     _countyField(
                       label: strings.countyContactNo,
                       value: countyContactNo.isEmpty
-                          ? 'Not set'
+                          ? strings.notSet
                           : countyContactNo,
                     ),
                     const SizedBox(height: 6),
@@ -297,13 +297,13 @@ class AppDrawer extends ConsumerWidget {
           style: const TextStyle(color: Colors.white),
         ),
         content: Text(
-          'Are you sure you want to sign out?',
+          strings.signOutConfirm,
           style: TextStyle(color: Colors.grey.shade300),
         ),
         actions: [
           CancelButton(
             onPressed: () => Navigator.pop(ctx, false),
-            text: 'Cancel',
+            text: strings.cancel,
           ),
           ActionButton(
             onPressed: () => Navigator.pop(ctx, true),

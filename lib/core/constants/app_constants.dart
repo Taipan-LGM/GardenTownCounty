@@ -2,8 +2,8 @@ class AppConstants {
   static const String appName = 'Garden Town County';
   /// Keep in sync with pubspec.yaml `version:` (name+build).
   /// Scheme: v1.18.12 … v1.18.99 → v1.19.00 → v1.19.01 …
-  static const String appVersion = '1.18.19';
-  static const String buildNumber = '82';
+  static const String appVersion = '1.18.20';
+  static const String buildNumber = '83';
   static String get fullVersion => '$appVersion+$buildNumber';
   static String get versionLabel => 'v$fullVersion';
 

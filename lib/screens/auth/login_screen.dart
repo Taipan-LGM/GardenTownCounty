@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_strings.dart';
 import '../../providers/providers.dart';
 import '../../widgets/legal_disclaimer_dialog.dart';
 import '../../widgets/standard_buttons.dart';
@@ -69,7 +70,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (!accepted) {
         if (mounted) {
-          setState(() => _error = 'You must accept the confidentiality agreement.');
+          setState(
+            () => _error = AppStrings(ref.read(appLanguageProvider))
+                .mustAcceptAgreement,
+          );
         }
         return;
       }
@@ -94,6 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings(ref.watch(appLanguageProvider));
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -116,10 +121,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Garden Town County',
+                      Text(
+                        strings.appName,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.bodyText,
@@ -136,21 +141,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Sign in to continue',
+                      Text(
+                        strings.signInToContinue,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.black54),
+                        style: const TextStyle(color: Colors.black54),
                       ),
                       const SizedBox(height: 24),
                       TextFormField(
                         controller: _userController,
-                        decoration: const InputDecoration(
-                          labelText: 'Username / Email',
-                          prefixIcon: Icon(Icons.person_outline),
+                        decoration: InputDecoration(
+                          labelText: strings.usernameOrEmail,
+                          prefixIcon: const Icon(Icons.person_outline),
                         ),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
-                                ? 'Required'
+                                ? strings.requiredField
                                 : null,
                       ),
                       const SizedBox(height: 16),
@@ -158,7 +163,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         controller: _passwordController,
                         obscureText: _obscure,
                         decoration: InputDecoration(
-                          labelText: 'Password',
+                          labelText: strings.password,
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -171,7 +176,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         validator: (value) =>
-                            (value == null || value.isEmpty) ? 'Required' : null,
+                            (value == null || value.isEmpty)
+                                ? strings.requiredField
+                                : null,
                         onFieldSubmitted: (_) => _submit(),
                       ),
                       if (_error != null) ...[
@@ -184,7 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 24),
                       SubmitButton(
                         onPressed: _loading ? null : _submit,
-                        text: 'Sign In',
+                        text: strings.signIn,
                         isLoading: _loading,
                       ),
                       if (_showDemoHint) ...[

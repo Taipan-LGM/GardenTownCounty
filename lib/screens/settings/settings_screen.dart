@@ -124,7 +124,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             alignment: Alignment.centerLeft,
             child: ActionButton(
               onPressed: () => showCountySettingsDialog(context, ref),
-              text: 'County Settings (logos)',
+              text: strings.countySettingsLogos,
             ),
           ),
           const SizedBox(height: 12),
@@ -133,10 +133,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.attach_money, color: Colors.green),
-                  title: const Text('RS Remuneration'),
-                  subtitle: const Text(
-                    'Configure Recording Secretary payment amounts',
-                  ),
+                  title: Text(strings.rsRemuneration),
+                  subtitle: Text(strings.rsRemunerationSubtitle),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.of(context).push(
@@ -149,8 +147,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.dashboard, color: Colors.blue),
-                  title: const Text('Remuneration Dashboard'),
-                  subtitle: const Text('Pending / approved / paid overview'),
+                  title: Text(strings.remunerationDashboard),
+                  subtitle: Text(strings.remunerationDashboardSubtitle),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.of(context).push(
@@ -163,10 +161,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.science, color: Colors.orange),
-                  title: const Text('Generate Test Data'),
-                  subtitle: const Text(
-                    'Secretaries, members, reminders, remuneration',
-                  ),
+                  title: Text(strings.generateTestData),
+                  subtitle: Text(strings.generateTestDataSubtitle),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _generateTestData(context),
                 ),
@@ -174,10 +170,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ] else
-          const Padding(
-            padding: EdgeInsets.only(top: 24),
+          Padding(
+            padding: const EdgeInsets.only(top: 24),
             child: Text(
-              'Sign in as Admin to open County Settings (logos).',
+              strings.adminOnlyCountySettings,
               textAlign: TextAlign.center,
             ),
           ),
