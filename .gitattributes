@@ -1,4 +1,7 @@
-# Keep shell/Docker files LF so Linux containers don't fail with /bin/sh^M
+# Keep shell/Docker/Dart as LF UTF-8 so GitHub and Linux builds stay clean.
 Dockerfile text eol=lf
 docker/** text eol=lf
 *.sh text eol=lf
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
