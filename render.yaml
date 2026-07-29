@@ -1,25 +1,14 @@
-# Deploy Flutter web as a static site on Render.
-# Uses a release tarball (faster than git clone of the full Flutter repo).
+# Deploy Flutter web on Render via Dockerfile (multi-stage build + nginx).
 #
-# Flutter 3.44.x ships Dart 3.12 — required by pubspec `sdk: ^3.12.2`.
-# Do NOT pin 3.22.3 here (that pairs with Dart 3.4 and will fail pub get).
+# Image: ghcr.io/gmeligio/flutter-web:3.44.8 (Dart 3.12 / Flutter 3.44)
+# Matches pubspec `sdk: ^3.12.2` and `flutter: ">=3.44.0"`.
 services:
   - type: web
     name: garden-town-county
-    runtime: static
-    buildCommand: |
-      set -e
-      FLUTTER_VERSION=3.44.6
-      ARCHIVE=flutter_linux_${FLUTTER_VERSION}-stable.tar.xz
-      curl -fsSL -o /tmp/$ARCHIVE \
-        "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$ARCHIVE"
-      tar -xJf /tmp/$ARCHIVE -C $HOME
-      export PATH="$HOME/flutter/bin:$PATH"
-      flutter config --no-analytics --enable-web
-      flutter pub get
-      flutter build web --release --pwa-strategy=none
-    staticPublishPath: build/web
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=3600
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "10000"

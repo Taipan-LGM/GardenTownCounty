@@ -1,0 +1,40 @@
+# Git / IDE
+.git
+.github
+.idea
+.vscode
+**/.DS_Store
+
+# Flutter / Dart build artifacts
+.dart_tool
+.flutter-tools
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache
+.pub
+build
+coverage
+
+# Native platform trees (not needed for web image)
+android
+ios
+macos
+windows
+linux
+# Keep web/ for base_href / icons if present
+# web is included
+
+# Docs / local tooling
+graphify-out
+*.md
+!README.md
+agent-transcripts
+*.bak
+
+# Secrets / local config
+.env
+.env.*
+**/*.jks
+**/google-services.json
+**/GoogleService-Info.plist

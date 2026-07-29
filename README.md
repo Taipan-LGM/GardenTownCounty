@@ -34,7 +34,7 @@ flutter pub get
 flutter run -d linux      # or windows / macos / chrome / android
 ```
 
-Requires **Flutter ≥ 3.44** (Dart 3.12), matching `pubspec.yaml` / `render.yaml`.
+Requires **Flutter ≥ 3.44** (Dart 3.12), matching `pubspec.yaml` / Docker image tag.
 
 ## Firebase setup
 
@@ -91,10 +91,12 @@ On every push to `main`, GitHub Actions builds Flutter web and publishes Pages.
 
 ### Render
 
-`render.yaml` builds Flutter web as a static site (Flutter **3.44.6**).
+`render.yaml` deploys a **Docker** web service:
 
-1. Render → New → Blueprint → select this repo  
-2. Or create a Static Site using the build command in `render.yaml`
+1. Multi-stage `Dockerfile` builds Flutter web with `ghcr.io/gmeligio/flutter-web:3.44.8`
+2. Serves `build/web` with nginx on `$PORT`
+
+Render → New → Blueprint → select this repo (or connect the existing service so it picks up `runtime: docker`).
 
 > Web uses an in-memory database (session-only). Desktop/mobile keep full SQLite offline storage. Local backups require desktop.
 

@@ -1,0 +1,30 @@
+# Render sets PORT. Escape nginx variables as $$ so envsubst leaves them alone.
+server {
+    listen       ${PORT};
+    server_name  _;
+    root         /usr/share/nginx/html;
+    index        index.html;
+
+    # Flutter web SPA — deep links fall back to index.html
+    location / {
+        try_files $$uri $$uri/ /index.html;
+    }
+
+    # Long-cache hashed assets; keep index fresh
+    location /assets/ {
+        try_files $$uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    location = /flutter_service_worker.js {
+        add_header Cache-Control "no-cache";
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 256;
+}
