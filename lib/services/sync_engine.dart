@@ -9,11 +9,16 @@ import '../core/constants/app_constants.dart';
 import '../core/exceptions/duplicate_exception.dart';
 import '../models/activity_log.dart';
 import '../models/app_user.dart';
+import '../models/county_article.dart';
+import '../models/county_info.dart';
+import '../models/county_video.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/member_file.dart';
+import '../models/reminder.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
+import '../models/temporary_access_log.dart';
 import 'database_service.dart';
 import 'firebase_bootstrap.dart';
 
@@ -55,6 +60,11 @@ class SyncEngine {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _presetsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _usersSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _rolesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _remindersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _tempAccessSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _countyInfoSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _articlesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _videosSub;
   Timer? _pushTimer;
   bool _pushing = false;
 
@@ -102,6 +112,11 @@ class SyncEngine {
     await _presetsSub?.cancel();
     await _usersSub?.cancel();
     await _rolesSub?.cancel();
+    await _remindersSub?.cancel();
+    await _tempAccessSub?.cancel();
+    await _countyInfoSub?.cancel();
+    await _articlesSub?.cancel();
+    await _videosSub?.cancel();
     _pushTimer?.cancel();
   }
 
@@ -157,6 +172,96 @@ class SyncEngine {
         .collection(AppConstants.rolesCollection)
         .snapshots()
         .listen(_onRolesSnapshot, onError: _logError);
+
+    _remindersSub = _fs
+        .collection(AppConstants.remindersCollection)
+        .snapshots()
+        .listen(_onRemindersSnapshot, onError: _logError);
+
+    _tempAccessSub = _fs
+        .collection(AppConstants.temporaryAccessLogsCollection)
+        .snapshots()
+        .listen(_onTempAccessSnapshot, onError: _logError);
+
+    _countyInfoSub = _fs
+        .collection(AppConstants.countyInfoCollection)
+        .snapshots()
+        .listen(_onCountyInfoSnapshot, onError: _logError);
+
+    _articlesSub = _fs
+        .collection(AppConstants.countyArticlesCollection)
+        .snapshots()
+        .listen(_onArticlesSnapshot, onError: _logError);
+
+    _videosSub = _fs
+        .collection(AppConstants.countyVideosCollection)
+        .snapshots()
+        .listen(_onVideosSnapshot, onError: _logError);
+  }
+
+  Future<void> _onRemindersSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = Reminder.fromFirestore({...data, 'id': change.doc.id});
+      final local = await _db.getReminderById(remote.id);
+      if (local == null ||
+          remote.updatedAt.isAfter(local.updatedAt) ||
+          (remote.deleted && !local.deleted)) {
+        await _db.upsertReminder(remote.copyWith(pendingSync: false));
+      }
+    }
+  }
+
+  Future<void> _onTempAccessSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote =
+          TemporaryAccessLog.fromFirestore({...data, 'id': change.doc.id});
+      await _db.upsertTemporaryAccessLog(remote.copyWith(pendingSync: false));
+    }
+  }
+
+  Future<void> _onCountyInfoSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = CountyInfo.fromMap({
+        ...data,
+        'id': change.doc.id,
+        'isDeleted': data['isDeleted'] == true || data['isDeleted'] == 1 ? 1 : 0,
+      });
+      await _db.upsertCountyInfo(remote.copyWith(syncStatus: 'synced'));
+    }
+  }
+
+  Future<void> _onArticlesSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = CountyArticle.fromMap({...data, 'id': change.doc.id});
+      await _db.upsertArticle(remote.copyWith(syncStatus: 'synced'));
+    }
+  }
+
+  Future<void> _onVideosSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data();
+      if (data == null) continue;
+      final remote = CountyVideo.fromMap({...data, 'id': change.doc.id});
+      await _db.upsertVideo(remote.copyWith(syncStatus: 'synced'));
+    }
   }
 
   Future<void> _onRolesSnapshot(
@@ -177,7 +282,15 @@ class SyncEngine {
       final data = change.doc.data();
       if (data == null) continue;
       final remote = AppUser.fromFirestore({...data, 'id': change.doc.id});
-      await _db.upsertAppUser(remote.copyWith(pendingSync: false));
+      final local = await _db.getAppUserById(remote.id);
+      // Never overwrite a local password hash with an empty cloud value.
+      final merged = remote.copyWith(
+        passwordHash: (remote.passwordHash.isNotEmpty)
+            ? remote.passwordHash
+            : (local?.passwordHash ?? ''),
+        pendingSync: false,
+      );
+      await _db.upsertAppUser(merged);
     }
   }
 
@@ -269,6 +382,11 @@ class SyncEngine {
         await _pushAppUsersBatched();
         await _pushRolesBatched();
         await _pushRemindersBatched();
+        await _pushTempAccessBatched();
+        await _pushCountyInfoBatched();
+        await _pushArticlesBatched();
+        await _pushVideosBatched();
+        await _pushRemunerationBatched();
         _emit(SyncState(
           status: SyncUiStatus.synced,
           lastSyncedAt: DateTime.now(),
@@ -487,6 +605,107 @@ class SyncEngine {
     );
     for (final reminder in pending) {
       await _db.markReminderSynced(reminder.id);
+    }
+  }
+
+  Future<void> _pushTempAccessBatched() async {
+    final pending = await _db.getPendingTemporaryAccessLogs();
+    await _commitBatches(
+      AppConstants.temporaryAccessLogsCollection,
+      pending.map((l) => (id: l.id, data: l.toFirestore())).toList(),
+    );
+    for (final log in pending) {
+      await _db.markTemporaryAccessLogSynced(log.id);
+    }
+  }
+
+  Future<void> _pushCountyInfoBatched() async {
+    final info = await _db.getCountyInfo();
+    if (info == null || info.syncStatus != 'pending') return;
+    await _fs
+        .collection(AppConstants.countyInfoCollection)
+        .doc(info.id)
+        .set(
+          Map<String, dynamic>.from(info.toMap())..remove('syncStatus'),
+          SetOptions(merge: true),
+        );
+    await _db.upsertCountyInfo(info.copyWith(syncStatus: 'synced'));
+  }
+
+  Future<void> _pushArticlesBatched() async {
+    final articles = await _db.getAllArticles();
+    final pending =
+        articles.where((a) => a.syncStatus == 'pending').toList();
+    if (pending.isEmpty) return;
+    await _commitBatches(
+      AppConstants.countyArticlesCollection,
+      pending
+          .map(
+            (a) => (
+              id: a.id,
+              data: Map<String, dynamic>.from(a.toMap())..remove('syncStatus'),
+            ),
+          )
+          .toList(),
+    );
+    for (final article in pending) {
+      await _db.upsertArticle(article.copyWith(syncStatus: 'synced'));
+    }
+  }
+
+  Future<void> _pushVideosBatched() async {
+    final videos = await _db.getAllVideos();
+    final pending = videos.where((v) => v.syncStatus == 'pending').toList();
+    if (pending.isEmpty) return;
+    await _commitBatches(
+      AppConstants.countyVideosCollection,
+      pending
+          .map(
+            (v) => (
+              id: v.id,
+              data: Map<String, dynamic>.from(v.toMap())..remove('syncStatus'),
+            ),
+          )
+          .toList(),
+    );
+    for (final video in pending) {
+      await _db.upsertVideo(video.copyWith(syncStatus: 'synced'));
+    }
+  }
+
+  Future<void> _pushRemunerationBatched() async {
+    final settings = await _db.getRemunerationSettings();
+    if (settings.syncStatus == 'pending') {
+      await _fs
+          .collection(AppConstants.remunerationSettingsCollection)
+          .doc(settings.id)
+          .set(
+            Map<String, dynamic>.from(settings.toMap())..remove('syncStatus'),
+            SetOptions(merge: true),
+          );
+      await _db.saveRemunerationSettings(
+        settings.copyWith(syncStatus: 'synced'),
+        markPending: false,
+      );
+    }
+
+    final records = await _db.getAllRemunerationRecords();
+    final pending =
+        records.where((r) => r.syncStatus == 'pending').toList();
+    if (pending.isEmpty) return;
+    await _commitBatches(
+      AppConstants.secretaryRemunerationCollection,
+      pending
+          .map(
+            (r) => (
+              id: r.id,
+              data: Map<String, dynamic>.from(r.toMap())..remove('syncStatus'),
+            ),
+          )
+          .toList(),
+    );
+    for (final record in pending) {
+      await _db.saveRemuneration(record.copyWith(syncStatus: 'synced'));
     }
   }
 

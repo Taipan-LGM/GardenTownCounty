@@ -17,6 +17,7 @@ void main() {
       expect(user.isAdmin, isFalse);
       expect(user.toFirestore()['role'], 'Manager');
       expect(user.toFirestore().containsKey('pendingSync'), isFalse);
+      expect(user.toFirestore().containsKey('passwordHash'), isFalse);
     });
 
     test('admin and system administrator flags', () {

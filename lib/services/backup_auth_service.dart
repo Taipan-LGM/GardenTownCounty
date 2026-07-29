@@ -22,6 +22,7 @@ class BackupAuthService {
   static const _prefsLastBackupKey = 'gtc_last_backup_at';
   static const _prefsWebAuthKey = 'gtc_web_backup_auth';
   static const _prefsWebDeviceKey = 'gtc_web_backup_device';
+  static const _prefsBackupPasswordKey = 'gtc_backup_password';
 
   Future<BackupAuthInfo> checkAuthorization() async {
     if (kIsWeb) {
@@ -42,10 +43,16 @@ class BackupAuthService {
     }
   }
 
-  Future<BackupAuthInfo> enableLocalBackup(String deviceName) async {
+  Future<BackupAuthInfo> enableLocalBackup(
+    String deviceName, {
+    String? backupPassword,
+  }) async {
     final name = deviceName.trim();
     if (name.isEmpty) {
       throw Exception('Device name is required.');
+    }
+    if (backupPassword != null) {
+      await saveBackupPassword(backupPassword);
     }
 
     if (kIsWeb) {
@@ -57,6 +64,31 @@ class BackupAuthService {
 
     await io.writeAuthFile(name);
     return BackupAuthInfo(authorized: true, deviceName: name);
+  }
+
+  /// Stored password used for GTB2 encryption (manual + auto-backup).
+  Future<String?> loadBackupPassword() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_prefsBackupPasswordKey);
+    if (value == null || value.trim().isEmpty) return null;
+    return value;
+  }
+
+  Future<void> saveBackupPassword(String password) async {
+    final trimmed = password.trim();
+    if (trimmed.length < AppConstants.backupPasswordMinLength) {
+      throw Exception(
+        'Backup password must be at least '
+        '${AppConstants.backupPasswordMinLength} characters.',
+      );
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsBackupPasswordKey, trimmed);
+  }
+
+  Future<bool> hasBackupPassword() async {
+    final pw = await loadBackupPassword();
+    return pw != null && pw.isNotEmpty;
   }
 
   Future<String> backupsDirectoryPath({bool auto = false}) async {

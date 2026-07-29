@@ -5,46 +5,157 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.keys().hasAny(['admin'])
+        && request.auth.token.admin == true;
+    }
+
+    function isSecretary() {
+      return signedIn()
+        && request.auth.token.keys().hasAny(['secretary'])
+        && request.auth.token.secretary == true;
+    }
+
+    function isStaff() {
+      return isAdmin() || isSecretary();
+    }
+
     // Uniqueness lock docs — create fails if doc already exists (Firestore create).
     match /members_unique_sa_id/{saId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if isStaff();
+      allow create: if isStaff()
         && request.resource.data.keys().hasAll(['memberId'])
         && request.resource.data.memberId is string
         && saId.matches('^[0-9]{13}$');
-      allow update: if signedIn()
+      allow update: if isAdmin()
         && resource.data.memberId == request.resource.data.memberId;
-      allow delete: if signedIn();
+      allow delete: if isAdmin();
     }
 
     match /members_unique_global_record/{globalRecordNo} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if isStaff();
+      allow create: if isStaff()
         && request.resource.data.keys().hasAll(['memberId'])
         && request.resource.data.memberId is string
         && globalRecordNo.matches('^[0-9]{1,14}$');
-      allow update: if signedIn()
+      allow update: if isAdmin()
         && resource.data.memberId == request.resource.data.memberId;
-      allow delete: if signedIn();
+      allow delete: if isAdmin();
     }
 
     match /members/{memberId} {
       allow read: if signedIn();
-      allow create, update: if signedIn()
+      allow create, update: if isStaff()
         && request.resource.data.saId is string
         && request.resource.data.globalRecordNo is string
         && request.resource.data.saId.matches('^[0-9]{13}$')
         && request.resource.data.globalRecordNo.matches('^[0-9]{1,14}$');
-      allow delete: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /member_files/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /lookups/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /activities/{id} {
+      allow read: if isStaff();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    match /sos_presets/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    // Profiles only — never store password hashes in Firestore.
+    match /app_users/{userId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+
+    match /roles/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /reminders/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /temporary_access_logs/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /county_info/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /county_articles/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /county_videos/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /remuneration_settings/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /secretary_remuneration/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /lro_cases/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /lro_notices/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /lro_documents/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /lro_history/{id} {
+      allow read: if isStaff();
+      allow write: if isStaff();
     }
 
     match /notifications/{id} {
-      allow read, create: if signedIn();
+      allow read: if isStaff();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
     }
 
-    // Other collections used by the offline-first sync engine.
-    match /{document=**} {
-      allow read, write: if signedIn();
+    // Admin-submitted custom-claim requests (processed by Cloud Functions).
+    match /claim_requests/{id} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['uid', 'admin', 'secretary'])
+        && request.resource.data.uid is string;
+      allow update, delete: if isAdmin();
     }
+
+    // Deny everything else by default (no catch-all write).
   }
 }

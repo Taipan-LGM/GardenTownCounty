@@ -3,6 +3,7 @@ import '../models/member.dart';
 import '../models/user_role.dart';
 import 'activity_service.dart';
 import 'auth_service.dart';
+import 'claims_service.dart';
 import 'database_service.dart';
 import 'reminder_notification_service.dart';
 
@@ -18,12 +19,15 @@ class PromotionService {
     this._db,
     this._activity, {
     ReminderNotificationService? notifications,
-  }) : _notifications = notifications;
+    ClaimsService? claims,
+  })  : _notifications = notifications,
+        _claims = claims;
 
   final AuthService _auth;
   final DatabaseService _db;
   final ActivityService _activity;
   final ReminderNotificationService? _notifications;
+  final ClaimsService? _claims;
 
   Future<AppUser?> linkedUserForMember(String memberId) =>
       _db.getAppUserByMemberId(memberId);
@@ -66,6 +70,13 @@ class PromotionService {
       memberName: member.fullName,
       adminName: admin.displayName,
     );
+
+    // Request Firebase custom claims when cloud is configured.
+    try {
+      await _claims?.requestUserClaims(uid: user.id, secretary: true);
+    } catch (_) {
+      // Non-fatal offline / unconfigured cloud.
+    }
 
     return user;
   }

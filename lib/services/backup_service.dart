@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../core/constants/app_constants.dart';
 import 'backup_auth_service.dart';
 import 'backup_crypto.dart';
 import 'backup_service_io_stub.dart'
@@ -30,6 +31,7 @@ class BackupService {
   Future<BackupResult> createBackup({
     bool auto = false,
     String? targetDirectoryPath,
+    String? password,
     void Function(double progress)? onProgress,
   }) async {
     onProgress?.call(0.05);
@@ -37,7 +39,18 @@ class BackupService {
     onProgress?.call(0.7);
 
     final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
-    final encrypted = BackupCrypto.encrypt(zipBytes);
+    final resolvedPassword = password ?? await _auth.loadBackupPassword();
+    if (resolvedPassword == null ||
+        resolvedPassword.trim().length < AppConstants.backupPasswordMinLength) {
+      throw Exception(
+        'Set a backup password (at least '
+        '${AppConstants.backupPasswordMinLength} characters) before backing up.',
+      );
+    }
+    final encrypted = BackupCrypto.encrypt(
+      zipBytes,
+      password: resolvedPassword.trim(),
+    );
     onProgress?.call(0.85);
 
     final stamp = DateFormat('yyyy_MM_dd_HHmm').format(DateTime.now());
@@ -46,7 +59,6 @@ class BackupService {
 
     late final String outPath;
     if (kIsWeb) {
-      // Browser download is the reliable path on Flutter web.
       try {
         web_dl.downloadBytes(encrypted, fileName);
         outPath = 'download://$fileName';
@@ -83,6 +95,7 @@ class BackupService {
 
   Future<void> restoreFromFile(
     String gtbPath, {
+    String? password,
     void Function(double progress)? onProgress,
   }) async {
     if (kIsWeb) {
@@ -90,15 +103,24 @@ class BackupService {
     }
     onProgress?.call(0.05);
     final encrypted = await io.readFileBytes(gtbPath);
-    await restoreFromBytes(encrypted, onProgress: onProgress);
+    await restoreFromBytes(
+      encrypted,
+      password: password,
+      onProgress: onProgress,
+    );
   }
 
   Future<void> restoreFromBytes(
     Uint8List encrypted, {
+    String? password,
     void Function(double progress)? onProgress,
   }) async {
     onProgress?.call(0.1);
-    final zipBytes = BackupCrypto.decrypt(encrypted);
+    final resolvedPassword = password ?? await _auth.loadBackupPassword();
+    final zipBytes = BackupCrypto.decrypt(
+      encrypted,
+      password: resolvedPassword,
+    );
     onProgress?.call(0.25);
     final archive = ZipDecoder().decodeBytes(zipBytes);
 
@@ -148,7 +170,8 @@ class BackupService {
     final manifest = utf8.encode(
       jsonEncode({
         'app': 'Garden Town County',
-        'version': 1,
+        'version': 2,
+        'crypto': 'GTB2',
         'createdAt': DateTime.now().toUtc().toIso8601String(),
         'platform': kIsWeb ? 'web' : 'desktop',
       }),

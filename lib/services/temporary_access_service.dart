@@ -110,14 +110,13 @@ class TemporaryAccessService {
       userName: admin.displayName,
       action:
           '🔑 grant_temp_access ${member.fullName} → ${secretary.displayName} '
-          '(Code: $code, $duration)',
+          '(log: ${log.id}, $duration)',
       captureGps: false,
     );
     await _activity.record(
       userName: 'System',
       action:
-          '🔑 Notify ${secretary.displayName}: temp access for ${member.fullName}. '
-          'Code: $code',
+          '🔑 Notify ${secretary.displayName}: temp access for ${member.fullName}.',
       captureGps: false,
     );
     await _sync.pushPending();
@@ -209,7 +208,7 @@ class TemporaryAccessService {
 
     await _activity.record(
       userName: secretary.displayName,
-      action: '🔄 use_temp_access ${member.fullName} (Code: $trimmed)',
+      action: '🔄 use_temp_access ${member.fullName}',
       captureGps: false,
     );
     await _activity.record(
@@ -272,7 +271,7 @@ class TemporaryAccessService {
 
     await _activity.record(
       userName: actor.displayName,
-      action: '❌ revoke_temp_access ${member.fullName} (Code: $code)',
+      action: '❌ revoke_temp_access ${member.fullName}',
       captureGps: false,
     );
     if (secretaryId != null) {
@@ -362,7 +361,7 @@ class TemporaryAccessService {
 
       await _activity.record(
         userName: 'System',
-        action: '⏰ temp_access_expired ${member.fullName} (Code: $code)',
+        action: '⏰ temp_access_expired ${member.fullName}',
         captureGps: false,
       );
       if (secretaryId != null) {
@@ -387,13 +386,13 @@ class TemporaryAccessService {
   Future<void> _logFailedAttempt(
     Member member,
     AuthUser secretary,
-    String code,
+    String _,
     String reason,
   ) async {
     await _activity.record(
       userName: secretary.displayName,
       action:
-          '⚠️ temp_access_failed ${member.fullName} ($reason, code: $code)',
+          '⚠️ temp_access_failed ${member.fullName} ($reason)',
       captureGps: false,
     );
   }

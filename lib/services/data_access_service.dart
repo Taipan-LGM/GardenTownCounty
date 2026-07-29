@@ -2,6 +2,7 @@ import '../models/lro_case.dart';
 import '../models/member.dart';
 import '../models/reminder.dart';
 import '../models/user_role.dart';
+import '../core/constants/app_constants.dart';
 import 'auth_service.dart';
 import 'database_service.dart';
 
@@ -15,17 +16,36 @@ class DataAccessService {
 
   final DatabaseService _db;
 
-  Future<List<Member>> getVisibleMembers(AuthUser? user) async {
+  Future<List<Member>> getVisibleMembers(
+    AuthUser? user, {
+    int? offset,
+    int? limit,
+    String? query,
+  }) async {
     if (user == null) return const [];
 
-    // ADMIN / System Administrator: ALL active members — no role filter.
-    // Recording Secretaries linked as AppUsers still appear via their Member row.
-    // MODIFIED - explicit admin-all path (Delete comment to revert)
     if (user.isAdmin || user.isSystemAdministrator) {
+      if (offset != null || limit != null || (query != null && query.trim().isNotEmpty)) {
+        final page = await _db.getMembersPage(
+          offset: offset ?? 0,
+          limit: limit ?? AppConstants.membersPageSize,
+          query: query,
+        );
+        return page.items;
+      }
       return _db.getAllMembers();
     }
 
     if (user.isSecretary) {
+      if (offset != null || limit != null || (query != null && query.trim().isNotEmpty)) {
+        final page = await _db.getMembersPage(
+          offset: offset ?? 0,
+          limit: limit ?? AppConstants.membersPageSize,
+          secretaryId: user.id,
+          query: query,
+        );
+        return page.items;
+      }
       return _db.getMembersAssignedToSecretary(user.id);
     }
 
@@ -37,6 +57,45 @@ class DataAccessService {
     }
 
     return const [];
+  }
+
+  Future<({List<Member> items, int total})> getVisibleMembersPage(
+    AuthUser? user, {
+    int offset = 0,
+    int limit = AppConstants.membersPageSize,
+    String? query,
+  }) async {
+    if (user == null) return (items: <Member>[], total: 0);
+
+    if (user.isAdmin || user.isSystemAdministrator) {
+      return _db.getMembersPage(offset: offset, limit: limit, query: query);
+    }
+
+    if (user.isSecretary) {
+      return _db.getMembersPage(
+        offset: offset,
+        limit: limit,
+        secretaryId: user.id,
+        query: query,
+      );
+    }
+
+    if (user.isMemberRole) {
+      final memberId = user.memberId;
+      if (memberId == null || memberId.isEmpty) {
+        return (items: <Member>[], total: 0);
+      }
+      final self = await _db.getMemberById(memberId);
+      if (self == null) return (items: <Member>[], total: 0);
+      final q = query?.trim().toLowerCase();
+      if (q != null && q.isNotEmpty) {
+        final hay = '${self.memberName} ${self.surname} ${self.saId}'.toLowerCase();
+        if (!hay.contains(q)) return (items: <Member>[], total: 0);
+      }
+      return (items: [self], total: 1);
+    }
+
+    return (items: <Member>[], total: 0);
   }
 
   Future<List<Reminder>> getVisibleReminders(AuthUser? user) async {

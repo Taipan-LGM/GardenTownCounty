@@ -24,6 +24,7 @@ import '../services/auto_backup_scheduler.dart';
 import '../services/backup_auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/bulk_import_service.dart';
+import '../services/claims_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/county_info_service.dart';
 import '../services/county_media_service.dart';
@@ -46,6 +47,7 @@ import '../services/step_activation_service.dart';
 import '../services/messaging_service.dart';
 import '../services/sync_engine.dart';
 import '../services/temp_access_expiry_service.dart';
+import '../services/member_list_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
   return DatabaseService.instance;
@@ -264,6 +266,25 @@ final membersProvider =
   return ref.watch(dataAccessServiceProvider).getVisibleMembers(user);
 });
 
+final memberListServiceProvider = Provider<MemberListService>((ref) {
+  return MemberListService(ref.watch(dataAccessServiceProvider));
+});
+
+final claimsServiceProvider = Provider<ClaimsService>((ref) {
+  return ClaimsService();
+});
+
+/// Paginated members: `(page, query)` → [MemberPage].
+final membersPageProvider = FutureProvider.autoDispose
+    .family<MemberPage, ({int page, String query})>((ref, args) async {
+  final user = ref.watch(authUserProvider);
+  return ref.watch(memberListServiceProvider).loadPage(
+        user,
+        page: args.page,
+        query: args.query.isEmpty ? null : args.query,
+      );
+});
+
 final lookupsProvider =
     FutureProvider.autoDispose.family<List<LookupItem>, LookupType>(
   (ref, type) async {
@@ -349,6 +370,7 @@ final promotionServiceProvider = Provider<PromotionService>((ref) {
     ref.watch(databaseServiceProvider),
     ref.watch(activityServiceProvider),
     notifications: ref.watch(reminderNotificationServiceProvider),
+    claims: ref.watch(claimsServiceProvider),
   );
 });
 

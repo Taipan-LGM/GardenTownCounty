@@ -1495,6 +1495,41 @@ class DatabaseService {
     return rows.map(Member.fromMap).toList();
   }
 
+  /// Paginated active members (excludes cancelled/deleted).
+  Future<({List<Member> items, int total})> getMembersPage({
+    int offset = 0,
+    int limit = AppConstants.membersPageSize,
+    String? secretaryId,
+    String? query,
+  }) async {
+    final all = secretaryId != null && secretaryId.isNotEmpty
+        ? await getMembersAssignedToSecretary(secretaryId)
+        : await getAllMembers();
+
+    var filtered = all;
+    final q = query?.trim().toLowerCase();
+    if (q != null && q.isNotEmpty) {
+      filtered = all.where((m) {
+        final hay = [
+          m.saId,
+          m.globalRecordNo,
+          m.memberName,
+          m.surname,
+          m.emailAddress,
+          m.contactNo1,
+        ].join(' ').toLowerCase();
+        return hay.contains(q);
+      }).toList();
+    }
+
+    final total = filtered.length;
+    if (offset >= total) {
+      return (items: <Member>[], total: total);
+    }
+    final end = (offset + limit).clamp(0, total);
+    return (items: filtered.sublist(offset, end), total: total);
+  }
+
   /// Soft-cancelled memberships (still retained — never hard-deleted).
   // NEW ADDITION - Delete method to revert cancelled list
   Future<List<Member>> getCancelledMembers() async {
@@ -2640,7 +2675,15 @@ class DatabaseService {
       throw StateError('Database path unknown.');
     }
     await _db?.close();
-    _db = await openDatabase(path);
+    _db = await openDatabase(
+      path,
+      version: 18,
+      onConfigure: (database) async {
+        await database.execute('PRAGMA foreign_keys = ON');
+      },
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
     _initialized = true;
   }
 
@@ -2659,6 +2702,15 @@ class DatabaseService {
       'lro_documents': _lroDocuments.values.map((d) => d.toMap()).toList(),
       'lro_history': _lroHistory.values.map((h) => h.toMap()).toList(),
       'reminders': _reminders.values.map((r) => r.toMap()).toList(),
+      'temporary_access_logs':
+          _tempAccessLogs.values.map((l) => l.toMap()).toList(),
+      'remuneration_settings':
+          _remunerationSettings.values.map((s) => s.toMap()).toList(),
+      'secretary_remuneration':
+          _secretaryRemunerations.values.map((r) => r.toMap()).toList(),
+      'county_info': _countyInfo?.toMap(),
+      'county_articles': _articles.values.map((a) => a.toMap()).toList(),
+      'county_videos': _videos.values.map((v) => v.toMap()).toList(),
     };
   }
 
@@ -2747,6 +2799,57 @@ class DatabaseService {
             .cast<Map<String, dynamic>>()
             .map((m) => MapEntry(m['id'] as String, Reminder.fromMap(m))),
       );
+    _tempAccessLogs
+      ..clear()
+      ..addEntries(
+        ((snapshot['temporary_access_logs'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(
+              (m) => MapEntry(m['id'] as String, TemporaryAccessLog.fromMap(m)),
+            ),
+      );
+    _remunerationSettings
+      ..clear()
+      ..addEntries(
+        ((snapshot['remuneration_settings'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(
+              (m) =>
+                  MapEntry(m['id'] as String, RemunerationSettings.fromMap(m)),
+            ),
+      );
+    _secretaryRemunerations
+      ..clear()
+      ..addEntries(
+        ((snapshot['secretary_remuneration'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(
+              (m) => MapEntry(
+                m['id'] as String,
+                SecretaryRemuneration.fromMap(m),
+              ),
+            ),
+      );
+    final countyRaw = snapshot['county_info'];
+    if (countyRaw is Map<String, dynamic>) {
+      _countyInfo = CountyInfo.fromMap(countyRaw);
+    } else {
+      _countyInfo = null;
+    }
+    _articles
+      ..clear()
+      ..addEntries(
+        ((snapshot['county_articles'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, CountyArticle.fromMap(m))),
+      );
+    _videos
+      ..clear()
+      ..addEntries(
+        ((snapshot['county_videos'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((m) => MapEntry(m['id'] as String, CountyVideo.fromMap(m))),
+      );
   }
 
   /// Mark all non-deleted rows pending so restore can push to cloud.
@@ -2796,6 +2899,37 @@ class DatabaseService {
         final r = _reminders[id];
         if (r != null) _reminders[id] = r.copyWith(pendingSync: true);
       }
+      for (final id in _tempAccessLogs.keys.toList()) {
+        final l = _tempAccessLogs[id];
+        if (l != null) _tempAccessLogs[id] = l.copyWith(pendingSync: true);
+      }
+      for (final id in _remunerationSettings.keys.toList()) {
+        final s = _remunerationSettings[id];
+        if (s != null) {
+          _remunerationSettings[id] = s.copyWith(syncStatus: 'pending');
+        }
+      }
+      for (final id in _secretaryRemunerations.keys.toList()) {
+        final r = _secretaryRemunerations[id];
+        if (r != null) {
+          _secretaryRemunerations[id] = r.copyWith(syncStatus: 'pending');
+        }
+      }
+      if (_countyInfo != null) {
+        _countyInfo = _countyInfo!.copyWith(syncStatus: 'pending');
+      }
+      for (final id in _articles.keys.toList()) {
+        final a = _articles[id];
+        if (a != null) {
+          _articles[id] = a.copyWith(syncStatus: 'pending');
+        }
+      }
+      for (final id in _videos.keys.toList()) {
+        final v = _videos[id];
+        if (v != null) {
+          _videos[id] = v.copyWith(syncStatus: 'pending');
+        }
+      }
       return;
     }
     await db.update('members', {'pendingSync': 1});
@@ -2810,6 +2944,12 @@ class DatabaseService {
     await db.update('lro_documents', {'pendingSync': 1});
     await db.update('lro_history', {'pendingSync': 1});
     await db.update('reminders', {'pendingSync': 1});
+    await db.update('temporary_access_logs', {'pendingSync': 1});
+    await db.update('remuneration_settings', {'syncStatus': 'pending'});
+    await db.update('secretary_remuneration', {'syncStatus': 'pending'});
+    await db.update('county_info', {'syncStatus': 'pending'});
+    await db.update('county_articles', {'syncStatus': 'pending'});
+    await db.update('county_videos', {'syncStatus': 'pending'});
   }
 
   // ===========================================================================
@@ -3008,10 +3148,13 @@ class DatabaseService {
     return RemunerationSettings.fromMap(rows.first);
   }
 
-  Future<void> saveRemunerationSettings(RemunerationSettings settings) async {
+  Future<void> saveRemunerationSettings(
+    RemunerationSettings settings, {
+    bool markPending = true,
+  }) async {
     final saved = settings.copyWith(
       lastUpdated: DateTime.now().toUtc(),
-      syncStatus: 'pending',
+      syncStatus: markPending ? 'pending' : settings.syncStatus,
     );
     if (_memoryMode) {
       _remunerationSettings

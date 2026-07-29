@@ -46,7 +46,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     final controller = TextEditingController(
       text: kIsWeb ? 'Web browser' : '',
     );
-    final name = await showDialog<String>(
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    final result = await showDialog<({String name, String password})>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -66,6 +68,22 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
                 autofocus: true,
                 decoration: const InputDecoration(labelText: 'Device name'),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Backup password (min 8 chars)',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm backup password',
+                ),
+              ),
             ],
           ),
           actions: [
@@ -74,7 +92,15 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
               text: 'Cancel',
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              onPressed: () {
+                final name = controller.text.trim();
+                final password = passwordController.text.trim();
+                final confirm = confirmController.text.trim();
+                if (name.isEmpty) return;
+                if (password.length < 8) return;
+                if (password != confirm) return;
+                Navigator.pop(context, (name: name, password: password));
+              },
               child: const Text('Confirm'),
             ),
           ],
@@ -82,10 +108,15 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       },
     );
     controller.dispose();
-    if (name == null || name.isEmpty) return;
+    passwordController.dispose();
+    confirmController.dispose();
+    if (result == null) return;
 
     try {
-      await ref.read(backupAuthServiceProvider).enableLocalBackup(name);
+      await ref.read(backupAuthServiceProvider).enableLocalBackup(
+            result.name,
+            backupPassword: result.password,
+          );
       ref.invalidate(backupAuthProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -99,17 +130,86 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     }
   }
 
+  Future<String?> _promptBackupPassword({
+    required String title,
+    required String message,
+  }) async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(message),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Backup password'),
+                onSubmitted: (value) => Navigator.pop(context, value.trim()),
+              ),
+            ],
+          ),
+          actions: [
+            CancelButton(
+              onPressed: () => Navigator.pop(context),
+              text: 'Cancel',
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (password == null || password.isEmpty) return null;
+    return password;
+  }
+
+  Future<String?> _ensureBackupPassword({bool forRestore = false}) async {
+    final auth = ref.read(backupAuthServiceProvider);
+    final existing = await auth.loadBackupPassword();
+    if (existing != null && existing.length >= 8 && !forRestore) {
+      return existing;
+    }
+    final entered = await _promptBackupPassword(
+      title: forRestore ? 'Restore password' : 'Backup password',
+      message: forRestore
+          ? 'Enter the password used when this backup was created.'
+          : 'Enter a password to encrypt this backup (min 8 characters).',
+    );
+    if (entered == null) return null;
+    if (!forRestore && entered.length >= 8) {
+      await auth.saveBackupPassword(entered);
+    }
+    return entered;
+  }
+
   /// Web auto-authorizes; desktop prompts if needed.
   Future<bool> _ensureAuthorized() async {
     final auth = await ref.read(backupAuthServiceProvider).checkAuthorization();
     if (auth.authorized) return true;
 
     if (kIsWeb) {
-      await ref
-          .read(backupAuthServiceProvider)
-          .enableLocalBackup('Web browser');
+      final hasPw =
+          await ref.read(backupAuthServiceProvider).hasBackupPassword();
+      if (!hasPw) {
+        await _enableLocalBackup();
+      } else {
+        await ref
+            .read(backupAuthServiceProvider)
+            .enableLocalBackup('Web browser');
+      }
       ref.invalidate(backupAuthProvider);
-      return true;
+      return (await ref.read(backupAuthServiceProvider).checkAuthorization())
+          .authorized;
     }
 
     await _enableLocalBackup();
@@ -128,6 +228,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       return;
     }
 
+    final password = await _ensureBackupPassword();
+    if (password == null) return;
+
     String? selectedDir;
     if (!kIsWeb && external) {
       selectedDir = await FilePicker.platform.getDirectoryPath(
@@ -144,6 +247,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     try {
       final result = await ref.read(backupServiceProvider).createBackup(
             targetDirectoryPath: selectedDir,
+            password: password,
             onProgress: (p) {
               if (mounted) setState(() => _progress = p);
             },
@@ -242,6 +346,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
     );
     if (!mounted || cloudOk != true) return;
 
+    final restorePassword = await _ensureBackupPassword(forRestore: true);
+    if (restorePassword == null) return;
+
     setState(() {
       _busy = true;
       _progress = 0;
@@ -252,6 +359,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       if (bytes != null) {
         await ref.read(backupServiceProvider).restoreFromBytes(
               bytes,
+              password: restorePassword,
               onProgress: (p) {
                 if (mounted) setState(() => _progress = p);
               },
@@ -259,6 +367,7 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       } else if (file.path != null && !kIsWeb) {
         await ref.read(backupServiceProvider).restoreFromFile(
               file.path!,
+              password: restorePassword,
               onProgress: (p) {
                 if (mounted) setState(() => _progress = p);
               },

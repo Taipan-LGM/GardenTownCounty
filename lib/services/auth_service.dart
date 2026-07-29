@@ -76,87 +76,114 @@ class AuthService {
   AuthUser? _currentUser;
   AuthUser? get currentUser => _currentUser;
 
+  /// Restore a prior session only when the local user still exists and is active.
   Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString(_prefsNameKey);
     final id = prefs.getString(_prefsUserKey);
-    final role = prefs.getString(_prefsRoleKey);
-    final username = prefs.getString(_prefsUsernameKey);
-    final permissionsRaw = prefs.getString(_prefsPermissionsKey);
-    final memberId = prefs.getString(_prefsMemberIdKey);
-    if (name != null && id != null) {
-      var perms = AppPermission.parseList(permissionsRaw);
-      var resolvedMemberId = memberId;
-      var resolvedRole = role ?? UserRole.member.storageName;
-      final local = await _db.getAppUserById(id);
-      if (local != null) {
-        resolvedRole = local.role;
-        perms = local.permissions;
-        resolvedMemberId = local.memberId;
-      }
-      _currentUser = AuthUser(
-        id: id,
-        displayName: name,
-        username: username ?? name,
-        role: resolvedRole,
-        memberId: resolvedMemberId,
-        permissions: perms,
-      );
+    if (id == null || id.isEmpty) return;
+
+    final local = await _db.getAppUserById(id);
+    if (local == null || local.deleted || !local.active) {
+      await signOut();
+      return;
     }
+
+    _currentUser = AuthUser.fromAppUser(
+      local,
+      email: prefs.getString(_prefsUsernameKey),
+    );
+    // Refresh prefs so permissions/role match SQLite.
+    await _persist(_currentUser!);
   }
 
+  /// Sign in.
+  ///
+  /// When Firebase is configured, authentication goes through Firebase Auth only
+  /// (no silent fallback to local/demo credentials).
+  /// When Firebase is offline/unconfigured, uses local SQLite operators
+  /// (and the seeded admin account in debug builds).
   Future<AuthUser> signIn({
     required String usernameOrEmail,
     required String password,
   }) async {
     final trimmed = usernameOrEmail.trim();
-
-    if (FirebaseBootstrap.ready) {
-      try {
-        final credential =
-            await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: trimmed,
-          password: password,
-        );
-        final user = credential.user;
-        if (user == null) {
-          throw Exception('Authentication failed.');
-        }
-        final local = await _db.getAppUserByUsername(trimmed.toLowerCase());
-        final displayName = user.displayName?.trim().isNotEmpty == true
-            ? user.displayName!.trim()
-            : (local?.displayName ?? user.email ?? trimmed);
-        final authUser = local != null
-            ? AuthUser.fromAppUser(local, email: user.email)
-            : AuthUser(
-                id: user.uid,
-                displayName: displayName,
-                email: user.email,
-                username: trimmed.toLowerCase(),
-                role: UserRole.member.storageName,
-              );
-        await _persist(authUser);
-        return authUser;
-      } on FirebaseAuthException catch (error) {
-        debugPrint('FirebaseAuth error: ${error.code}');
-      }
+    if (trimmed.isEmpty || password.isEmpty) {
+      throw Exception('Username and password are required.');
     }
 
-    final operator = await _db.getAppUserByUsername(trimmed.toLowerCase());
+    if (FirebaseBootstrap.ready) {
+      return _signInWithFirebase(trimmed, password);
+    }
+    return _signInLocally(trimmed, password);
+  }
+
+  Future<AuthUser> _signInWithFirebase(
+    String usernameOrEmail,
+    String password,
+  ) async {
+    try {
+      final credential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: usernameOrEmail,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw Exception('Authentication failed.');
+      }
+
+      // Prefer local profile by email/username, then by Firebase uid.
+      final emailKey = (user.email ?? usernameOrEmail).trim().toLowerCase();
+      var local = await _db.getAppUserByUsername(emailKey);
+      local ??= await _db.getAppUserById(user.uid);
+
+      final displayName = user.displayName?.trim().isNotEmpty == true
+          ? user.displayName!.trim()
+          : (local?.displayName ?? user.email ?? usernameOrEmail);
+
+      final authUser = local != null
+          ? AuthUser.fromAppUser(local, email: user.email)
+          : AuthUser(
+              id: user.uid,
+              displayName: displayName,
+              email: user.email,
+              username: emailKey,
+              role: UserRole.member.storageName,
+            );
+      await _persist(authUser);
+      return authUser;
+    } on FirebaseAuthException catch (error) {
+      debugPrint('FirebaseAuth error: ${error.code}');
+      throw Exception(_friendlyFirebaseMessage(error.code));
+    }
+  }
+
+  Future<AuthUser> _signInLocally(
+    String usernameOrEmail,
+    String password,
+  ) async {
+    final operator =
+        await _db.getAppUserByUsername(usernameOrEmail.toLowerCase());
     if (operator != null &&
         operator.active &&
         !operator.deleted &&
         PasswordHasher.verify(password, operator.passwordHash)) {
+      await _maybeUpgradePasswordHash(operator, password);
       final authUser = AuthUser.fromAppUser(operator);
       await _persist(authUser);
       return authUser;
     }
 
-    if (trimmed.toLowerCase() == AppConstants.demoUsername &&
+    // Seeded admin bootstrap — only when local DB has no matching user yet,
+    // and only with the well-known demo credentials (debug UI may advertise them).
+    if (usernameOrEmail.toLowerCase() == AppConstants.demoUsername &&
         password == AppConstants.demoPassword) {
       await _db.ensureSeedAdmin();
-      final seeded = await _db.getAppUserByUsername(AppConstants.demoUsername);
-      if (seeded != null) {
+      final seeded =
+          await _db.getAppUserByUsername(AppConstants.demoUsername);
+      if (seeded != null &&
+          PasswordHasher.verify(password, seeded.passwordHash)) {
+        await _maybeUpgradePasswordHash(seeded, password);
         final authUser = AuthUser.fromAppUser(seeded);
         await _persist(authUser);
         return authUser;
@@ -166,6 +193,35 @@ class AuthService {
     throw Exception(
       'Invalid credentials. Contact an Admin for an operator account.',
     );
+  }
+
+  Future<void> _maybeUpgradePasswordHash(AppUser user, String password) async {
+    if (!PasswordHasher.needsRehash(user.passwordHash)) return;
+    await _db.upsertAppUser(
+      user.copyWith(
+        passwordHash: PasswordHasher.hash(password),
+        pendingSync: true,
+        updatedAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
+  String _friendlyFirebaseMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+      case 'invalid-email':
+        return 'Invalid email or password.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many attempts. Try again later.';
+      case 'network-request-failed':
+        return 'Network error. Check your connection.';
+      default:
+        return 'Authentication failed ($code).';
+    }
   }
 
   String _normalizeRole(String role) =>
@@ -215,8 +271,6 @@ class AuthService {
       if (existing.isSystemAdministrator) {
         throw Exception('⚠️ The System Administrator cannot be demoted.');
       }
-      // Updating an existing access row is allowed (edit flow).
-      // New assignment of someone already a secretary is blocked by the UI filter.
       final updated = existing.copyWith(
         username: saId.trim().toLowerCase(),
         displayName: display,
@@ -231,7 +285,6 @@ class AuthService {
       return updated;
     }
 
-    // No login password — User Management only. Placeholder hash never used in UI.
     final user = AppUser.create(
       username: saId.trim().toLowerCase(),
       displayName: display,
@@ -340,9 +393,6 @@ class AuthService {
     return user;
   }
 
-  /// User Manager: update Recording Secretary module rights by AppUser id.
-  /// Does not require a linked Member (demo/unlinked secretaries still save).
-  // NEW ADDITION - permission save by user id (Delete method to revert)
   Future<AppUser> updateSecretaryPermissions({
     required String userId,
     required List<AppPermission> permissions,
@@ -394,7 +444,6 @@ class AuthService {
     final editingSysAdmin = user.isSystemAdministrator;
     final actorIsSysAdmin = actor?.isSystemAdministrator == true;
 
-    // Other users may not change System Administrator role or password.
     if (editingSysAdmin && !actorIsSysAdmin) {
       if (newPassword != null && newPassword.trim().isNotEmpty) {
         throw Exception(
@@ -419,12 +468,10 @@ class AuthService {
       throw Exception('Rights / Role is required.');
     }
 
-    // System Administrator must remain Admin.
     if (editingSysAdmin) {
       roleName = UserRole.admin.storageName;
     }
 
-    // Password change on System Administrator: only the SysAdmin themselves.
     String? passwordHash;
     if (newPassword != null && newPassword.trim().isNotEmpty) {
       if (editingSysAdmin && !actorIsSysAdmin) {
@@ -478,7 +525,6 @@ class AuthService {
     }
     await _db.upsertAppUser(updated);
 
-    // Keep live session in sync when editing self.
     if (actor != null && actor.id == updated.id) {
       await _persist(AuthUser.fromAppUser(updated, email: actor.email));
     }
@@ -526,8 +572,6 @@ class AuthService {
     }
     await _db.softDeleteAppUser(id);
   }
-
-  // ── Rights / Role CRUD ─────────────────────────────────────────────────
 
   Future<List<RoleDefinition>> listRoles() => _db.getRoles();
 
@@ -578,7 +622,6 @@ class AuthService {
     );
     await _db.upsertRole(updated);
 
-    // Rename role on operators that used the old name.
     final users = await _db.getAppUsers();
     for (final user in users) {
       if (user.role == oldName) {

@@ -123,12 +123,12 @@ class AppUser {
     };
   }
 
+  /// Cloud profile only — never sync password hashes to Firestore.
   Map<String, dynamic> toFirestore() {
     return {
       'id': id,
       'username': username,
       'displayName': displayName,
-      'passwordHash': passwordHash,
       'role': role,
       'memberId': memberId,
       'permissions': permissionsRaw,
@@ -160,6 +160,7 @@ class AppUser {
       id: map['id'] as String,
       username: map['username'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
+      // Password hashes are local-only; keep existing local hash on merge.
       passwordHash: map['passwordHash'] as String? ?? '',
       role: map['role'] as String? ?? UserRole.member.storageName,
       memberId: map['memberId'] as String?,

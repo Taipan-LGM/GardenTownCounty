@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,12 +18,25 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _userController = TextEditingController(text: AppConstants.demoUsername);
-  final _passwordController =
-      TextEditingController(text: AppConstants.demoPassword);
+  late final TextEditingController _userController;
+  late final TextEditingController _passwordController;
   bool _obscure = true;
   bool _loading = false;
   String? _error;
+
+  /// Demo credentials are only pre-filled / hinted in debug builds.
+  static bool get _showDemoHint => kDebugMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _userController = TextEditingController(
+      text: _showDemoHint ? AppConstants.demoUsername : '',
+    );
+    _passwordController = TextEditingController(
+      text: _showDemoHint ? AppConstants.demoPassword : '',
+    );
+  }
 
   @override
   void dispose() {
@@ -61,7 +75,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       ref.read(authUserProvider.notifier).state = user;
 
-      // Record login with GPS in background — do not block sign-in on GPS wait.
       unawaited(
         ref.read(activityServiceProvider).record(
               userName: user.displayName,
@@ -168,15 +181,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               )
                             : const Text('Sign In'),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Admin: ${AppConstants.demoUsername} / ${AppConstants.demoPassword}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black45,
+                      if (_showDemoHint) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Debug: ${AppConstants.demoUsername} / ${AppConstants.demoPassword}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black45,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

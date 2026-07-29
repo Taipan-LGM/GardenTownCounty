@@ -1,5 +1,5 @@
 /**
- * Garden Town County — pre-save duplicate validation for members.
+ * Garden Town County — Cloud Functions
  *
  * Deploy: firebase deploy --only functions,firestore:rules
  */
@@ -18,6 +18,110 @@ async function notifyDuplicate(field, value, memberId) {
     message: `Duplicate ${field} detected: ${value}`,
   });
 }
+
+/**
+ * Callable: set custom claims for role-based Firestore rules.
+ *
+ * Request: { uid: string, admin?: boolean, secretary?: boolean }
+ * Caller must already have admin claim (or be the first bootstrap via console).
+ */
+exports.setUserClaims = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Sign in required.',
+    );
+  }
+  if (context.auth.token.admin !== true) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admins can set custom claims.',
+    );
+  }
+
+  const uid = (data && data.uid) ? String(data.uid).trim() : '';
+  if (!uid) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'uid is required.',
+    );
+  }
+
+  const claims = {
+    admin: data.admin === true,
+    secretary: data.secretary === true,
+  };
+
+  await admin.auth().setCustomUserClaims(uid, claims);
+  return { ok: true, uid, claims };
+});
+
+/**
+ * Callable used once by a project owner to bootstrap the first admin claim.
+ * Protect with a one-time setup secret in functions config:
+ *   firebase functions:config:set bootstrap.secret="YOUR_SECRET"
+ */
+exports.bootstrapAdminClaims = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Sign in required.',
+    );
+  }
+
+  const expected = functions.config().bootstrap?.secret;
+  if (!expected || data?.secret !== expected) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Invalid bootstrap secret.',
+    );
+  }
+
+  const uid = context.auth.uid;
+  await admin.auth().setCustomUserClaims(uid, {
+    admin: true,
+    secretary: false,
+  });
+  return { ok: true, uid };
+});
+
+/**
+ * Process claim_requests written by the Flutter ClaimsService.
+ * Sets Auth custom claims used by firestore.rules (admin / secretary).
+ */
+exports.processClaimRequest = functions.firestore
+  .document('claim_requests/{requestId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data() || {};
+    const uid = (data.uid || '').toString().trim();
+    if (!uid) {
+      await snap.ref.set({ status: 'error', error: 'missing uid' }, { merge: true });
+      return null;
+    }
+    try {
+      await admin.auth().setCustomUserClaims(uid, {
+        admin: data.admin === true,
+        secretary: data.secretary === true,
+      });
+      await snap.ref.set(
+        {
+          status: 'applied',
+          appliedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (err) {
+      console.error('processClaimRequest failed', err);
+      await snap.ref.set(
+        {
+          status: 'error',
+          error: String(err && err.message ? err.message : err),
+        },
+        { merge: true },
+      );
+    }
+    return null;
+  });
 
 exports.validateMemberBeforeSave = functions.firestore
   .document('members/{memberId}')
@@ -51,7 +155,6 @@ exports.validateMemberBeforeSave = functions.firestore
       if (clash) {
         console.error(`Duplicate SA ID detected: ${saId}`);
         await notifyDuplicate('saId', saId, memberId);
-        // Soft-flag document; client must resolve. Hard rollback is unsafe in onWrite.
         await change.after.ref.set(
           {
             duplicateFlag: true,
