@@ -1,7 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:open_file/open_file.dart';
 
 import '../../models/county_video.dart';
 import '../../providers/providers.dart';
@@ -130,7 +130,7 @@ class _VideoCard extends ConsumerWidget {
             ? video.videoLocalPath
             : video.videoUrl;
         if (path == null || path.isEmpty) return;
-        await OpenFilex.open(path);
+        await OpenFile.open(path);
       },
       child: Container(
         decoration: BoxDecoration(

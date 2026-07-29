@@ -1,5 +1,8 @@
 # Deploy Flutter web as a static site on Render.
 # Uses a release tarball (faster than git clone of the full Flutter repo).
+#
+# Flutter 3.44.x ships Dart 3.12 — required by pubspec `sdk: ^3.12.2`.
+# Do NOT pin 3.22.3 here (that pairs with Dart 3.4 and will fail pub get).
 services:
   - type: web
     name: garden-town-county

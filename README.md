@@ -16,14 +16,16 @@ Offline-first Flutter database app for the Garden Town County Assembly.
 - Activity log with GPS, date/time, and user name
 - SQLite local store + Firebase Firestore / Storage sync engine (offline-first)
 
-## Demo login
+## Sign in
 
-| Field    | Value                 |
-|----------|-----------------------|
-| Username | `admin`               |
-| Password | `garden2026`          |
+Use an operator account created by an Admin (Recording Secretary Rights).
 
-When Firebase Auth is configured, email/password accounts are preferred; demo login remains as a fallback.
+In **debug builds only**, a seeded local Admin account may be available for
+development — credentials are not published here. Release builds do not
+pre-fill or display demo passwords.
+
+When Firebase Auth is configured (`DefaultFirebaseOptions.isConfigured = true`),
+email/password cloud accounts are used exclusively (no silent local fallback).
 
 ## Quick start
 
@@ -31,6 +33,8 @@ When Firebase Auth is configured, email/password accounts are preferred; demo lo
 flutter pub get
 flutter run -d linux      # or windows / macos / chrome / android
 ```
+
+Requires **Flutter ≥ 3.44** (Dart 3.12), matching `pubspec.yaml` / `render.yaml`.
 
 ## Firebase setup
 
@@ -49,27 +53,33 @@ flutterfire configure
 static const bool isConfigured = true;
 ```
 
-Until that flag is true, the app runs **SQLite-only** (fully usable offline).
+5. Deploy security rules and functions:
+
+```bash
+firebase deploy --only firestore:rules,storage,functions
+```
+
+Until `isConfigured` is true, the app runs **SQLite-only** (fully usable offline).
 
 ## Architecture
 
 | Layer | Role |
 |-------|------|
-| `DatabaseService` | SQLite schema + CRUD |
+| `DatabaseService` | SQLite schema + CRUD (domain mixins under `lib/services/database/`) |
 | `SyncEngine` | Push pending local rows → Firestore; listen for remote changes |
 | `FileStorageService` | Pick files, copy locally, upload bytes to Firebase Storage |
-| `AuthService` | Firebase Auth or demo session; tracks display name for uploads |
+| `AuthService` | Firebase Auth or local session; tracks display name for uploads |
 | Riverpod providers | App state, repositories, section navigation |
 
 Writes always go to SQLite first (`pendingSync = 1`), then sync when cloud is available.
 
 ## Backup & Restore (Admin)
 
-1. Sign in as Admin (`admin` / `garden2026`).
-2. Open **Backup & Restore** (drawer, directly under **LRO**).
-3. Click **Enable Local Backup on this PC**, enter a device name (creates `Documents/GardenTown/.gardentown_auth`).
-4. Use **Create Backup Now** / **Restore from Backup** (type `CONFIRM` to restore).
-5. Encrypted `.gtb` files go to `Documents/GardenTown/Backups/`.
+1. Sign in as Admin.
+2. Open **Backup & Restore**.
+3. Authorize the device and set a **backup password** (≥ 8 characters) for GTB2 encryption.
+4. Use **Create Backup** / **Restore** (confirm when prompted).
+5. Encrypted `.gtb` files go to `Documents/GardenTown/Backups/` (desktop).
 
 ## Deploy
 
@@ -81,7 +91,7 @@ On every push to `main`, GitHub Actions builds Flutter web and publishes Pages.
 
 ### Render
 
-`render.yaml` builds Flutter web as a static site.
+`render.yaml` builds Flutter web as a static site (Flutter **3.44.6**).
 
 1. Render → New → Blueprint → select this repo  
 2. Or create a Static Site using the build command in `render.yaml`

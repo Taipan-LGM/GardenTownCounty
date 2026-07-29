@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/member.dart';
@@ -106,7 +106,7 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
 
   Future<void> _open(MemberFile file) async {
     if (file.localPath != null) {
-      await OpenFilex.open(file.localPath!);
+      await OpenFile.open(file.localPath!);
       return;
     }
     final url = file.storageUrl;

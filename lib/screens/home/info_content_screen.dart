@@ -1,7 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:open_file/open_file.dart';
 
 import '../../models/county_article.dart';
 import '../../providers/providers.dart';
@@ -184,7 +184,7 @@ class _ArticleCard extends ConsumerWidget {
                 TextButton(
                   onPressed: () async {
                     final path = article.pdfLocalPath ?? article.pdfUrl!;
-                    await OpenFilex.open(path);
+                    await OpenFile.open(path);
                   },
                   child: const Text('Download PDF'),
                 ),
