@@ -1,46 +1,192 @@
 import 'package:flutter/material.dart';
 
 /// Shared colors for Garden Town County standard buttons.
+///
+/// Border rule (always):
+/// - Dark fills → light borders
+/// - Light fills → dark borders
+///
+/// Surprise: "Assembly Seal" — double ring (contrast outer + type accent
+/// inner) with a hard offset stamp shadow and a gold county ribbon notch.
 abstract final class AppButtonColors {
+  /// Light rim for dark buttons (readable on black / green / red / blue / grey).
+  static const Color lightBorder = Color(0xFFF2E6C8); // warm parchment
+
+  /// Dark rim for light buttons (amber Edit / Restore).
+  static const Color darkBorder = Color(0xFF1A1208); // near-black ink
+
+  /// County gold used as the surprise accent ribbon / inner glint.
+  static const Color sealGold = Color(0xFFD4A017);
+
   static Color get cancelBg => Colors.black;
   static Color get cancelFg => Colors.white;
-  static Color get cancelBorder => Colors.red.shade700;
+  static Color get cancelAccent => Colors.red.shade400;
 
   static Color get saveBg => Colors.green.shade700;
   static Color get saveFg => Colors.white;
-  static Color get saveBorder => Colors.green.shade700;
+  static Color get saveAccent => Colors.green.shade300;
 
   static Color get deleteBg => Colors.red.shade700;
   static Color get deleteFg => Colors.white;
-  static Color get deleteBorder => Colors.red.shade700;
+  static Color get deleteAccent => Colors.red.shade200;
 
   static Color get addBg => Colors.blue.shade700;
   static Color get addFg => Colors.white;
-  static Color get addBorder => Colors.blue.shade700;
+  static Color get addAccent => Colors.lightBlue.shade200;
 
   static Color get editBg => Colors.amber.shade600;
   static Color get editFg => Colors.black;
-  static Color get editBorder => Colors.amber.shade600;
+  static Color get editAccent => const Color(0xFF5C3B00);
 
   static Color get viewBg => Colors.grey.shade700;
   static Color get viewFg => Colors.white;
-  static Color get viewBorder => Colors.grey.shade600;
+  static Color get viewAccent => Colors.grey.shade300;
 
   static Color get actionBg => Colors.blue.shade700;
   static Color get actionFg => Colors.white;
-  static Color get actionBorder => Colors.blue.shade700;
+  static Color get actionAccent => Colors.lightBlue.shade200;
+
+  /// True when the fill is dark enough to need a light border.
+  static bool isDarkFill(Color bg) => bg.computeLuminance() < 0.45;
+
+  static Color contrastBorderFor(Color bg) =>
+      isDarkFill(bg) ? lightBorder : darkBorder;
 }
 
-Widget _wrapSize({
-  required Widget child,
-  double? width,
-  double? height,
-  double defaultHeight = 45,
+/// Shared seal chrome: outer contrast border + inner accent + stamp shadow.
+class _SealFrame extends StatelessWidget {
+  const _SealFrame({
+    required this.fill,
+    required this.accent,
+    required this.child,
+    this.height,
+    this.width,
+    this.defaultHeight = 45,
+  });
+
+  final Color fill;
+  final Color accent;
+  final Widget child;
+  final double? height;
+  final double? width;
+  final double defaultHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final contrast = AppButtonColors.contrastBorderFor(fill);
+    final h = height ?? defaultHeight;
+
+    return SizedBox(
+      width: width,
+      height: h,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          // Asymmetric radius — like a pressed county seal / ticket stub.
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(12),
+            bottomRight: Radius.circular(4),
+            bottomLeft: Radius.circular(12),
+          ),
+          border: Border.all(color: contrast, width: 2.5),
+          boxShadow: [
+            // Hard offset "ink stamp" — surprise tactile element.
+            BoxShadow(
+              color: contrast.withValues(alpha: 0.55),
+              offset: const Offset(2, 3),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: fill,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(2),
+                topRight: Radius.circular(9),
+                bottomRight: Radius.circular(2),
+                bottomLeft: Radius.circular(9),
+              ),
+              border: Border.all(color: accent, width: 1.5),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(1),
+                topRight: Radius.circular(8),
+                bottomRight: Radius.circular(1),
+                bottomLeft: Radius.circular(8),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Gold county ribbon along the leading edge.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 4,
+                      color: AppButtonColors.sealGold,
+                    ),
+                  ),
+                  // Soft top parchment glint on dark fills.
+                  if (AppButtonColors.isDarkFill(fill))
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        height: 3,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              AppButtonColors.lightBorder.withValues(alpha: 0.35),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  child,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+ButtonStyle _bareFillStyle({
+  required Color fill,
+  required Color fg,
 }) {
-  return SizedBox(
-    width: width,
-    height: height ?? defaultHeight,
-    child: child,
+  return ButtonStyle(
+    elevation: const WidgetStatePropertyAll(0),
+    shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+    backgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return Colors.grey.shade800;
+      }
+      return Colors.transparent; // fill comes from _SealFrame
+    }),
+    foregroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return Colors.grey.shade500;
+      }
+      return fg;
+    }),
+    overlayColor: WidgetStatePropertyAll(fg.withValues(alpha: 0.12)),
+    padding: const WidgetStatePropertyAll(
+      EdgeInsets.fromLTRB(14, 10, 12, 10),
+    ),
+    minimumSize: const WidgetStatePropertyAll(Size(0, 0)),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    shape: const WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+    ),
+    side: const WidgetStatePropertyAll(BorderSide.none),
   );
 }
 
@@ -50,8 +196,9 @@ TextStyle _labelStyle({
 }) {
   return TextStyle(
     color: color,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     fontSize: fontSize,
+    letterSpacing: 0.3,
   );
 }
 
@@ -61,7 +208,6 @@ Widget _buttonChild({
   IconData? icon,
   bool isLoading = false,
   double fontSize = 14,
-  Color? progressColor,
 }) {
   if (isLoading) {
     return SizedBox(
@@ -69,11 +215,15 @@ Widget _buttonChild({
       height: 20,
       child: CircularProgressIndicator(
         strokeWidth: 2,
-        color: progressColor ?? color,
+        color: color,
       ),
     );
   }
-  final label = Text(text, style: _labelStyle(color: color, fontSize: fontSize));
+  final label = Text(
+    text,
+    textAlign: TextAlign.center,
+    style: _labelStyle(color: color, fontSize: fontSize),
+  );
   if (icon == null) return label;
   return Row(
     mainAxisAlignment: MainAxisAlignment.center,
@@ -86,8 +236,41 @@ Widget _buttonChild({
   );
 }
 
+Widget _sealedButton({
+  required VoidCallback? onPressed,
+  required Color fill,
+  required Color fg,
+  required Color accent,
+  required String text,
+  IconData? icon,
+  bool isLoading = false,
+  double? width,
+  double? height,
+  double defaultHeight = 45,
+  double fontSize = 14,
+}) {
+  return _SealFrame(
+    fill: fill,
+    accent: accent,
+    width: width,
+    height: height,
+    defaultHeight: defaultHeight,
+    child: TextButton(
+      onPressed: isLoading ? null : onPressed,
+      style: _bareFillStyle(fill: fill, fg: fg),
+      child: _buttonChild(
+        text: text,
+        color: fg,
+        icon: icon,
+        isLoading: isLoading,
+        fontSize: fontSize,
+      ),
+    ),
+  );
+}
+
 // ============================================================
-// 1. CANCEL — Black + white text + red border
+// 1. CANCEL — Black fill, light outer border, red accent ring
 // ============================================================
 class CancelButton extends StatelessWidget {
   const CancelButton({
@@ -109,33 +292,22 @@ class CancelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.cancelBg,
+      fg: AppButtonColors.cancelFg,
+      accent: AppButtonColors.cancelAccent,
+      text: text,
+      icon: icon,
       width: width,
       height: height,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: AppButtonColors.cancelBg,
-          foregroundColor: AppButtonColors.cancelFg,
-          disabledForegroundColor: Colors.white54,
-          disabledBackgroundColor: Colors.grey.shade900,
-          side: BorderSide(color: AppButtonColors.cancelBorder, width: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.cancelFg,
-          icon: icon,
-          fontSize: fontSize ?? 14,
-        ),
-      ),
+      fontSize: fontSize ?? 14,
     );
   }
 }
 
 // ============================================================
-// 2. SAVE — Green + white text + green border
+// 2. SAVE — Green fill, light border, green accent
 // ============================================================
 class SaveButton extends StatelessWidget {
   const SaveButton({
@@ -157,33 +329,22 @@ class SaveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.saveBg,
+      fg: AppButtonColors.saveFg,
+      accent: AppButtonColors.saveAccent,
+      text: text,
+      icon: icon,
+      isLoading: isLoading,
       width: width,
       height: height,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.saveBg,
-          foregroundColor: AppButtonColors.saveFg,
-          disabledBackgroundColor: Colors.grey.shade700,
-          disabledForegroundColor: Colors.grey.shade500,
-          side: BorderSide(color: AppButtonColors.saveBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.saveFg,
-          icon: icon,
-          isLoading: isLoading,
-        ),
-      ),
     );
   }
 }
 
 // ============================================================
-// 3. DELETE — Red + white text
+// 3. DELETE — Red fill, light border, soft red accent
 // ============================================================
 class DeleteButton extends StatelessWidget {
   const DeleteButton({
@@ -203,30 +364,21 @@ class DeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.deleteBg,
+      fg: AppButtonColors.deleteFg,
+      accent: AppButtonColors.deleteAccent,
+      text: text,
+      icon: icon,
       width: width,
       height: height,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.deleteBg,
-          foregroundColor: AppButtonColors.deleteFg,
-          side: BorderSide(color: AppButtonColors.deleteBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.deleteFg,
-          icon: icon,
-        ),
-      ),
     );
   }
 }
 
 // ============================================================
-// 4. ADD — Blue + white text
+// 4. ADD — Blue fill, light border, sky accent
 // ============================================================
 class AddButton extends StatelessWidget {
   const AddButton({
@@ -246,30 +398,21 @@ class AddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.addBg,
+      fg: AppButtonColors.addFg,
+      accent: AppButtonColors.addAccent,
+      text: text,
+      icon: icon,
       width: width,
       height: height,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.addBg,
-          foregroundColor: AppButtonColors.addFg,
-          side: BorderSide(color: AppButtonColors.addBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.addFg,
-          icon: icon,
-        ),
-      ),
     );
   }
 }
 
 // ============================================================
-// 5. EDIT — Amber + BLACK text
+// 5. EDIT — Amber (light) fill, DARK border, deep-bronze accent
 // ============================================================
 class EditButton extends StatelessWidget {
   const EditButton({
@@ -289,30 +432,21 @@ class EditButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.editBg,
+      fg: AppButtonColors.editFg,
+      accent: AppButtonColors.editAccent,
+      text: text,
+      icon: icon,
       width: width,
       height: height,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.editBg,
-          foregroundColor: AppButtonColors.editFg,
-          side: BorderSide(color: AppButtonColors.editBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.editFg,
-          icon: icon,
-        ),
-      ),
     );
   }
 }
 
 // ============================================================
-// 6. VIEW — Grey + white text
+// 6. VIEW — Grey fill, light border, silver accent
 // ============================================================
 class ViewButton extends StatelessWidget {
   const ViewButton({
@@ -332,32 +466,23 @@ class ViewButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.viewBg,
+      fg: AppButtonColors.viewFg,
+      accent: AppButtonColors.viewAccent,
+      text: text,
+      icon: icon,
       width: width,
       height: height,
       defaultHeight: 35,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: AppButtonColors.viewBg,
-          foregroundColor: AppButtonColors.viewFg,
-          side: BorderSide(color: AppButtonColors.viewBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.viewFg,
-          icon: icon,
-          fontSize: 12,
-        ),
-      ),
+      fontSize: 12,
     );
   }
 }
 
 // ============================================================
-// 7. ACTION / GO — Blue + white text
+// 7. ACTION / GO — Blue fill, light border
 // ============================================================
 class ActionButton extends StatelessWidget {
   const ActionButton({
@@ -379,29 +504,18 @@ class ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSize(
+    return _sealedButton(
+      onPressed: onPressed,
+      fill: AppButtonColors.actionBg,
+      fg: AppButtonColors.actionFg,
+      accent: AppButtonColors.actionAccent,
+      text: text,
+      icon: icon,
+      isLoading: isLoading,
       width: width,
       height: height,
       defaultHeight: 40,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.actionBg,
-          foregroundColor: AppButtonColors.actionFg,
-          disabledBackgroundColor: Colors.grey.shade700,
-          disabledForegroundColor: Colors.grey.shade500,
-          side: BorderSide(color: AppButtonColors.actionBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        ),
-        child: _buttonChild(
-          text: text,
-          color: AppButtonColors.actionFg,
-          icon: icon,
-          isLoading: isLoading,
-          fontSize: 13,
-        ),
-      ),
+      fontSize: 13,
     );
   }
 }
@@ -441,7 +555,7 @@ class SubmitButton extends StatelessWidget {
 }
 
 // ============================================================
-// 9. BACKUP — Blue + white text
+// 9. BACKUP — Blue (Action)
 // ============================================================
 class BackupButton extends StatelessWidget {
   const BackupButton({
@@ -472,7 +586,7 @@ class BackupButton extends StatelessWidget {
 }
 
 // ============================================================
-// 10. RESTORE — Amber + BLACK text (same as Edit)
+// 10. RESTORE — Amber (Edit) — light fill → dark border
 // ============================================================
 class RestoreButton extends StatelessWidget {
   const RestoreButton({
@@ -503,7 +617,7 @@ class RestoreButton extends StatelessWidget {
 }
 
 // ============================================================
-// 11. ENABLE — Green + white text (same as Save)
+// 11. ENABLE — Green (Save)
 // ============================================================
 class EnableButton extends StatelessWidget {
   const EnableButton({

@@ -13,42 +13,73 @@ class AppTheme {
   static const Color bodyText = Color(0xFF111111);
 
   /// Prefer [standard_buttons.dart] widgets for labeled actions.
-  /// Theme defaults match Action (blue) so stray buttons stay visible.
+  /// Theme defaults match Action (blue) with light contrast borders.
   static final Color actionBlue = Colors.blue.shade700;
+  static const Color buttonLightBorder = Color(0xFFF2E6C8);
+  static const Color buttonDarkBorder = Color(0xFF1A1208);
 
   static ButtonStyle get _filledStyle => FilledButton.styleFrom(
         backgroundColor: actionBlue,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: BorderSide(color: actionBlue),
+        side: const BorderSide(color: buttonLightBorder, width: 2.5),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(12),
+            bottomRight: Radius.circular(4),
+            bottomLeft: Radius.circular(12),
+          ),
+        ),
       );
 
   static ButtonStyle get _elevatedStyle => ElevatedButton.styleFrom(
         backgroundColor: actionBlue,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: BorderSide(color: actionBlue),
+        side: const BorderSide(color: buttonLightBorder, width: 2.5),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(12),
+            bottomRight: Radius.circular(4),
+            bottomLeft: Radius.circular(12),
+          ),
+        ),
       );
 
   static ButtonStyle get _outlinedStyle => OutlinedButton.styleFrom(
         backgroundColor: Colors.grey.shade700,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
-        side: BorderSide(color: Colors.grey.shade600),
+        side: const BorderSide(color: buttonLightBorder, width: 2.5),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(12),
+            bottomRight: Radius.circular(4),
+            bottomLeft: Radius.circular(12),
+          ),
+        ),
       );
 
   static ButtonStyle get _textStyle => TextButton.styleFrom(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white54,
+        side: const BorderSide(color: buttonLightBorder, width: 2),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(12),
+            bottomRight: Radius.circular(4),
+            bottomLeft: Radius.circular(12),
+          ),
+        ),
       );
 
   static ThemeData get light {
