@@ -89,16 +89,27 @@ On every push to `main`, GitHub Actions builds Flutter web and publishes Pages.
 
 **App URL:** https://taipan-lgm.github.io/GardenTownCounty/
 
-### Render
+### Render (Docker Web Service — not Static Site)
 
-`render.yaml` deploys a **Docker** web service:
+**TL;DR:** Delete any existing **Static Site** and create a **new Web Service** with Docker. Static Sites cannot run a Dockerfile.
 
-1. Multi-stage `Dockerfile` builds Flutter web with `ghcr.io/gmeligio/flutter-web:3.44.8`
-2. Serves `build/web` with nginx on `$PORT`
+Repo already has:
 
-Render → New → Blueprint → select this repo (or connect the existing service so it picks up `runtime: docker`).
+1. Multi-stage `Dockerfile` → builds Flutter web with `ghcr.io/gmeligio/flutter-web:3.44.8`
+2. nginx serves `build/web` on Render’s `$PORT`
+3. `render.yaml` Blueprint → `type: web` + `runtime: docker`
 
-> Web uses an in-memory database (session-only). Desktop/mobile keep full SQLite offline storage. Local backups require desktop.
+#### Migrate off Static Site
+
+1. Open [Render Dashboard](https://dashboard.render.com/)
+2. Open the old **Static Site** (if any) → **Settings** → **Delete Web Service** / delete the static site
+3. Create the Docker service (pick one):
+   - **Blueprint:** New → Blueprint → connect `Taipan-LGM/GardenTownCounty` → apply `render.yaml`
+   - **Manual:** New → **Web Service** → connect the repo → **Language: Docker** → Dockerfile Path `./Dockerfile` → Create
+4. Wait for the first build (Flutter image pull + `flutter build web` can take several minutes)
+5. Open the `.onrender.com` URL from the service overview
+
+Do **not** choose Static Site, Node, or a native runtime for this project.
 
 ## Tests
 

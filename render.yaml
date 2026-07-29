@@ -1,4 +1,9 @@
-# Deploy Flutter web on Render via Dockerfile (multi-stage build + nginx).
+# Garden Town County — Render Blueprint (Docker Web Service ONLY).
+#
+# IMPORTANT:
+#   Do NOT create a Static Site for this app.
+#   Delete any existing Static Site named garden-town-county, then create a
+#   NEW Web Service from this Blueprint (or New → Web Service → Docker).
 #
 # Image: ghcr.io/gmeligio/flutter-web:3.44.8 (Dart 3.12 / Flutter 3.44)
 # Matches pubspec `sdk: ^3.12.2` and `flutter: ">=3.44.0"`.
@@ -6,9 +11,9 @@ services:
   - type: web
     name: garden-town-county
     runtime: docker
+    plan: free
+    region: oregon
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /
-    envVars:
-      - key: PORT
-        value: "10000"
+    autoDeploy: true
