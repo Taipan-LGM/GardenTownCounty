@@ -93,6 +93,17 @@ On every push to `main`, GitHub Actions builds Flutter web and publishes Pages.
 
 **TL;DR:** Delete any existing **Static Site** and create a **new Web Service** with Docker. Static Sites cannot run a Dockerfile.
 
+## Live web app
+
+**Use this URL (GitHub Pages — current):**  
+https://taipan-lgm.github.io/GardenTownCounty/
+
+Login screen shows **`v1.18.13+75`**. Hard-refresh (Ctrl+F5) if you still see an older label.
+
+> Render (`garden-town-county.onrender.com`) currently returns **Not Found** (`no-server`). Prefer GitHub Pages until that Web Service is Live again in the [Render Dashboard](https://dashboard.render.com/).
+
+### Render (Docker) — optional / secondary
+
 Repo already has:
 
 1. Multi-stage `Dockerfile` → builds Flutter web with `ghcr.io/gmeligio/flutter-web:3.44.8`
