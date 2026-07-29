@@ -20,12 +20,22 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
+    # Always fetch fresh app shell / JS so version bumps are visible
     location = /index.html {
-        add_header Cache-Control "no-cache";
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /version.json {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        default_type application/json;
     }
 
     location = /flutter_service_worker.js {
-        add_header Cache-Control "no-cache";
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location ~* \.(js|json)$ {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
     gzip on;
@@ -45,6 +55,10 @@ fi
 
 echo "==> web root:"
 ls -la /usr/share/nginx/html | head -n 30
+if [ -f /usr/share/nginx/html/version.json ]; then
+  echo "==> version.json:"
+  cat /usr/share/nginx/html/version.json
+fi
 
 nginx -t
 echo "==> starting nginx on 0.0.0.0:${PORT}"

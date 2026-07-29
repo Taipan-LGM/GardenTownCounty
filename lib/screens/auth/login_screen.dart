@@ -125,6 +125,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: AppTheme.bodyText,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppConstants.versionLabel,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         'Sign in to continue',

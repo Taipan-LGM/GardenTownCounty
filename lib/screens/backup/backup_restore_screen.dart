@@ -841,23 +841,18 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
   }) {
     final actionText = label == 'DELETE ALL' ? 'Delete All' : 'Go';
 
-    Widget actionBtn;
-    switch (label) {
-      case 'Create Backup':
-        actionBtn = BackupButton(onPressed: onPressed, text: actionText);
-      case 'Restore Backup':
-        actionBtn = RestoreButton(onPressed: onPressed, text: actionText);
-      case 'View Backups':
-        actionBtn = ViewButton(onPressed: onPressed, text: actionText);
-      case 'DELETE ALL':
-        actionBtn = DeleteButton(
+    final Widget actionBtn = switch (label) {
+      'Create Backup' => BackupButton(onPressed: onPressed, text: actionText),
+      'Restore Backup' =>
+        RestoreButton(onPressed: onPressed, text: actionText),
+      'View Backups' => ViewButton(onPressed: onPressed, text: actionText),
+      'DELETE ALL' => DeleteButton(
           onPressed: onPressed,
           text: actionText,
           icon: Icons.delete_forever,
-        );
-      default:
-        actionBtn = EnableButton(onPressed: onPressed, text: actionText);
-    }
+        ),
+      _ => EnableButton(onPressed: onPressed, text: actionText),
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
