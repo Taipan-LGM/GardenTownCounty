@@ -1,0 +1,4 @@
+# Keep shell/Docker files LF so Linux containers don't fail with /bin/sh^M
+Dockerfile text eol=lf
+docker/** text eol=lf
+*.sh text eol=lf
