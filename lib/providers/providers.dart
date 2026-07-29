@@ -117,7 +117,7 @@ final appLanguageProvider =
     StateProvider<AppLanguage>((ref) => AppLanguage.english);
 
 /// Apply language immediately in UI, then persist (so the first tap works).
-Future<void> setAppLanguage(Ref ref, AppLanguage lang) async {
+Future<void> setAppLanguage(WidgetRef ref, AppLanguage lang) async {
   ref.read(appLanguageProvider.notifier).state = lang;
   await ref.read(appPreferencesServiceProvider).saveLanguage(lang);
 }
