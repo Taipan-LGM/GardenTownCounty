@@ -1840,6 +1840,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     required Future<void> Function() onFirst,
     required Future<void> Function() onLast,
   }) {
+    final strings = ref.watch(appStringsProvider);
     final member = _loadedMember;
     final idx = navState.currentIndex;
     String? prevName;
