@@ -1,34 +1,59 @@
 import 'package:flutter/material.dart';
 
 /// Shared colors for Garden Town County standard buttons.
+///
+/// Rings:
+/// - Dark fills → white ring
+/// - Light fills → black ring
+///
+/// Each button *type* has a unique fill so neighbors never share a colour.
 abstract final class AppButtonColors {
+  static const Color whiteRing = Colors.white;
+  static const Color blackRing = Colors.black;
+
+  // Dark fills (white ring)
   static Color get cancelBg => Colors.black;
   static Color get cancelFg => Colors.white;
-  static Color get cancelBorder => Colors.red.shade700;
 
   static Color get saveBg => Colors.green.shade700;
   static Color get saveFg => Colors.white;
-  static Color get saveBorder => Colors.green.shade700;
 
   static Color get deleteBg => Colors.red.shade700;
   static Color get deleteFg => Colors.white;
-  static Color get deleteBorder => Colors.red.shade700;
 
   static Color get addBg => Colors.blue.shade700;
   static Color get addFg => Colors.white;
-  static Color get addBorder => Colors.blue.shade700;
 
-  static Color get editBg => Colors.amber.shade600;
-  static Color get editFg => Colors.black;
-  static Color get editBorder => Colors.amber.shade600;
+  /// Distinct from Add (blue) and Backup (teal).
+  static Color get actionBg => Colors.indigo.shade700;
+  static Color get actionFg => Colors.white;
+
+  /// Distinct from Add (blue) and Action (indigo).
+  static Color get backupBg => Colors.teal.shade700;
+  static Color get backupFg => Colors.white;
+
+  /// Distinct from Save (green.shade700).
+  static Color get enableBg => Colors.lightGreen.shade800;
+  static Color get enableFg => Colors.white;
 
   static Color get viewBg => Colors.grey.shade700;
   static Color get viewFg => Colors.white;
-  static Color get viewBorder => Colors.grey.shade600;
 
-  static Color get actionBg => Colors.blue.shade700;
-  static Color get actionFg => Colors.white;
-  static Color get actionBorder => Colors.blue.shade700;
+  // Light fills (black ring)
+  static Color get editBg => Colors.amber.shade600;
+  static Color get editFg => Colors.black;
+
+  /// Distinct from Edit (amber.shade600) — lighter peach.
+  static Color get restoreBg => const Color(0xFFFFCC80);
+  static Color get restoreFg => Colors.black;
+
+  static BorderSide ringFor(Color bg) {
+    final dark = bg.computeLuminance() < 0.45;
+    return BorderSide(
+      color: dark ? whiteRing : blackRing,
+      width: 2.5,
+    );
+  }
 }
 
 Widget _wrapSize({
@@ -61,7 +86,6 @@ Widget _buttonChild({
   IconData? icon,
   bool isLoading = false,
   double fontSize = 14,
-  Color? progressColor,
 }) {
   if (isLoading) {
     return SizedBox(
@@ -69,7 +93,7 @@ Widget _buttonChild({
       height: 20,
       child: CircularProgressIndicator(
         strokeWidth: 2,
-        color: progressColor ?? color,
+        color: color,
       ),
     );
   }
@@ -86,8 +110,24 @@ Widget _buttonChild({
   );
 }
 
+ButtonStyle _filledStyle({
+  required Color bg,
+  required Color fg,
+}) {
+  return ElevatedButton.styleFrom(
+    backgroundColor: bg,
+    foregroundColor: fg,
+    disabledBackgroundColor: Colors.grey.shade700,
+    disabledForegroundColor: Colors.grey.shade500,
+    side: AppButtonColors.ringFor(bg),
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  );
+}
+
 // ============================================================
-// 1. CANCEL — Black + white text + red border
+// 1. CANCEL — Black + white ring
 // ============================================================
 class CancelButton extends StatelessWidget {
   const CancelButton({
@@ -109,17 +149,18 @@ class CancelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.cancelBg;
     return _wrapSize(
       width: width,
       height: height,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: AppButtonColors.cancelBg,
+          backgroundColor: bg,
           foregroundColor: AppButtonColors.cancelFg,
           disabledForegroundColor: Colors.white54,
           disabledBackgroundColor: Colors.grey.shade900,
-          side: BorderSide(color: AppButtonColors.cancelBorder, width: 2),
+          side: AppButtonColors.ringFor(bg),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
@@ -135,7 +176,7 @@ class CancelButton extends StatelessWidget {
 }
 
 // ============================================================
-// 2. SAVE — Green + white text + green border
+// 2. SAVE — Green + white ring
 // ============================================================
 class SaveButton extends StatelessWidget {
   const SaveButton({
@@ -157,20 +198,13 @@ class SaveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.saveBg;
     return _wrapSize(
       width: width,
       height: height,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.saveBg,
-          foregroundColor: AppButtonColors.saveFg,
-          disabledBackgroundColor: Colors.grey.shade700,
-          disabledForegroundColor: Colors.grey.shade500,
-          side: BorderSide(color: AppButtonColors.saveBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.saveFg),
         child: _buttonChild(
           text: text,
           color: AppButtonColors.saveFg,
@@ -183,7 +217,7 @@ class SaveButton extends StatelessWidget {
 }
 
 // ============================================================
-// 3. DELETE — Red + white text
+// 3. DELETE — Red + white ring
 // ============================================================
 class DeleteButton extends StatelessWidget {
   const DeleteButton({
@@ -203,18 +237,13 @@ class DeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.deleteBg;
     return _wrapSize(
       width: width,
       height: height,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.deleteBg,
-          foregroundColor: AppButtonColors.deleteFg,
-          side: BorderSide(color: AppButtonColors.deleteBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.deleteFg),
         child: _buttonChild(
           text: text,
           color: AppButtonColors.deleteFg,
@@ -226,7 +255,7 @@ class DeleteButton extends StatelessWidget {
 }
 
 // ============================================================
-// 4. ADD — Blue + white text
+// 4. ADD — Blue + white ring
 // ============================================================
 class AddButton extends StatelessWidget {
   const AddButton({
@@ -246,18 +275,13 @@ class AddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.addBg;
     return _wrapSize(
       width: width,
       height: height,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.addBg,
-          foregroundColor: AppButtonColors.addFg,
-          side: BorderSide(color: AppButtonColors.addBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.addFg),
         child: _buttonChild(
           text: text,
           color: AppButtonColors.addFg,
@@ -269,7 +293,7 @@ class AddButton extends StatelessWidget {
 }
 
 // ============================================================
-// 5. EDIT — Amber + BLACK text
+// 5. EDIT — Amber (light) + black ring
 // ============================================================
 class EditButton extends StatelessWidget {
   const EditButton({
@@ -289,18 +313,13 @@ class EditButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.editBg;
     return _wrapSize(
       width: width,
       height: height,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.editBg,
-          foregroundColor: AppButtonColors.editFg,
-          side: BorderSide(color: AppButtonColors.editBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.editFg),
         child: _buttonChild(
           text: text,
           color: AppButtonColors.editFg,
@@ -312,7 +331,7 @@ class EditButton extends StatelessWidget {
 }
 
 // ============================================================
-// 6. VIEW — Grey + white text
+// 6. VIEW — Grey + white ring
 // ============================================================
 class ViewButton extends StatelessWidget {
   const ViewButton({
@@ -332,6 +351,7 @@ class ViewButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.viewBg;
     return _wrapSize(
       width: width,
       height: height,
@@ -339,9 +359,9 @@ class ViewButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: AppButtonColors.viewBg,
+          backgroundColor: bg,
           foregroundColor: AppButtonColors.viewFg,
-          side: BorderSide(color: AppButtonColors.viewBorder, width: 1),
+          side: AppButtonColors.ringFor(bg),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
@@ -357,7 +377,7 @@ class ViewButton extends StatelessWidget {
 }
 
 // ============================================================
-// 7. ACTION / GO — Blue + white text
+// 7. ACTION / GO — Indigo + white ring (not blue — distinct from Add)
 // ============================================================
 class ActionButton extends StatelessWidget {
   const ActionButton({
@@ -379,20 +399,17 @@ class ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppButtonColors.actionBg;
     return _wrapSize(
       width: width,
       height: height,
       defaultHeight: 40,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppButtonColors.actionBg,
-          foregroundColor: AppButtonColors.actionFg,
-          disabledBackgroundColor: Colors.grey.shade700,
-          disabledForegroundColor: Colors.grey.shade500,
-          side: BorderSide(color: AppButtonColors.actionBorder, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.actionFg).copyWith(
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
         ),
         child: _buttonChild(
           text: text,
@@ -407,7 +424,7 @@ class ActionButton extends StatelessWidget {
 }
 
 // ============================================================
-// 8. SUBMIT — same as Save (green)
+// 8. SUBMIT — same green as Save (never shown beside Save)
 // ============================================================
 class SubmitButton extends StatelessWidget {
   const SubmitButton({
@@ -441,7 +458,7 @@ class SubmitButton extends StatelessWidget {
 }
 
 // ============================================================
-// 9. BACKUP — Blue + white text
+// 9. BACKUP — Teal + white ring (distinct from Add / Action)
 // ============================================================
 class BackupButton extends StatelessWidget {
   const BackupButton({
@@ -461,18 +478,25 @@ class BackupButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ActionButton(
-      onPressed: onPressed,
-      text: text,
+    final bg = AppButtonColors.backupBg;
+    return _wrapSize(
       width: width,
       height: height ?? 45,
-      icon: icon,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: _filledStyle(bg: bg, fg: AppButtonColors.backupFg),
+        child: _buttonChild(
+          text: text,
+          color: AppButtonColors.backupFg,
+          icon: icon,
+        ),
+      ),
     );
   }
 }
 
 // ============================================================
-// 10. RESTORE — Amber + BLACK text (same as Edit)
+// 10. RESTORE — Light peach + black ring (distinct from Edit amber)
 // ============================================================
 class RestoreButton extends StatelessWidget {
   const RestoreButton({
@@ -492,18 +516,25 @@ class RestoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EditButton(
-      onPressed: onPressed,
-      text: text,
+    final bg = AppButtonColors.restoreBg;
+    return _wrapSize(
       width: width,
       height: height,
-      icon: icon,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: _filledStyle(bg: bg, fg: AppButtonColors.restoreFg),
+        child: _buttonChild(
+          text: text,
+          color: AppButtonColors.restoreFg,
+          icon: icon,
+        ),
+      ),
     );
   }
 }
 
 // ============================================================
-// 11. ENABLE — Green + white text (same as Save)
+// 11. ENABLE — Light-green + white ring (distinct from Save)
 // ============================================================
 class EnableButton extends StatelessWidget {
   const EnableButton({
@@ -523,12 +554,19 @@ class EnableButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SaveButton(
-      onPressed: onPressed,
-      text: text,
+    final bg = AppButtonColors.enableBg;
+    return _wrapSize(
       width: width,
       height: height,
-      icon: icon,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: _filledStyle(bg: bg, fg: AppButtonColors.enableFg),
+        child: _buttonChild(
+          text: text,
+          color: AppButtonColors.enableFg,
+          icon: icon,
+        ),
+      ),
     );
   }
 }

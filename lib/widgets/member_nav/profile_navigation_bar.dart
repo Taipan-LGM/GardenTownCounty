@@ -160,7 +160,7 @@ class ProfileNavigationBar extends StatelessWidget {
                 if (onUpload != null)
                   _NavActionButton(
                     tooltip: 'Upload Files (Ctrl+U)',
-                    child: AddButton(
+                    child: ActionButton(
                       onPressed: onUpload,
                       text: 'Upload',
                       icon: Icons.attach_file,
@@ -179,7 +179,7 @@ class ProfileNavigationBar extends StatelessWidget {
                   ),
                 _NavActionButton(
                   tooltip: 'Close (Esc)',
-                  child: ActionButton(
+                  child: CancelButton(
                     onPressed: onBack,
                     text: 'Close',
                     icon: Icons.close,

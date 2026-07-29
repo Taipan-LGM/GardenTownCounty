@@ -1965,7 +1965,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               ),
               const Spacer(),
               if (_currentId != null && !_fieldsMasked)
-                AddButton(
+                ActionButton(
                   onPressed: () async {
                     final m = _loadedMember;
                     if (m == null) return;

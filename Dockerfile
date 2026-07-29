@@ -18,10 +18,10 @@ USER root
 COPY --chown=flutter:flutter . .
 USER flutter
 # CACHEBUST forces a fresh web build on each version ship (avoid stale layers).
-ARG CACHEBUST=1.18.15+78
+ARG CACHEBUST=1.18.16+79
 RUN flutter pub get \
  && flutter build web --release --pwa-strategy=none \
- && printf '%s\n' "{\"version\":\"1.18.15\",\"build\":\"78\",\"label\":\"v1.18.15+78\"}" \
+ && printf '%s\n' "{\"version\":\"1.18.16\",\"build\":\"79\",\"label\":\"v1.18.16+79\"}" \
       > /app/build/web/version.json
 
 # ── Serve ──────────────────────────────────────────────────────────────────
