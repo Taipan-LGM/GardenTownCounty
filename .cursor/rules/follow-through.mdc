@@ -1,0 +1,13 @@
+---
+description: Auto commit/push and stop asking permission for deploy follow-through
+alwaysApply: true
+---
+
+# Garden Town County — agent follow-through
+
+- Do **not** ask whether to commit, push, or redeploy when work is ready for Git/Render.
+- After finishing a coherent change set, **commit and push to `main`** unless the user explicitly said not to.
+- Keep commit messages short and focused on why.
+- Do not commit unrelated noise (e.g. incidental `county_logo.png` binary churn) unless the user asked for that asset change.
+- Version scheme: next is `1.18.12` already shipped; then `1.18.13` … `1.18.99`, then `1.19.00`, `1.19.01`, …
+- Bump `pubspec.yaml` version on user-facing releases when shipping features/fixes.
