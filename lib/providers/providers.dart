@@ -428,6 +428,9 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(backupAuthProvider);
   ref.invalidate(lastBackupAtProvider);
   ref.invalidate(countyProfileProvider);
+  ref.invalidate(publishedArticlesProvider);
+  ref.invalidate(activeVideosProvider);
+  // Paginated member queries (family) — bump refresh tick covers list UIs.
   for (final type in LookupType.values) {
     ref.invalidate(lookupsProvider(type));
   }

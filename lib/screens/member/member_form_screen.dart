@@ -21,12 +21,13 @@ import '../../services/record_field_policy.dart';
 import '../../services/sa_id_validator.dart';
 import '../../services/step1_validator.dart';
 import '../../services/secure_screen_service.dart';
-import '../../services/temporary_access_service.dart';
 import '../../widgets/cancel_button.dart';
 import '../../widgets/cancel_membership_dialog.dart';
 import '../../widgets/duplicate_warning_widget.dart';
-import '../../widgets/file_image_stub.dart'
-    if (dart.library.io) '../../widgets/file_image_io.dart' as file_img;
+import '../../widgets/member_form/member_edit_mode_banner.dart';
+import '../../widgets/member_form/member_form_status_chip.dart';
+import '../../widgets/member_form/member_lock_chrome.dart';
+import '../../widgets/member_form/member_photo_panel.dart';
 import '../../widgets/member_lock_banners.dart';
 import '../../widgets/member_nav/keyboard_shortcut_handler.dart';
 import '../../widgets/member_nav/member_filter_panel.dart';
@@ -39,6 +40,8 @@ import '../../widgets/screenshot_protected_view.dart';
 import '../../widgets/smart_record_field.dart';
 import 'lookup_manager_dialog.dart';
 import 'member_files_dialog.dart';
+import 'member_form_admin_filter.dart';
+import 'member_form_snapshot.dart';
 
 class MemberFormScreen extends ConsumerStatefulWidget {
   const MemberFormScreen({super.key});
@@ -90,11 +93,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   /// Admin top-bar view: All / New / RS.
   // NEW ADDITION - Delete field + filter UI to revert
-  _AdminViewFilter _adminViewFilter = _AdminViewFilter.all;
+  AdminViewFilter _adminViewFilter = AdminViewFilter.all;
   Set<String> _secretaryMemberIds = const {};
   bool _hasUnsavedChanges = false;
   bool _suppressDirty = false;
-  _FormSnapshot? _snapshot;
+  MemberFormSnapshot? _snapshot;
 
   String? _saIdError;
   String? _saIdWarning;
@@ -239,8 +242,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
-  _FormSnapshot _takeSnapshot() {
-    return _FormSnapshot(
+  MemberFormSnapshot _takeSnapshot() {
+    return MemberFormSnapshot(
       saId: _saId.text,
       globalRecordNo: _globalRecordNo.text,
       lroRecordNo: _lroRecordNo.text,
@@ -259,7 +262,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
-  void _applySnapshot(_FormSnapshot snap) {
+  void _applySnapshot(MemberFormSnapshot snap) {
     _suppressDirty = true;
     _saId.text = snap.saId;
     _globalRecordNo.text =
@@ -550,9 +553,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   List<Member> get _adminViewMembers {
     if (!_viewerIsAdmin) return _members;
     switch (_adminViewFilter) {
-      case _AdminViewFilter.all:
+      case AdminViewFilter.all:
         return _members;
-      case _AdminViewFilter.newMembers:
+      case AdminViewFilter.newMembers:
         // New only — never include Recording Secretaries.
         // MODIFIED - exclude RS from New (Delete && !contains to revert)
         return _members
@@ -563,7 +566,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   !_secretaryMemberIds.contains(m.id),
             )
             .toList();
-      case _AdminViewFilter.rs:
+      case AdminViewFilter.rs:
         return _members
             .where((m) => _secretaryMemberIds.contains(m.id))
             .toList();
@@ -587,7 +590,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   Widget _adminViewRadio({
     required String label,
     required int count,
-    required _AdminViewFilter value,
+    required AdminViewFilter value,
   }) {
     final selected = _adminViewFilter == value;
     return InkWell(
@@ -653,43 +656,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           all: _members,
         );
     _loadMember(_members[refreshed], refreshed);
-  }
-
-  Widget _buildEditModeBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.orange.shade300),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.edit_note, color: Colors.orange.shade700),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '✏️ EDIT MODE ACTIVE - Changes will be saved when you click Save',
-              style: TextStyle(
-                color: Colors.orange.shade700,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Text(
-            'Unsaved Changes: ${_hasUnsavedChanges ? 'Yes' : 'No'}',
-            style: TextStyle(
-              color: _hasUnsavedChanges
-                  ? Colors.red.shade700
-                  : Colors.green.shade700,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _bootstrap() async {
@@ -1010,85 +976,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       _photoBytes = null;
     });
     await ref.read(syncEngineProvider).pushPending();
-  }
-
-  Widget _memberPhotoPanel() {
-    ImageProvider? image;
-    if (_photoBytes != null) {
-      image = MemoryImage(_photoBytes!);
-    } else if (_photoUrl != null &&
-        _photoUrl!.isNotEmpty &&
-        !_photoUrl!.startsWith('data:')) {
-      image = NetworkImage(_photoUrl!);
-    } else if (_photoLocalPath != null &&
-        !_photoLocalPath!.startsWith('web-photo://') &&
-        file_img.localFileExists(_photoLocalPath!)) {
-      image = file_img.localFileImage(_photoLocalPath!);
-    }
-
-    const photoSize = 320.0;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkWell(
-          onTap: (_photoBusy || _formReadOnly) ? null : _pickMemberPhoto,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: photoSize,
-            height: photoSize,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.forestGreen, width: 2),
-              image: image == null
-                  ? null
-                  : DecorationImage(image: image, fit: BoxFit.cover),
-            ),
-            child: image == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_photoBusy)
-                        const CircularProgressIndicator()
-                      else ...[
-                        const Icon(
-                          Icons.add_a_photo_outlined,
-                          size: 44,
-                          color: AppTheme.bodyText,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Member Photo',
-                          style: TextStyle(
-                            color: AppTheme.bodyText,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  )
-                : _photoBusy
-                    ? const ColoredBox(
-                        color: Colors.black26,
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : null,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: (_photoBusy || _formReadOnly) ? null : _pickMemberPhoto,
-          icon: const Icon(Icons.photo_camera_outlined, size: 18),
-          label: Text(image == null ? 'Upload Photo' : 'Change Photo'),
-        ),
-        if (image != null && !_formReadOnly)
-          TextButton(
-            onPressed: _photoBusy ? null : _clearMemberPhoto,
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
-          ),
-      ],
-    );
   }
 
   Future<bool> _save() async {
@@ -1668,17 +1555,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       _adminViewRadio(
                         label: 'All',
                         count: _countAll,
-                        value: _AdminViewFilter.all,
+                        value: AdminViewFilter.all,
                       ),
                       _adminViewRadio(
                         label: 'New',
                         count: _countNew,
-                        value: _AdminViewFilter.newMembers,
+                        value: AdminViewFilter.newMembers,
                       ),
                       _adminViewRadio(
                         label: 'RS',
                         count: _countRs,
-                        value: _AdminViewFilter.rs,
+                        value: AdminViewFilter.rs,
                       ),
                     ],
                     if (_viewerIsAdmin && cancelTarget != null)
@@ -2075,11 +1962,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_isEditing) _buildEditModeBanner(),
+          if (_isEditing)
+            MemberEditModeBanner(hasUnsavedChanges: _hasUnsavedChanges),
           const SizedBox(height: 8),
           Row(
             children: [
-              _statusChip(_formMode, _loadedMember),
+              MemberFormStatusChip(mode: _formMode, member: _loadedMember),
               const SizedBox(width: 8),
               Chip(
                 visualDensity: VisualDensity.compact,
@@ -2177,7 +2065,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ),
           const Divider(),
           if (_loadedMember != null && _formMode.showTempAccessSection)
-            _buildLockChrome(_loadedMember!),
+            MemberLockChrome(
+              member: _loadedMember!,
+              onMemberUpdated: _onLockedMemberUpdated,
+              onAccessVerified: () {
+                if (mounted) setState(() {});
+              },
+            ),
           if (_loadedMember != null && _formMode.showOnboardingChecklist)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -2442,7 +2336,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          _memberPhotoPanel(),
+                          MemberPhotoPanel(
+                            photoBytes: _photoBytes,
+                            photoUrl: _photoUrl,
+                            photoLocalPath: _photoLocalPath,
+                            busy: _photoBusy,
+                            readOnly: _formReadOnly,
+                            onPick: _pickMemberPhoto,
+                            onClear: _clearMemberPhoto,
+                          ),
                           if (constraints.maxWidth > 720)
                             const Expanded(child: SizedBox()),
                         ],
@@ -2635,157 +2537,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
-  Widget _buildLockChrome(Member member) {
-    final user = ref.watch(authUserProvider);
-    final verified = ref.watch(verifiedTempAccessIdsProvider).contains(member.id);
-    final users = ref.watch(appUsersProvider).valueOrNull ?? const [];
-    final logs = (ref.watch(temporaryAccessLogsProvider).valueOrNull ?? const [])
-        .where((l) => l.memberId == member.id)
-        .toList();
-    String? nameOf(String? id) {
-      if (id == null) return null;
-      for (final u in users) {
-        if (u.id == id) return u.displayName;
-      }
-      return id;
-    }
-
-    if (!member.isLocked) return const SizedBox.shrink();
-
-    if (user?.isAdmin == true) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: AdminLockedBanner(
-          member: member,
-          lockedByName: nameOf(member.lockedBy),
-          recentLogs: logs,
-          onUnlock: () async {
-            final ok = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Unlock Member'),
-                content: Text('Unlock ${member.fullName}?'),
-                actions: [
-                  CancelButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    text: 'Cancel',
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Unlock'),
-                  ),
-                ],
-              ),
-            );
-            if (ok != true || user == null) return;
-            final unlocked = await ref
-                .read(memberLockServiceProvider)
-                .unlock(member: member, actor: user);
-            setState(() => _loadedMember = unlocked);
-            ref.invalidate(membersProvider);
-            ref.invalidate(lockedMembersProvider);
-            ref.invalidate(temporaryAccessLogsProvider);
-          },
-          onGrantAccess: () async {
-            await showGrantTemporaryAccessDialog(
-              context: context,
-              ref: ref,
-              member: member,
-            );
-            final refreshed =
-                await ref.read(memberRepositoryProvider).getById(member.id);
-            if (refreshed != null && mounted) {
-              setState(() => _loadedMember = refreshed);
-            }
-            ref.invalidate(lockedMembersProvider);
-            ref.invalidate(temporaryAccessLogsProvider);
-          },
-          onRevokeAccess: () async {
-            if (user == null) return;
-            final cleared = await ref
-                .read(temporaryAccessServiceProvider)
-                .revoke(member: member, actor: user);
-            final next = {...ref.read(verifiedTempAccessIdsProvider)}
-              ..remove(member.id);
-            ref.read(verifiedTempAccessIdsProvider.notifier).state = next;
-            setState(() => _loadedMember = cleared);
-            ref.invalidate(lockedMembersProvider);
-            ref.invalidate(temporaryAccessLogsProvider);
-          },
-        ),
-      );
-    }
-
-    if (verified &&
-        TemporaryAccessService.isGrantValidFor(member, user!.id)) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: TemporaryAccessActiveBanner(
-          member: member,
-          grantedByName: nameOf(member.temporaryAccessGrantedBy),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: LockedMemberBanner(
-        member: member,
-        lockedByName: nameOf(member.lockedBy),
-        onEnterCode: user == null
-            ? null
-            : () async {
-                final ok = await showEnterTemporaryAccessCodeDialog(
-                  context: context,
-                  ref: ref,
-                  member: member,
-                  secretary: user,
-                );
-                if (ok) {
-                  final next = {...ref.read(verifiedTempAccessIdsProvider)}
-                    ..add(member.id);
-                  ref.read(verifiedTempAccessIdsProvider.notifier).state =
-                      next;
-                  setState(() {});
-                }
-              },
-        onRequestAccess: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Contact the System Administrator for a temporary access code.',
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _statusChip(MemberFormMode mode, Member? member) {
-    Color color;
-    switch (mode) {
-      case MemberFormMode.newMember:
-        color = Colors.orange;
-      case MemberFormMode.regularMember:
-        color = Colors.blue;
-      case MemberFormMode.lockedSecretary:
-      case MemberFormMode.lockedAdmin:
-        color = Colors.red;
-      case MemberFormMode.tempAccessActive:
-        color = Colors.green;
-    }
-    final label = member == null
-        ? 'New'
-        : '${mode.statusLabel} · ${member.registrationStatus}';
-    return Chip(
-      visualDensity: VisualDensity.compact,
-      backgroundColor: color.withValues(alpha: 0.15),
-      label: Text(
-        label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
-      ),
-    );
+  void _onLockedMemberUpdated(Member updated) {
+    if (!mounted) return;
+    setState(() => _loadedMember = updated);
   }
 
   Future<void> _toggleOnboardingStep(int step, bool complete) async {
@@ -2904,44 +2658,4 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       );
     }
   }
-}
-
-/// Admin Member Management view radios.
-// NEW ADDITION - Delete enum to revert All/New/RS filter
-enum _AdminViewFilter { all, newMembers, rs }
-
-class _FormSnapshot {
-  const _FormSnapshot({
-    required this.saId,
-    required this.globalRecordNo,
-    required this.lroRecordNo,
-    required this.memberName,
-    required this.surname,
-    required this.address,
-    required this.suburb,
-    required this.townCity,
-    required this.postalCode,
-    required this.contactNo1,
-    required this.contactNo2,
-    required this.email,
-    required this.comment,
-    required this.photoLocalPath,
-    required this.photoUrl,
-  });
-
-  final String saId;
-  final String globalRecordNo;
-  final String lroRecordNo;
-  final String memberName;
-  final String surname;
-  final String address;
-  final String? suburb;
-  final String? townCity;
-  final String? postalCode;
-  final String contactNo1;
-  final String contactNo2;
-  final String email;
-  final String comment;
-  final String? photoLocalPath;
-  final String? photoUrl;
 }

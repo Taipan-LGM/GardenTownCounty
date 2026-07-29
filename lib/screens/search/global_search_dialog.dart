@@ -38,15 +38,30 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
       _loading = true;
       _searched = true;
     });
-    final results = await ref.read(memberRepositoryProvider).search(query);
     final user = ref.read(authUserProvider);
-    final visible = await ref
-        .read(dataAccessServiceProvider)
-        .getVisibleMembers(user);
-    final visibleIds = visible.map((m) => m.id).toSet();
-    final scoped = user?.isAdmin == true
-        ? results
-        : results.where((m) => visibleIds.contains(m.id)).toList();
+    final access = ref.read(dataAccessServiceProvider);
+
+    // Role-scoped page query avoids loading the entire member roster.
+    final page = await access.getVisibleMembersPage(
+      user,
+      offset: 0,
+      limit: 100,
+      query: query,
+    );
+    var scoped = page.items;
+
+    // Fallback: repository search + per-member access check (broader match).
+    if (scoped.isEmpty) {
+      final results = await ref.read(memberRepositoryProvider).search(query);
+      final filtered = <Member>[];
+      for (final m in results) {
+        if (await access.canAccessMember(user, m.id)) {
+          filtered.add(m);
+        }
+      }
+      scoped = filtered;
+    }
+
     if (!mounted) return;
     setState(() {
       _results = scoped;
