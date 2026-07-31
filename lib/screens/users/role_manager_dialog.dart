@@ -183,6 +183,9 @@ class _RoleManagerDialogState extends ConsumerState<RoleManagerDialog> {
               child: ActionButton(
                 onPressed: () => Navigator.of(context).pop(),
                 text: 'Close',
+                backgroundColor: AppButtonColors.closeBg,
+                foregroundColor: AppButtonColors.closeFg,
+                borderColor: AppButtonColors.whiteRing,
               ),
             ),
           ],

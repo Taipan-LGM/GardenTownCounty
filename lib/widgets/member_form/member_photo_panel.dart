@@ -103,6 +103,9 @@ class MemberPhotoPanel extends StatelessWidget {
                 text: 'Upload Photo',
                 icon: Icons.photo_camera_outlined,
                 height: 35,
+                backgroundColor: AppButtonColors.saveBg,
+                foregroundColor: AppButtonColors.saveFg,
+                borderColor: AppButtonColors.whiteRing,
               )
             : EditButton(
                 onPressed: (busy || readOnly) ? null : onPick,

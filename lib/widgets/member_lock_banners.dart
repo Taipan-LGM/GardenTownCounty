@@ -489,6 +489,9 @@ Future<void> showGrantTemporaryAccessDialog({
           ActionButton(
             onPressed: () => Navigator.pop(ctx),
             text: 'Close',
+            backgroundColor: AppButtonColors.closeBg,
+            foregroundColor: AppButtonColors.closeFg,
+            borderColor: AppButtonColors.whiteRing,
           ),
         ],
       );

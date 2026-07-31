@@ -118,6 +118,7 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final user = ref.watch(authUserProvider);
 
     return AlertDialog(
@@ -131,9 +132,10 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
           children: [
             TextField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Brief File Description (for next upload)',
-                prefixIcon: Icon(Icons.notes),
+              decoration: InputDecoration(
+                labelText: '${strings.briefFileDescription} '
+                    '(for next upload)',
+                prefixIcon: const Icon(Icons.notes),
               ),
             ),
             const SizedBox(height: 12),
@@ -191,6 +193,9 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
         ActionButton(
           onPressed: () => Navigator.of(context).pop(),
           text: 'Close',
+          backgroundColor: AppButtonColors.closeBg,
+          foregroundColor: AppButtonColors.closeFg,
+          borderColor: AppButtonColors.whiteRing,
         ),
       ],
     );

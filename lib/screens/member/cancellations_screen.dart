@@ -41,9 +41,9 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final user = ref.watch(authUserProvider);
     if (user == null || !user.isAdmin) {
-      final strings = ref.watch(appStringsProvider);
       return Center(child: Text(strings.adminAccessRequired));
     }
 
@@ -93,10 +93,10 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Cancellations',
-                      style: TextStyle(
+                      strings.cancellations,
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.bodyText,
@@ -104,7 +104,7 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Refresh',
+                    tooltip: strings.refresh,
                     onPressed: () {
                       ref.invalidate(cancelledMembersProvider);
                       setState(() => _fileCounts.clear());
@@ -137,10 +137,10 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
               ),
               const SizedBox(height: 16),
               TextField(
-                decoration: const InputDecoration(
-                  hintText: 'Search Cancelled Members…',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: strings.searchCancelledMembers,
+                  prefixIcon: const Icon(Icons.search),
+                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (v) => setState(() => _query = v),
               ),
@@ -190,21 +190,22 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
   }
 
   Future<void> _reinstate(Member member) async {
+    final strings = ref.read(appStringsProvider);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reinstate Member?'),
+        title: Text(strings.reinstateMember),
         content: Text(
           'Reinstate ${member.fullName}? All data and files remain available.',
         ),
         actions: [
           CancelButton(
             onPressed: () => Navigator.pop(ctx, false),
-            text: 'Cancel',
+            text: strings.cancel,
           ),
           ActionButton(
             onPressed: () => Navigator.pop(ctx, true),
-            text: 'Yes, Reinstate',
+            text: strings.yesReinstate,
           ),
         ],
       ),
@@ -276,7 +277,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _CancelledCard extends StatelessWidget {
+class _CancelledCard extends ConsumerWidget {
   const _CancelledCard({
     required this.member,
     required this.dateLabel,
@@ -294,7 +295,8 @@ class _CancelledCard extends StatelessWidget {
   final VoidCallback onView;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -348,7 +350,7 @@ class _CancelledCard extends StatelessWidget {
               icon: const Icon(Icons.attach_file, color: Colors.amber),
             ),
             IconButton(
-              tooltip: 'View Member',
+              tooltip: strings.viewMember,
               onPressed: onView,
               icon: const Icon(Icons.visibility),
             ),

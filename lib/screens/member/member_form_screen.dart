@@ -25,10 +25,15 @@ import '../../services/secure_screen_service.dart';
 import '../../widgets/standard_buttons.dart';
 import '../../widgets/cancel_membership_dialog.dart';
 import '../../widgets/duplicate_warning_widget.dart';
+import '../../widgets/member_form/member_contact_details_section.dart';
 import '../../widgets/member_form/member_edit_mode_banner.dart';
-import '../../widgets/member_form/member_form_status_chip.dart';
+import '../../widgets/member_form/member_identity_form_section.dart';
 import '../../widgets/member_form/member_lock_chrome.dart';
+import '../../widgets/member_form/member_lookup_section.dart';
+import '../../widgets/member_form/member_onboarding_summary.dart';
+import '../../widgets/member_form/member_profile_header.dart';
 import '../../widgets/member_form/member_photo_panel.dart';
+import '../../widgets/member_form/member_profile_nav_section.dart';
 import '../../widgets/member_lock_banners.dart';
 import '../../widgets/member_nav/keyboard_shortcut_handler.dart';
 import '../../widgets/member_nav/member_filter_panel.dart';
@@ -1334,6 +1339,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final navState = ref.watch(memberNavigationProvider);
     final nav = ref.read(memberNavigationProvider.notifier);
     final strings = AppStrings(ref.watch(appLanguageProvider));
+    final authUser = ref.read(authUserProvider);
     final isMemberOnly = _isMemberOnly;
     final showList = !isMemberOnly && navState.currentView == MemberNavView.list;
     final listSource = _adminViewMembers;
@@ -1870,7 +1876,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             surname: 'Member',
             updatedAt: DateTime.now().toUtc(),
           );
-      return ProfileNavigationBar(
+      return MemberProfileNavSection(
         currentMember: displayMember,
         currentIndex: idx,
         totalMembers: filtered.length,
@@ -1882,9 +1888,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         onFirst: () => onFirst(),
         onLast: () => onLast(),
         canEdit: member != null && _canEnterEditMode && !_isEditing,
-        // Cancel Membership lives on MEMBER MANAGEMENT top bar (Admin).
-        canDelete: false,
-        onDelete: null,
+        canNew: _canAddMembers,
+        showRsRadio: ref.watch(isAdminProvider),
+        rsRadioOn: _rsRadioOn,
+        rsRadioEnabled: ref.watch(isAdminProvider) &&
+            member != null &&
+            !_rsRadioBusy,
         onEdit: (member != null && _canEnterEditMode && !_isEditing)
             ? _enterEditMode
             : null,
@@ -1894,7 +1903,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 openMemberDraft();
               }
             : null,
-        canNew: _canAddMembers,
         onUpload: member == null
             ? null
             : () async {
@@ -1928,12 +1936,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 if (!mounted) return;
                 await showMemberFilesDialog(context, ref, member);
               },
-        // NEW ADDITION - permanent Admin RS radio
-        showRsRadio: ref.watch(isAdminProvider),
-        rsRadioOn: _rsRadioOn,
-        rsRadioEnabled: ref.watch(isAdminProvider) &&
-            member != null &&
-            !_rsRadioBusy,
         onRsRadioChanged: _onRsRadioChanged,
       );
     }
@@ -1946,67 +1948,34 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           if (_isEditing)
             MemberEditModeBanner(hasUnsavedChanges: _hasUnsavedChanges),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              MemberFormStatusChip(mode: _formMode, member: _loadedMember),
-              const SizedBox(width: 8),
-              Chip(
-                visualDensity: VisualDensity.compact,
-                backgroundColor: _isEditing
-                    ? Colors.orange.withValues(alpha: 0.15)
-                    : AppTheme.forestGreen,
-                label: Text(
-                  modeLabel,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    // MODIFIED - View Mode text white
-                    color: _isEditing ? Colors.orange.shade800 : Colors.white,
+          MemberProfileHeader(
+            modeLabel: modeLabel,
+            formMode: _formMode,
+            member: _loadedMember,
+            isEditing: _isEditing,
+            hasUnsavedChanges: _hasUnsavedChanges,
+            saving: _saving,
+            canEnterEditMode: _canEnterEditMode,
+            fieldsMasked: _fieldsMasked,
+            canPressSave: _canPressSave,
+            currentId: _currentId,
+            strings: strings,
+            onEnterEdit: _enterEditMode,
+            onCancelEdit: _cancelEdit,
+            onSave: _save,
+            onUploadFiles: () async {
+              final m = _loadedMember;
+              if (m == null) return;
+              if (_isEditing && _hasUnsavedChanges) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Save or cancel edits before opening files.'),
                   ),
-                ),
-              ),
-              const Spacer(),
-              if (_currentId != null && !_fieldsMasked)
-                ActionButton(
-                  onPressed: () async {
-                    final m = _loadedMember;
-                    if (m == null) return;
-                    if (_isEditing && _hasUnsavedChanges) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Save or cancel edits before opening files.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    await showMemberFilesDialog(context, ref, m);
-                  },
-                  text: strings.uploadFiles,
-                  icon: Icons.attach_file,
-                ),
-              const SizedBox(width: 8),
-              if (!_isEditing && _canEnterEditMode)
-                EditButton(
-                  onPressed: _enterEditMode,
-                  text: strings.edit,
-                  icon: Icons.edit,
-                ),
-              if (_isEditing) ...[
-                CancelButton(
-                  onPressed: _saving ? null : _cancelEdit,
-                  text: strings.cancel,
-                ),
-                const SizedBox(width: 8),
-                SaveButton(
-                  onPressed: _canPressSave ? () => _save() : null,
-                  text: strings.save,
-                  isLoading: _saving,
-                  icon: Icons.save,
-                ),
-              ],
-            ],
+                );
+                return;
+              }
+              await showMemberFilesDialog(context, ref, m);
+            },
           ),
           const Divider(),
           if (_loadedMember != null && _formMode.showTempAccessSection)
@@ -2020,7 +1989,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           if (_loadedMember != null && _formMode.showOnboardingChecklist)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: OnboardingChecklistCard(
+              child: MemberOnboardingSummary(
                 member: _loadedMember!,
                 readOnly: _formMode.checklistReadOnly || !_isEditing,
                 showCompleteButton:
@@ -2062,218 +2031,76 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                  TextFormField(
-                                    controller: _saId,
-                                    enabled: !_formReadOnly,
-                                    decoration: _fieldDecoration(
-                                      'SA ID No.',
-                                      isDense: true,
-                                      errorText: _saIdError,
-                                      helperText: _saIdError == null
-                                          ? _saIdWarning
+                                MemberIdentityFormSection(
+                                  saIdController: _saId,
+                                  globalRecordNoController: _globalRecordNo,
+                                  lroRecordNoController: _lroRecordNo,
+                                  memberNameController: _memberName,
+                                  surnameController: _surname,
+                                  strings: strings,
+                                  isEditing: _isEditing,
+                                  formReadOnly: _formReadOnly,
+                                  viewerIsAdmin: _viewerIsAdmin,
+                                  viewerIsSecretary: _viewerIsSecretary,
+                                  isMemberOnly: _isMemberOnly,
+                                  showGlobalRecordField: _showGlobalRecordField,
+                                  globalRecordReadOnly: _globalRecordReadOnly,
+                                  isCheckingSaId: _isCheckingSaId,
+                                  isCheckingGlobalRecord:
+                                      _isCheckingGlobalRecord,
+                                  saIdError: _saIdError,
+                                  saIdWarning: _saIdWarning,
+                                  globalRecordError: _globalRecordError,
+                                  lroRecordError: _lroRecordError,
+                                  duplicateSaIdMemberId: _duplicateSaIdMemberId,
+                                  duplicateGlobalRecordMemberId:
+                                      _duplicateGlobalRecordMemberId,
+                                  persistedGlobalRecord: _persistedGlobalRecord,
+                                  persistedLroRecord: _persistedLroRecord,
+                                  fieldDecorationBuilder: _fieldDecoration,
+                                  saIdValidator: (v) =>
+                                      SaIdValidator.validate(v ?? ''),
+                                  globalRecordValidator: (v) {
+                                    if (_globalRecordReadOnly) return null;
+                                    final err = GlobalRecordValidator.validate(
+                                      v ?? '',
+                                      required: false,
+                                    );
+                                    if (err != null) return err;
+                                    if (_globalRecordError != null &&
+                                        _duplicateGlobalRecordMemberId != null) {
+                                      return _globalRecordError;
+                                    }
+                                    return null;
+                                  },
+                                  lroValidator: (v) =>
+                                      LroRecordValidator.validate(v ?? ''),
+                                  memberNameValidator: (v) =>
+                                      (v == null || v.trim().isEmpty)
+                                          ? strings.requiredField
                                           : null,
-                                      suffixIcon: _isCheckingSaId
-                                          ? const Padding(
-                                              padding: EdgeInsets.all(12),
-                                              child: SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                              ),
-                                            )
-                                          : _saIdError == null &&
-                                                  _saId.text.isNotEmpty &&
-                                                  _isEditing
-                                              ? Icon(
-                                                  _saIdWarning == null
-                                                      ? Icons.check_circle
-                                                      : Icons.warning_amber,
-                                                  color: _saIdWarning == null
-                                                      ? Colors.green
-                                                      : Colors.orange,
-                                                  size: 18,
-                                                )
-                                              : null,
-                                    ),
-                                    maxLength: AppConstants.saIdMaxLength,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    validator: (v) =>
-                                        SaIdValidator.validate(v ?? ''),
+                                  surnameValidator: (v) =>
+                                      (v == null || v.trim().isEmpty)
+                                          ? strings.requiredField
+                                          : null,
+                                  onManageRecordVisibility: () =>
+                                      RecordVisibilityDialog.show(context),
+                                  onViewExistingSaIdDuplicate: () =>
+                                      _openExistingDuplicate(
+                                    _duplicateSaIdMemberId,
                                   ),
-                                  DuplicateWarningWidget(
-                                    field: 'SA ID',
-                                    value: _saId.text.trim(),
-                                    isDuplicate: _duplicateSaIdMemberId != null,
-                                    onViewExisting: () =>
-                                        _openExistingDuplicate(
-                                      _duplicateSaIdMemberId,
-                                    ),
+                                  onViewExistingGlobalRecordDuplicate: () =>
+                                      _openExistingDuplicate(
+                                    _duplicateGlobalRecordMemberId,
                                   ),
-                                  // NEW ADDITION - Global/LRO visibility rules
-                                  if (_viewerIsAdmin || _viewerIsSecretary)
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: ActionButton(
-                                        onPressed: () =>
-                                            RecordVisibilityDialog.show(
-                                          context,
-                                        ),
-                                        text: strings.recordVisibility,
-                                        icon: Icons.info_outline,
-                                        height: 35,
-                                      ),
-                                    ),
-                                  if (_isMemberOnly)
-                                    RecordVisibilityBanner(
-                                      globalRecordNo: _persistedGlobalRecord ??
-                                          _globalRecordNo.text,
-                                      lroRecordNo: _persistedLroRecord ??
-                                          _lroRecordNo.text,
-                                    ),
-                                  if (_showGlobalRecordField) ...[
-                                    TextFormField(
-                                      controller: _globalRecordNo,
-                                      enabled: !_globalRecordReadOnly,
-                                      decoration: _fieldDecoration(
-                                        strings.globalRecordNo,
-                                        isDense: true,
-                                        errorText: _globalRecordError,
-                                        suffixIcon: _isCheckingGlobalRecord
-                                            ? const Padding(
-                                                padding: EdgeInsets.all(12),
-                                                child: SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                  ),
-                                                ),
-                                              )
-                                            : _globalRecordReadOnly
-                                                ? Icon(
-                                                    Icons.lock,
-                                                    color: Colors.grey.shade600,
-                                                    size: 18,
-                                                  )
-                                                : _globalRecordError == null &&
-                                                        _globalRecordNo
-                                                            .text.isNotEmpty &&
-                                                        _isEditing
-                                                    ? const Icon(
-                                                        Icons.check_circle,
-                                                        color: Colors.green,
-                                                        size: 18,
-                                                      )
-                                                    : Icon(
-                                                        Icons.lock_outline,
-                                                        color: Colors
-                                                            .grey.shade400,
-                                                        size: 18,
-                                                      ),
-                                      ),
-                                      maxLength: AppConstants
-                                          .globalRecordNoMaxLength,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-                                      validator: (v) {
-                                        if (_globalRecordReadOnly) return null;
-                                        // Empty allowed — format only when typed.
-                                        final err =
-                                            GlobalRecordValidator.validate(
-                                          v ?? '',
-                                          required: false,
-                                        );
-                                        if (err != null) return err;
-                                        if (_globalRecordError != null &&
-                                            _duplicateGlobalRecordMemberId !=
-                                                null) {
-                                          return _globalRecordError;
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                    DuplicateWarningWidget(
-                                      field: strings.globalRecordNo,
-                                      value: _globalRecordNo.text.trim(),
-                                      isDuplicate:
-                                          _duplicateGlobalRecordMemberId !=
-                                              null,
-                                      onViewExisting: () =>
-                                          _openExistingDuplicate(
-                                        _duplicateGlobalRecordMemberId,
-                                      ),
-                                    ),
-                                  ],
-                                  SmartRecordField(
-                                    label: strings.lroRecordNo,
-                                    controller: _lroRecordNo,
-                                    hint: strings.enterLroRecordNo,
-                                    isEditing: _isEditing && !_formReadOnly,
-                                    isAdmin: _viewerIsAdmin,
-                                    isSecretary: _viewerIsSecretary,
-                                    isMember: _isMemberOnly,
-                                    persistedValue: _persistedLroRecord,
-                                    errorText: _lroRecordError,
-                                    maxLength:
-                                        AppConstants.lroRecordNoMaxLength,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r'[A-Za-z0-9-]'),
-                                      ),
-                                    ],
-                                    validator: (v) =>
-                                        LroRecordValidator.validate(v ?? ''),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _lroRecordError =
-                                            LroRecordValidator.validate(value);
-                                      });
-                                      _markDirty();
-                                    },
-                                    decorationBuilder: (base) =>
-                                        _fieldDecoration(
-                                      'LRO Record No.',
-                                      isDense: true,
-                                      errorText: _lroRecordError,
-                                      suffixIcon: base.suffixIcon,
-                                    ),
-                                  ),
-                                  TextFormField(
-                                    controller: _memberName,
-                                    enabled: !_formReadOnly,
-                                    decoration: _fieldDecoration(
-                                      strings.memberName,
-                                      isDense: true,
-                                      filled: _memberName.text.trim().isNotEmpty,
-                                    ),
-                                    validator: (v) =>
-                                        (v == null || v.trim().isEmpty)
-                                            ? strings.requiredField
-                                            : null,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _surname,
-                                    enabled: !_formReadOnly,
-                                    decoration: _fieldDecoration(
-                                      strings.surname,
-                                      isDense: true,
-                                      filled: _surname.text.trim().isNotEmpty,
-                                    ),
-                                    validator: (v) =>
-                                        (v == null || v.trim().isEmpty)
-                                            ? strings.requiredField
-                                            : null,
-                                  ),
+                                  onLroChanged: (value) {
+                                    setState(() {
+                                      _lroRecordError =
+                                          LroRecordValidator.validate(value);
+                                    });
+                                    _markDirty();
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -2294,104 +2121,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _address,
-                    enabled: !_formReadOnly,
-                    decoration: _fieldDecoration(
-                      'Address *',
-                      filled: _address.text.trim().isNotEmpty,
-                    ),
-                    maxLines: 2,
-                    validator: (v) =>
+                  MemberContactDetailsSection(
+                    addressController: _address,
+                    contactNo1Controller: _contactNo1,
+                    contactNo2Controller: _contactNo2,
+                    emailController: _email,
+                    commentController: _comment,
+                    strings: strings,
+                    formReadOnly: _formReadOnly,
+                    fieldDecorationBuilder: _fieldDecoration,
+                    addressValidator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 8),
-                  _lookupDropdown(
-                    label: strings.suburb,
-                    type: LookupType.suburb,
-                    value: _suburb,
-                    required: true,
-                    onChanged: (v) {
-                      setState(() => _suburb = v);
-                      _markDirty();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _lookupDropdown(
-                    label: strings.townCity,
-                    type: LookupType.townCity,
-                    value: _townCity,
-                    required: true,
-                    onChanged: (v) {
-                      setState(() => _townCity = v);
-                      _markDirty();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _lookupDropdown(
-                    label: strings.postalCode,
-                    type: LookupType.postalCode,
-                    value: _postalCode,
-                    required: true,
-                    onChanged: (v) {
-                      setState(() => _postalCode = v);
-                      _markDirty();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _contactNo1,
-                          enabled: !_formReadOnly,
-                          decoration: _fieldDecoration(
-                            strings.contactNo1,
-                            filled: _contactNo1.text.trim().isNotEmpty,
-                          ),
-                          maxLength: AppConstants.contactNoMaxLength,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(
-                              AppConstants.contactNoMaxLength,
-                            ),
-                          ],
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? strings.requiredField
-                                  : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _contactNo2,
-                          enabled: !_formReadOnly,
-                          decoration: _fieldDecoration(
-                            strings.contactNo2,
-                            filled: _contactNo2.text.trim().isNotEmpty,
-                          ),
-                          maxLength: AppConstants.contactNoMaxLength,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(
-                              AppConstants.contactNoMaxLength,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _email,
-                    enabled: !_formReadOnly,
-                    decoration: _fieldDecoration(
-                      strings.emailAddress,
-                      filled: _email.text.trim().isNotEmpty,
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
+                    contactNo1Validator: (v) =>
+                        (v == null || v.trim().isEmpty)
+                            ? strings.requiredField
+                            : null,
+                    emailValidator: (v) {
                       final value = (v ?? '').trim();
                       if (value.isEmpty) return strings.requiredField;
                       if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -2401,6 +2146,28 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 8),
+                  MemberLookupSection(
+                    strings: strings,
+                    formReadOnly: _formReadOnly,
+                    fieldDecorationBuilder: _fieldDecoration,
+                    suburb: _suburb,
+                    townCity: _townCity,
+                    postalCode: _postalCode,
+                    onSuburbChanged: (v) {
+                      setState(() => _suburb = v);
+                      _markDirty();
+                    },
+                    onTownCityChanged: (v) {
+                      setState(() => _townCity = v);
+                      _markDirty();
+                    },
+                    onPostalCodeChanged: (v) {
+                      setState(() => _postalCode = v);
+                      _markDirty();
+                    },
+                  ),
+                  const SizedBox(height: 8),
                   // NEW ADDITION - Step 1 completion banner (Delete block to revert)
                   if (_step1FormComplete &&
                       !(_loadedMember?.step1MemberInfoComplete ?? false))
@@ -2445,7 +2212,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
 
     final lockedMember = _loadedMember;
-    final authUser = ref.watch(authUserProvider);
+    final authUser = ref.read(authUserProvider);
     Widget formArea = formChrome;
     if (lockedMember != null &&
         lockedMember.isLocked &&
@@ -2490,7 +2257,69 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final member = _loadedMember;
     final user = ref.read(authUserProvider);
     if (member == null || user == null) return;
+    if (complete && !(user.isSecretary || user.isAdmin)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only Recording Secretaries or Administrators can record payments.'),
+        ),
+      );
+      return;
+    }
     try {
+      if (complete) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Record payment for this step?'),
+            content: Text(
+              'This will log a manual payment for Step $step and unlock the next onboarding milestone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppButtonColors.cancelBg,
+                  foregroundColor: AppButtonColors.cancelFg,
+                  side: const BorderSide(
+                    color: AppButtonColors.whiteRing,
+                    width: 2,
+                  ),
+                ),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppButtonColors.saveBg,
+                  foregroundColor: AppButtonColors.saveFg,
+                  side: const BorderSide(
+                    color: AppButtonColors.whiteRing,
+                    width: 2,
+                  ),
+                ),
+                child: const Text('Record payment'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        final paidAt = DateTime.now();
+        await ref.read(remunerationServiceProvider).recordManualPayment(
+          memberId: member.id,
+          memberName: member.fullName,
+          secretaryId: user.id,
+          stepNumber: step,
+          paymentDateTime: paidAt,
+          receiptNumber: 'AUTO-${paidAt.millisecondsSinceEpoch}',
+          notes: 'Manual payment recorded in member form',
+        );
+        await ref.read(activityServiceProvider).record(
+          userName: user.displayName,
+          action:
+              '[ACT-PAY-MEMBER-FORM] 💳 recorded_manual_payment for ${member.fullName} step_$step',
+          captureGps: false,
+        );
+      }
       final updated = await ref.read(memberLockServiceProvider).setOnboardingStep(
             member: member,
             actor: user,
@@ -2541,7 +2370,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (!member.allStepsComplete) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Check all 4 onboarding steps before completing.'),
+          content: Text('⚠️ Check all 5 onboarding steps before completing.'),
         ),
       );
       return;

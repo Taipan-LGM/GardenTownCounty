@@ -37,6 +37,7 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -46,10 +47,10 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Duplicate Manager',
-                    style: TextStyle(
+                    strings.duplicateManagement,
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.labelText,
@@ -57,7 +58,7 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Refresh',
+                  tooltip: strings.refresh,
                   color: AppTheme.labelText,
                   onPressed: () => setState(_reload),
                   icon: const Icon(Icons.refresh),
@@ -88,9 +89,9 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
                         color: Colors.green.shade700,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'No Duplicates Found',
-                        style: TextStyle(
+                      Text(
+                        strings.noDuplicatesFound,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.bodyText,
@@ -190,9 +191,16 @@ Future<void> showDuplicateReportDialog(BuildContext context) {
         constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
         child: Column(
           children: [
-            const Padding(
-              padding: formDialogTitlePadding,
-              child: FormDialogTitle(title: 'Duplicate Manager'),
+            Consumer(
+              builder: (context, ref, _) {
+                final strings = ref.watch(appStringsProvider);
+                return Padding(
+                  padding: formDialogTitlePadding,
+                  child: FormDialogTitle(
+                    title: strings.duplicateManagement,
+                  ),
+                );
+              },
             ),
             const Divider(height: 1),
             const Expanded(child: DuplicateReportScreen()),

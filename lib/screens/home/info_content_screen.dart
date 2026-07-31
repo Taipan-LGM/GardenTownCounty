@@ -71,9 +71,11 @@ class InfoContentScreen extends ConsumerWidget {
                     : ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: articles.length,
+                        itemExtent: 220,
                         itemBuilder: (context, index) {
+                          final article = articles[index];
                           return _ArticleCard(
-                            article: articles[index],
+                            article: article,
                             isAdmin: isAdmin,
                             onChanged: () =>
                                 ref.invalidate(publishedArticlesProvider),

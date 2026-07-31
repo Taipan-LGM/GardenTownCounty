@@ -483,6 +483,9 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
             ActionButton(
               onPressed: () => Navigator.pop(context),
               text: 'Close',
+              backgroundColor: AppButtonColors.closeBg,
+              foregroundColor: AppButtonColors.closeFg,
+              borderColor: AppButtonColors.whiteRing,
             ),
           ],
         ),

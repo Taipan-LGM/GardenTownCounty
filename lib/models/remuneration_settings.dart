@@ -8,9 +8,15 @@ import 'package:uuid/uuid.dart';
 class RemunerationSettings {
   final String id;
   final String? firestoreId;
+  final double step1Amount;
   final double step2Amount;
   final double step3Amount;
   final double step4Amount;
+  final double step5Amount;
+  final String bankAccountName;
+  final String bankName;
+  final String bankAccountNumber;
+  final String bankAccountCode;
   final List<ExtraService> extraServices;
   final DateTime lastUpdated;
   final String syncStatus;
@@ -18,9 +24,15 @@ class RemunerationSettings {
   const RemunerationSettings({
     required this.id,
     this.firestoreId,
+    this.step1Amount = 100,
     this.step2Amount = 200,
     this.step3Amount = 300,
     this.step4Amount = 250,
+    this.step5Amount = 150,
+    this.bankAccountName = 'Garden Town County',
+    this.bankName = 'Capitec Bank',
+    this.bankAccountNumber = '',
+    this.bankAccountCode = '',
     this.extraServices = const [],
     required this.lastUpdated,
     this.syncStatus = 'pending',
@@ -36,9 +48,15 @@ class RemunerationSettings {
   RemunerationSettings copyWith({
     String? id,
     String? firestoreId,
+    double? step1Amount,
     double? step2Amount,
     double? step3Amount,
     double? step4Amount,
+    double? step5Amount,
+    String? bankAccountName,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountCode,
     List<ExtraService>? extraServices,
     DateTime? lastUpdated,
     String? syncStatus,
@@ -46,9 +64,15 @@ class RemunerationSettings {
     return RemunerationSettings(
       id: id ?? this.id,
       firestoreId: firestoreId ?? this.firestoreId,
+      step1Amount: step1Amount ?? this.step1Amount,
       step2Amount: step2Amount ?? this.step2Amount,
       step3Amount: step3Amount ?? this.step3Amount,
       step4Amount: step4Amount ?? this.step4Amount,
+      step5Amount: step5Amount ?? this.step5Amount,
+      bankAccountName: bankAccountName ?? this.bankAccountName,
+      bankName: bankName ?? this.bankName,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+      bankAccountCode: bankAccountCode ?? this.bankAccountCode,
       extraServices: extraServices ?? this.extraServices,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       syncStatus: syncStatus ?? this.syncStatus,
@@ -58,9 +82,15 @@ class RemunerationSettings {
   Map<String, dynamic> toMap() => {
         'id': id,
         'firestoreId': firestoreId,
+        'step1Amount': step1Amount,
         'step2Amount': step2Amount,
         'step3Amount': step3Amount,
         'step4Amount': step4Amount,
+        'step5Amount': step5Amount,
+        'bankAccountName': bankAccountName,
+        'bankName': bankName,
+        'bankAccountNumber': bankAccountNumber,
+        'bankAccountCode': bankAccountCode,
         'extraServicesJson': ExtraService.encodeList(extraServices),
         'lastUpdated': lastUpdated.toIso8601String(),
         'syncStatus': syncStatus,
@@ -70,9 +100,16 @@ class RemunerationSettings {
     return RemunerationSettings(
       id: map['id'] as String,
       firestoreId: map['firestoreId'] as String?,
+      step1Amount: (map['step1Amount'] as num?)?.toDouble() ?? 100,
       step2Amount: (map['step2Amount'] as num?)?.toDouble() ?? 200,
       step3Amount: (map['step3Amount'] as num?)?.toDouble() ?? 300,
       step4Amount: (map['step4Amount'] as num?)?.toDouble() ?? 250,
+      step5Amount: (map['step5Amount'] as num?)?.toDouble() ?? 150,
+      bankAccountName:
+          map['bankAccountName'] as String? ?? 'Garden Town County',
+      bankName: map['bankName'] as String? ?? 'Capitec Bank',
+      bankAccountNumber: map['bankAccountNumber'] as String? ?? '',
+      bankAccountCode: map['bankAccountCode'] as String? ?? '',
       extraServices: ExtraService.decodeList(
         map['extraServicesJson'] as String? ?? '[]',
       ),

@@ -511,7 +511,15 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
                     IconButton(
                       tooltip: 'Close',
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppButtonColors.closeBg,
+                        foregroundColor: AppButtonColors.closeFg,
+                        side: const BorderSide(
+                          color: AppButtonColors.whiteRing,
+                          width: 2.0,
+                        ),
+                      ),
+                      icon: const Icon(Icons.close),
                     ),
                   ],
                 ),

@@ -67,6 +67,7 @@ class SyncEngine {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _videosSub;
   Timer? _pushTimer;
   bool _pushing = false;
+  bool _started = false;
 
   final _statusController = StreamController<SyncState>.broadcast();
   SyncState _state = const SyncState(status: SyncUiStatus.offline);
@@ -87,6 +88,9 @@ class SyncEngine {
   }
 
   Future<void> start() async {
+    if (_started) return;
+    _started = true;
+
     if (!isCloudEnabled) {
       _emit(const SyncState(
         status: SyncUiStatus.offline,
@@ -100,11 +104,12 @@ class SyncEngine {
     _listenCloud();
     _pushTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => pushPending(),
+      (_) => unawaited(pushPending()),
     );
   }
 
   Future<void> stop() async {
+    _started = false;
     await _membersSub?.cancel();
     await _lookupsSub?.cancel();
     await _filesSub?.cancel();
@@ -118,6 +123,7 @@ class SyncEngine {
     await _articlesSub?.cancel();
     await _videosSub?.cancel();
     _pushTimer?.cancel();
+    _pushTimer = null;
   }
 
   Future<void> dispose() async {
@@ -368,7 +374,9 @@ class SyncEngine {
   Future<void> pushPending() async {
     if (!isCloudEnabled || _pushing) return;
     _pushing = true;
-    _emit(_state.copyWith(status: SyncUiStatus.syncing, message: 'Syncing…'));
+    if (_state.status != SyncUiStatus.syncing) {
+      _emit(_state.copyWith(status: SyncUiStatus.syncing, message: 'Syncing…'));
+    }
 
     var attempt = 0;
     const maxAttempts = 4;

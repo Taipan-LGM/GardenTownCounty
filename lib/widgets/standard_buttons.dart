@@ -15,6 +15,12 @@ abstract final class AppButtonColors {
   static Color get cancelBg => Colors.black;
   static Color get cancelFg => Colors.white;
 
+  static Color get closeBg => Colors.red.shade700;
+  static Color get closeFg => Colors.white;
+
+  static Color get newBg => Colors.yellow.shade600;
+  static Color get newFg => Colors.black;
+
   static Color get saveBg => Colors.green.shade700;
   static Color get saveFg => Colors.white;
 
@@ -24,16 +30,13 @@ abstract final class AppButtonColors {
   static Color get addBg => Colors.blue.shade700;
   static Color get addFg => Colors.white;
 
-  /// Distinct from Add (blue) and Backup (teal).
-  static Color get actionBg => Colors.indigo.shade700;
+  static Color get actionBg => Colors.blue.shade700;
   static Color get actionFg => Colors.white;
 
-  /// Distinct from Add (blue) and Action (indigo).
-  static Color get backupBg => Colors.teal.shade700;
+  static Color get backupBg => Colors.blue.shade700;
   static Color get backupFg => Colors.white;
 
-  /// Distinct from Save (green.shade700).
-  static Color get enableBg => Colors.lightGreen.shade800;
+  static Color get enableBg => Colors.green.shade700;
   static Color get enableFg => Colors.white;
 
   static Color get viewBg => Colors.grey.shade700;
@@ -43,15 +46,14 @@ abstract final class AppButtonColors {
   static Color get editBg => Colors.amber.shade600;
   static Color get editFg => Colors.black;
 
-  /// Distinct from Edit (amber.shade600) — lighter peach.
-  static Color get restoreBg => const Color(0xFFFFCC80);
+  static Color get restoreBg => Colors.amber.shade600;
   static Color get restoreFg => Colors.black;
 
   static BorderSide ringFor(Color bg) {
     final dark = bg.computeLuminance() < 0.45;
     return BorderSide(
       color: dark ? whiteRing : blackRing,
-      width: 2.5,
+      width: 2.0,
     );
   }
 }
@@ -83,6 +85,7 @@ TextStyle _labelStyle({
 Widget _buttonChild({
   required String text,
   required Color color,
+  Color? textColor,
   IconData? icon,
   bool isLoading = false,
   double fontSize = 14,
@@ -97,7 +100,10 @@ Widget _buttonChild({
       ),
     );
   }
-  final label = Text(text, style: _labelStyle(color: color, fontSize: fontSize));
+  final label = Text(
+    text,
+    style: _labelStyle(color: textColor ?? color, fontSize: fontSize),
+  );
   if (icon == null) return label;
   return Row(
     mainAxisAlignment: MainAxisAlignment.center,
@@ -138,6 +144,9 @@ class CancelButton extends StatelessWidget {
     this.height,
     this.fontSize,
     this.icon,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.borderColor,
   });
 
   final VoidCallback? onPressed;
@@ -146,10 +155,14 @@ class CancelButton extends StatelessWidget {
   final double? height;
   final double? fontSize;
   final IconData? icon;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
-    final bg = AppButtonColors.cancelBg;
+    final bg = backgroundColor ?? AppButtonColors.cancelBg;
+    final fg = foregroundColor ?? AppButtonColors.cancelFg;
     return _wrapSize(
       width: width,
       height: height,
@@ -157,16 +170,18 @@ class CancelButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: bg,
-          foregroundColor: AppButtonColors.cancelFg,
+          foregroundColor: fg,
           disabledForegroundColor: Colors.white54,
           disabledBackgroundColor: Colors.grey.shade900,
-          side: AppButtonColors.ringFor(bg),
+          side: borderColor == null
+              ? AppButtonColors.ringFor(bg)
+              : BorderSide(color: borderColor!, width: 2.0),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         child: _buttonChild(
           text: text,
-          color: AppButtonColors.cancelFg,
+          color: fg,
           icon: icon,
           fontSize: fontSize ?? 14,
         ),
@@ -187,6 +202,7 @@ class SaveButton extends StatelessWidget {
     this.width,
     this.height,
     this.icon,
+    this.textColor,
   });
 
   final VoidCallback? onPressed;
@@ -195,6 +211,7 @@ class SaveButton extends StatelessWidget {
   final double? width;
   final double? height;
   final IconData? icon;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +225,7 @@ class SaveButton extends StatelessWidget {
         child: _buttonChild(
           text: text,
           color: AppButtonColors.saveFg,
+          textColor: textColor,
           icon: icon,
           isLoading: isLoading,
         ),
@@ -227,6 +245,7 @@ class DeleteButton extends StatelessWidget {
     this.width,
     this.height,
     this.icon,
+    this.textColor,
   });
 
   final VoidCallback? onPressed;
@@ -234,6 +253,7 @@ class DeleteButton extends StatelessWidget {
   final double? width;
   final double? height;
   final IconData? icon;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +285,9 @@ class AddButton extends StatelessWidget {
     this.width,
     this.height,
     this.icon,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.borderColor,
   });
 
   final VoidCallback? onPressed;
@@ -272,19 +295,31 @@ class AddButton extends StatelessWidget {
   final double? width;
   final double? height;
   final IconData? icon;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
-    final bg = AppButtonColors.addBg;
+    final bg = backgroundColor ?? AppButtonColors.addBg;
+    final fg = foregroundColor ?? AppButtonColors.addFg;
     return _wrapSize(
       width: width,
       height: height,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: _filledStyle(bg: bg, fg: AppButtonColors.addFg),
+        style: _filledStyle(bg: bg, fg: fg).copyWith(
+          foregroundColor: WidgetStatePropertyAll(fg),
+          iconColor: WidgetStatePropertyAll(fg),
+          side: borderColor == null
+              ? null
+              : WidgetStatePropertyAll(
+                  BorderSide(color: borderColor!, width: 2.0),
+                ),
+        ),
         child: _buttonChild(
           text: text,
-          color: AppButtonColors.addFg,
+          color: fg,
           icon: icon,
         ),
       ),
@@ -319,7 +354,10 @@ class EditButton extends StatelessWidget {
       height: height,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: _filledStyle(bg: bg, fg: AppButtonColors.editFg),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.editFg).copyWith(
+          foregroundColor: WidgetStatePropertyAll(AppButtonColors.editFg),
+          iconColor: WidgetStatePropertyAll(AppButtonColors.editFg),
+        ),
         child: _buttonChild(
           text: text,
           color: AppButtonColors.editFg,
@@ -361,7 +399,10 @@ class ViewButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           backgroundColor: bg,
           foregroundColor: AppButtonColors.viewFg,
-          side: AppButtonColors.ringFor(bg),
+          side: const BorderSide(
+            color: AppButtonColors.blackRing,
+            width: 2.0,
+          ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
@@ -388,6 +429,9 @@ class ActionButton extends StatelessWidget {
     this.height,
     this.icon,
     this.isLoading = false,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.borderColor,
   });
 
   final VoidCallback? onPressed;
@@ -396,24 +440,35 @@ class ActionButton extends StatelessWidget {
   final double? height;
   final IconData? icon;
   final bool isLoading;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
-    final bg = AppButtonColors.actionBg;
+    final bg = backgroundColor ?? AppButtonColors.actionBg;
+    final fg = foregroundColor ?? AppButtonColors.actionFg;
     return _wrapSize(
       width: width,
       height: height,
       defaultHeight: 40,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style: _filledStyle(bg: bg, fg: AppButtonColors.actionFg).copyWith(
+        style: _filledStyle(bg: bg, fg: fg).copyWith(
+          foregroundColor: WidgetStatePropertyAll(fg),
+          iconColor: WidgetStatePropertyAll(fg),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           ),
+          side: borderColor == null
+              ? null
+              : WidgetStatePropertyAll(
+                  BorderSide(color: borderColor!, width: 2.0),
+                ),
         ),
         child: _buttonChild(
           text: text,
-          color: AppButtonColors.actionFg,
+          color: fg,
           icon: icon,
           isLoading: isLoading,
           fontSize: 13,
@@ -435,6 +490,7 @@ class SubmitButton extends StatelessWidget {
     this.width,
     this.height,
     this.icon,
+    this.textColor,
   });
 
   final VoidCallback? onPressed;
@@ -443,6 +499,7 @@ class SubmitButton extends StatelessWidget {
   final double? width;
   final double? height;
   final IconData? icon;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -453,6 +510,7 @@ class SubmitButton extends StatelessWidget {
       width: width,
       height: height,
       icon: icon,
+      textColor: textColor,
     );
   }
 }
@@ -522,7 +580,10 @@ class RestoreButton extends StatelessWidget {
       height: height,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: _filledStyle(bg: bg, fg: AppButtonColors.restoreFg),
+        style: _filledStyle(bg: bg, fg: AppButtonColors.restoreFg).copyWith(
+          foregroundColor: WidgetStatePropertyAll(AppButtonColors.restoreFg),
+          iconColor: WidgetStatePropertyAll(AppButtonColors.restoreFg),
+        ),
         child: _buttonChild(
           text: text,
           color: AppButtonColors.restoreFg,

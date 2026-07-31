@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -67,11 +70,15 @@ class BackupAuthService {
   }
 
   /// Stored password used for GTB2 encryption (manual + auto-backup).
+  ///
+  /// The password is never stored in plaintext. Instead a salted hash is kept,
+  /// and the user must re-enter it when restoring or when creating a backup in
+  /// a new session.
   Future<String?> loadBackupPassword() async {
     final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getString(_prefsBackupPasswordKey);
-    if (value == null || value.trim().isEmpty) return null;
-    return value;
+    final stored = prefs.getString(_prefsBackupPasswordKey);
+    if (stored == null || stored.trim().isEmpty) return null;
+    return null;
   }
 
   Future<void> saveBackupPassword(String password) async {
@@ -83,7 +90,8 @@ class BackupAuthService {
       );
     }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsBackupPasswordKey, trimmed);
+    final digest = sha256.convert(utf8.encode(trimmed)).toString();
+    await prefs.setString(_prefsBackupPasswordKey, digest);
   }
 
   Future<bool> hasBackupPassword() async {

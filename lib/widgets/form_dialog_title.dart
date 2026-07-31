@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import 'standard_buttons.dart';
 
 /// Standard dialog / form title with close (X) pinned to the far right.
 class FormDialogTitle extends StatelessWidget {
@@ -34,10 +35,15 @@ class FormDialogTitle extends StatelessWidget {
         IconButton(
           tooltip: 'Close',
           onPressed: onClose ?? () => Navigator.of(context).maybePop(),
-          icon: Icon(
-            Icons.close,
-            color: isDark ? Colors.white : AppTheme.bodyText,
+          style: IconButton.styleFrom(
+            backgroundColor: AppButtonColors.closeBg,
+            foregroundColor: AppButtonColors.closeFg,
+            side: const BorderSide(
+              color: AppButtonColors.whiteRing,
+              width: 2.0,
+            ),
           ),
+          icon: const Icon(Icons.close),
         ),
       ],
     );

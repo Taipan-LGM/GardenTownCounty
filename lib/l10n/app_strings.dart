@@ -1,3 +1,5 @@
+import '../models/member.dart';
+import '../models/member_navigation_state.dart';
 import '../navigation/app_section.dart';
 import '../services/app_preferences_service.dart';
 
@@ -23,7 +25,7 @@ class AppStrings {
   String get memberInfoForm =>
       isAf ? 'Lid-aansoekvorm' : 'Member Application Form';
   String get sos => 'SOS';
-  String get global528 => 'Step 1_Global 528';
+    String get global528 => isAf ? 'Betalings' : 'Payments';
   String get global528Step2 => 'Step 2_Global 528';
   String get global928 => 'Step 3_Global 928';
   String get lro => 'Step 4_LRO';
@@ -296,6 +298,229 @@ class AppStrings {
   String get allDataDeleted =>
       isAf ? 'Alle data geskrap' : 'All Data Deleted';
   String get errorLabel => isAf ? 'Fout' : 'Error';
+
+  // Member list / filters / nav
+  String get memberList => isAf ? 'LEDELYS' : 'MEMBER LIST';
+  String get filterTitle => isAf ? 'FILTERE' : 'FILTERS';
+  String get searchByNameSurnameSaId => isAf
+      ? 'Soek volgens naam, van of SA-ID...'
+      : 'Search by Name, Surname, or SA ID...';
+  String get noMembersMatchFilter =>
+      isAf ? 'Geen lede pas by hierdie filter nie.' : 'No members match this filter.';
+  String get newLabel => isAf ? 'Nuut' : 'New';
+  String get newMember => isAf ? 'Nuwe lid' : 'New Member';
+  String get upload => isAf ? 'Laai op' : 'Upload';
+  String get previous => isAf ? 'Vorige' : 'Previous';
+  String get next => isAf ? 'Volgende' : 'Next';
+  String previousNamed(String name) =>
+      isAf ? 'Vorige: $name' : 'Previous: $name';
+  String nextNamed(String name) => isAf ? 'Volgende: $name' : 'Next: $name';
+  String ofTotal(Object current, int total) =>
+      isAf ? '$current van $total' : '$current of $total';
+  String get statusActive => isAf ? 'Aktief' : 'Active';
+  String get statusLocked => isAf ? 'Gesluit' : 'Locked';
+  String get statusCancelled => isAf ? 'Gekanselleer' : 'Cancelled';
+  String get statusPending => isAf ? 'Hangende' : 'Pending';
+  String get favorites => isAf ? 'Gunstelinge' : 'Favorites';
+  String get ascending => isAf ? 'Stygend' : 'Ascending';
+  String get descending => isAf ? 'Dalend' : 'Descending';
+  String get sortName => isAf ? 'Naam' : 'Name';
+  String get sortSurname => isAf ? 'Van' : 'Surname';
+  String get sortSaId => 'SA ID';
+  String get sortUpdated => isAf ? 'Opgedateer' : 'Updated';
+  String get backToList =>
+      isAf ? 'Terug na lys (Esc)' : 'Back to List (Esc)';
+  String get viewProfile => isAf ? 'Bekyk profiel' : 'View Profile';
+  String get editMember => isAf ? 'Wysig lid' : 'Edit Member';
+  String get completeMember =>
+      isAf ? 'Voltooi lid' : 'Complete Member';
+  String get grantTempAccess =>
+      isAf ? 'Gee tydelike toegang' : 'Grant Temp Access';
+  String get addFavorite =>
+      isAf ? 'Voeg gunsteling by' : 'Add Favorite';
+  String get removeFavorite =>
+      isAf ? 'Verwyder gunsteling' : 'Remove Favorite';
+  String get copySaId => isAf ? 'Kopieer SA-ID' : 'Copy SA ID';
+  String get saIdCopied => isAf ? 'SA-ID gekopieer' : 'SA ID copied';
+  String get sendEmail => isAf ? 'Stuur e-pos' : 'Send Email';
+  String get callContact => isAf ? 'Bel kontak' : 'Call Contact';
+  String get deleteMember => isAf ? 'Skrap lid' : 'Delete Member';
+  String showingRange(int start, int end, int total) => isAf
+      ? 'Wys $start–$end van $total'
+      : 'Showing $start–$end of $total';
+
+  // Unsaved / discard
+  String get unsavedChangesTitle =>
+      isAf ? 'Ongestoorde veranderinge' : 'Unsaved Changes';
+  String get unsavedChangesBody => isAf
+      ? 'Jy het ongestoorde veranderinge vir hierdie lid.'
+      : 'You have unsaved changes to this member.';
+  String get whatWouldYouLike =>
+      isAf ? 'Wat wil jy doen?' : 'What would you like to do?';
+  String get unsavedChangesHint => isAf
+      ? 'Jou veranderinge sal verlore gaan as jy weggaan sonder om te stoor.'
+      : 'Your changes will be lost if you navigate away without saving.';
+  String get discardChanges =>
+      isAf ? 'Verwerp veranderinge' : 'Discard Changes';
+  String get stayHere => isAf ? 'Bly hier' : 'Stay Here';
+  String get saveChanges =>
+      isAf ? 'Stoor veranderinge' : 'Save Changes';
+  String get discardChangesConfirm =>
+      isAf ? 'Verwerp veranderinge?' : 'Discard Changes?';
+  String get discardChangesBody => isAf
+      ? 'Jy het ongestoorde veranderinge. Is jy seker jy wil dit verwerp?'
+      : 'You have unsaved changes. Are you sure you want to discard them?';
+  String get keepEditing => isAf ? 'Hou aan wysig' : 'Keep Editing';
+
+  // Legal
+  String get confidentialityTitle => isAf
+      ? 'Vertroulikheidsooreenkoms'
+      : 'Confidentiality Agreement';
+  String get confidentialityBody => isAf
+      ? 'Deur hierdie stelsel te gebruik, stem jy in tot die volgende:\n\n'
+          '1. Alle lidinligting is vertroulik.\n'
+          '2. Skermkiekies van geslote lidinligting is streng verbode.\n'
+          '3. Alle pogings om lidinligting vas te vang of te deel sal aangeteken word.\n'
+          '4. Ongemagtigde deling van lidinligting sal dissiplinêre optrede tot gevolg hê.\n\n'
+          'Aanvaar jy hierdie voorwaardes?'
+      : 'By accessing this system, you agree to the following:\n\n'
+          '1. All member information is confidential.\n'
+          '2. Screenshots of locked member information are strictly prohibited.\n'
+          '3. All attempts to capture or share member information will be logged.\n'
+          '4. Unauthorized sharing of member information will result in '
+          'disciplinary action.\n\n'
+          'Do you accept these terms?';
+  String get reject => isAf ? 'Weier' : 'Reject';
+  String get iAccept => isAf ? 'Ek aanvaar' : 'I Accept';
+
+  // Sync
+  String get synced => isAf ? 'Gesinkroniseer' : 'Synced';
+  String get syncing => isAf ? 'Sinkroniseer' : 'Syncing';
+  String get offline => isAf ? 'Aflyn' : 'Offline';
+  String get syncError => isAf ? 'Sinkroniseringsfout' : 'Sync error';
+  String get never => isAf ? 'Nooit' : 'Never';
+  String lastSyncedAt(String when) =>
+      isAf ? 'Laas gesinkroniseer: $when' : 'Last synced: $when';
+
+  // Onboarding checklist
+  String get onboardingProgress =>
+      isAf ? 'INDUKSIE-VORDERING' : 'ONBOARDING PROGRESS';
+  String get onboardingMustComplete => isAf
+      ? 'Lid moet 4 stappe voltooi om volledig te wees:'
+      : 'Member must complete 4 steps to become fully fledged:';
+  String get step1MemberInfo =>
+      isAf ? 'Stap 1: Lidinligting' : 'Step 1: Member Info';
+  String get step2Global528 => 'Step 2: Global 528';
+  String get step3Global928 => 'Step 3: Global 928';
+  String get step4Lro => 'Step 4: LRO';
+  String get completeMemberBtn =>
+      isAf ? 'Voltooi lid' : 'Complete Member';
+
+  // Cancel membership dialog
+  String get keepMembership =>
+      isAf ? 'Hou lidmaatskap' : 'Keep Membership';
+  String get cancellationReasonHint => isAf
+      ? 'Rede vir kansellasie (opsioneel)'
+      : 'Reason for cancellation (optional)';
+
+  // Photo / edit mode
+  String get memberPhoto => isAf ? 'Lidfoto' : 'Member Photo';
+  String get uploadPhoto => isAf ? 'Laai foto op' : 'Upload Photo';
+  String get changePhoto => isAf ? 'Verander foto' : 'Change Photo';
+  String get remove => isAf ? 'Verwyder' : 'Remove';
+  String get editMode => isAf ? 'WYSIG-MODUS' : 'EDIT MODE';
+  String get viewMode => isAf ? 'KYK-MODUS' : 'VIEW MODE';
+  String get address => isAf ? 'Adres *' : 'Address *';
+  String get comment => isAf ? 'Opmerking' : 'Comment';
+
+  // Lock / temp access (common)
+  String get memberLocked =>
+      isAf ? 'Hierdie lid is gesluit' : 'This member is locked';
+  String get enterTempAccessCode => isAf
+      ? 'Voer tydelike toegangskode in'
+      : 'Enter Temporary Access Code';
+  String get grantTemporaryAccess =>
+      isAf ? 'Gee tydelike toegang' : 'Grant Temporary Access';
+  String get selectRecordingSecretary => isAf
+      ? 'Kies Opnamesekretaris'
+      : 'Select Recording Secretary';
+  String get reasonForAccess =>
+      isAf ? 'Rede vir toegang *' : 'Reason for Access *';
+  String get lockedMembers =>
+      isAf ? 'Geslote lede' : 'Locked Members';
+  String get unlockMember => isAf ? 'Ontsluit lid' : 'Unlock Member';
+  String get noLockedMembers =>
+      isAf ? 'Nog geen geslote lede nie.' : 'No locked members yet.';
+
+  // Files / duplicates
+  String get noFilesUploaded =>
+      isAf ? 'Nog geen lêers opgelaai nie.' : 'No files uploaded yet.';
+  String get briefFileDescription =>
+      isAf ? 'Kort lêerbeskrywing' : 'Brief File Description';
+  String get duplicateDetected =>
+      isAf ? 'Duplikaat gevind' : 'Duplicate Detected';
+  String get viewExistingMember =>
+      isAf ? 'Bekyk bestaande lid' : 'View Existing Member';
+  String get noDuplicatesFound =>
+      isAf ? 'Geen duplikate gevind nie' : 'No Duplicates Found';
+  String get moduleComingSoon =>
+      isAf ? 'Module kom binnekort.' : 'Module coming soon.';
+  String get starting => isAf ? 'Begin…' : 'Starting…';
+  String get adminOnly => isAf ? 'Slegs Admin' : 'Admin Only';
+  String get savePermissions =>
+      isAf ? 'Stoor regte' : 'Save Permissions';
+  String get recordingSecretaryRights =>
+      isAf ? 'OPNAMESEKRETARIS-REGTE' : 'RECORDING SECRETARY RIGHTS';
+  String get searchRecordingSecretaries => isAf
+      ? 'Soek Opnamesekretarisse…'
+      : 'Search Recording Secretaries…';
+  String get reinstateMember =>
+      isAf ? 'Herstel lid?' : 'Reinstate Member?';
+  String get yesReinstate =>
+      isAf ? 'Ja, herstel' : 'Yes, Reinstate';
+  String get searchCancelledMembers => isAf
+      ? 'Soek gekanselleerde lede…'
+      : 'Search Cancelled Members…';
+
+  String quickFilterLabel(MemberQuickFilter f) {
+    switch (f) {
+      case MemberQuickFilter.all:
+        return filterAll;
+      case MemberQuickFilter.active:
+        return statusActive;
+      case MemberQuickFilter.pending:
+        return statusPending;
+      case MemberQuickFilter.locked:
+        return statusLocked;
+      case MemberQuickFilter.newMembers:
+        return filterNew;
+      case MemberQuickFilter.favorites:
+        return favorites;
+    }
+  }
+
+  String sortLabel(MemberSortBy sort) {
+    switch (sort) {
+      case MemberSortBy.name:
+        return sortName;
+      case MemberSortBy.surname:
+        return sortSurname;
+      case MemberSortBy.saId:
+        return sortSaId;
+      case MemberSortBy.date:
+        return sortUpdated;
+    }
+  }
+
+  String memberStatusLabel(Member m) {
+    if (m.isCancelled) return statusCancelled;
+    if (m.isLocked) return statusLocked;
+    if (m.registrationStatus == 'pending' ||
+        m.registrationStatus == 'in_progress') {
+      return statusPending;
+    }
+    return statusActive;
+  }
 
   /// Localized drawer row for [AppDrawerCatalog] item ids.
   String drawerLabel(String id) {

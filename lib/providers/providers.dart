@@ -25,6 +25,7 @@ import '../services/auto_backup_scheduler.dart';
 import '../services/backup_auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/bulk_import_service.dart';
+import '../services/card_payment_gateway.dart';
 import '../services/claims_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/county_info_service.dart';
@@ -206,6 +207,10 @@ final activityServiceProvider = Provider<ActivityService>((ref) {
   );
 });
 
+final cardPaymentGatewayProvider = Provider<CardPaymentGateway>((ref) {
+  return CardPaymentGateway();
+});
+
 final messagingServiceProvider = Provider<MessagingService>((ref) {
   return MessagingService();
 });
@@ -354,6 +359,7 @@ final remunerationServiceProvider = Provider<RemunerationService>((ref) {
   return RemunerationService(
     ref.watch(databaseServiceProvider),
     notifications: ref.watch(reminderNotificationServiceProvider),
+    activity: ref.watch(activityServiceProvider),
   );
 });
 
@@ -426,22 +432,18 @@ final appRefreshTickProvider = StateProvider<int>((ref) => 0);
 Future<void> refreshApp(WidgetRef ref) async {
   await ref.read(syncEngineProvider).pushPending();
   ref.invalidate(membersProvider);
-  ref.invalidate(lockedMembersProvider);
-  ref.invalidate(cancelledMembersProvider);
   ref.invalidate(activitiesProvider);
   ref.invalidate(sosPresetsProvider);
   ref.invalidate(appUsersProvider);
-  ref.invalidate(rolesProvider);
   ref.invalidate(remindersProvider);
   ref.invalidate(activeOnboardingRemindersProvider);
   ref.invalidate(reminderStatsProvider);
   ref.invalidate(activeReminderCountProvider);
-  ref.invalidate(backupAuthProvider);
-  ref.invalidate(lastBackupAtProvider);
-  ref.invalidate(countyProfileProvider);
   ref.invalidate(publishedArticlesProvider);
   ref.invalidate(activeVideosProvider);
-  // Paginated member queries (family) — bump refresh tick covers list UIs.
+  ref.invalidate(countyProfileProvider);
+  ref.invalidate(backupAuthProvider);
+  ref.invalidate(lastBackupAtProvider);
   for (final type in LookupType.values) {
     ref.invalidate(lookupsProvider(type));
   }

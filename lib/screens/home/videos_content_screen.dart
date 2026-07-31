@@ -76,6 +76,7 @@ class VideosContentScreen extends ConsumerWidget {
                                   : 1;
                           return GridView.builder(
                             padding: const EdgeInsets.all(16),
+                            cacheExtent: 400,
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: cross,
@@ -85,8 +86,9 @@ class VideosContentScreen extends ConsumerWidget {
                             ),
                             itemCount: videos.length,
                             itemBuilder: (context, index) {
+                              final video = videos[index];
                               return _VideoCard(
-                                video: videos[index],
+                                video: video,
                                 isAdmin: isAdmin,
                                 onChanged: () =>
                                     ref.invalidate(activeVideosProvider),

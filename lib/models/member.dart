@@ -28,19 +28,22 @@ class Member {
   final DateTime? emailVerifiedDate;
   final DateTime? registrationDate;
 
-  // 4-step completion
+  // 5-step onboarding completion
   final bool step1MemberInfoComplete;
   final bool step2Global528Complete;
   final bool step3Global928Complete;
   final bool step4LROComplete;
+  final bool step5CredentialCardComplete;
   final DateTime? step1CompletionDate;
   final DateTime? step2CompletionDate;
   final DateTime? step3CompletionDate;
   final DateTime? step4CompletionDate;
+  final DateTime? step5CompletionDate;
   final String? step1ApprovedBy;
   final String? step2ApprovedBy;
   final String? step3ApprovedBy;
   final String? step4ApprovedBy;
+  final String? step5ApprovedBy;
 
   // View-only lock
   final bool isLocked;
@@ -107,14 +110,17 @@ class Member {
     this.step2Global528Complete = false,
     this.step3Global928Complete = false,
     this.step4LROComplete = false,
+    this.step5CredentialCardComplete = false,
     this.step1CompletionDate,
     this.step2CompletionDate,
     this.step3CompletionDate,
     this.step4CompletionDate,
+    this.step5CompletionDate,
     this.step1ApprovedBy,
     this.step2ApprovedBy,
     this.step3ApprovedBy,
     this.step4ApprovedBy,
+    this.step5ApprovedBy,
     this.isLocked = false,
     this.lockedDate,
     this.lockedBy,
@@ -146,11 +152,22 @@ class Member {
     this.deleted = false,
   });
 
+  int get totalStepCount => 5;
+
+  int get completedStepCount => [
+        step1MemberInfoComplete,
+        step2Global528Complete,
+        step3Global928Complete,
+        step4LROComplete,
+        step5CredentialCardComplete,
+      ].where((value) => value).length;
+
   bool get allStepsComplete =>
       step1MemberInfoComplete &&
       step2Global528Complete &&
       step3Global928Complete &&
-      step4LROComplete;
+      step4LROComplete &&
+      step5CredentialCardComplete;
 
   bool get hasActiveTemporaryAccess {
     final code = temporaryAccessCode;
@@ -234,14 +251,17 @@ class Member {
     bool? step2Global528Complete,
     bool? step3Global928Complete,
     bool? step4LROComplete,
+    bool? step5CredentialCardComplete,
     DateTime? step1CompletionDate,
     DateTime? step2CompletionDate,
     DateTime? step3CompletionDate,
     DateTime? step4CompletionDate,
+    DateTime? step5CompletionDate,
     String? step1ApprovedBy,
     String? step2ApprovedBy,
     String? step3ApprovedBy,
     String? step4ApprovedBy,
+    String? step5ApprovedBy,
     bool? isLocked,
     DateTime? lockedDate,
     String? lockedBy,
@@ -311,14 +331,18 @@ class Member {
       step3Global928Complete:
           step3Global928Complete ?? this.step3Global928Complete,
       step4LROComplete: step4LROComplete ?? this.step4LROComplete,
+      step5CredentialCardComplete:
+          step5CredentialCardComplete ?? this.step5CredentialCardComplete,
       step1CompletionDate: step1CompletionDate ?? this.step1CompletionDate,
       step2CompletionDate: step2CompletionDate ?? this.step2CompletionDate,
       step3CompletionDate: step3CompletionDate ?? this.step3CompletionDate,
       step4CompletionDate: step4CompletionDate ?? this.step4CompletionDate,
+      step5CompletionDate: step5CompletionDate ?? this.step5CompletionDate,
       step1ApprovedBy: step1ApprovedBy ?? this.step1ApprovedBy,
       step2ApprovedBy: step2ApprovedBy ?? this.step2ApprovedBy,
       step3ApprovedBy: step3ApprovedBy ?? this.step3ApprovedBy,
       step4ApprovedBy: step4ApprovedBy ?? this.step4ApprovedBy,
+      step5ApprovedBy: step5ApprovedBy ?? this.step5ApprovedBy,
       isLocked: clearLock ? false : (isLocked ?? this.isLocked),
       lockedDate: clearLock ? null : (lockedDate ?? this.lockedDate),
       lockedBy: clearLock ? null : (lockedBy ?? this.lockedBy),
@@ -406,14 +430,17 @@ class Member {
       'step2Global528Complete': step2Global528Complete ? 1 : 0,
       'step3Global928Complete': step3Global928Complete ? 1 : 0,
       'step4LROComplete': step4LROComplete ? 1 : 0,
+      'step5CredentialCardComplete': step5CredentialCardComplete ? 1 : 0,
       'step1CompletionDate': step1CompletionDate?.toIso8601String(),
       'step2CompletionDate': step2CompletionDate?.toIso8601String(),
       'step3CompletionDate': step3CompletionDate?.toIso8601String(),
       'step4CompletionDate': step4CompletionDate?.toIso8601String(),
+      'step5CompletionDate': step5CompletionDate?.toIso8601String(),
       'step1ApprovedBy': step1ApprovedBy,
       'step2ApprovedBy': step2ApprovedBy,
       'step3ApprovedBy': step3ApprovedBy,
       'step4ApprovedBy': step4ApprovedBy,
+      'step5ApprovedBy': step5ApprovedBy,
       'isLocked': isLocked ? 1 : 0,
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
@@ -475,14 +502,17 @@ class Member {
       'step2Global528Complete': step2Global528Complete,
       'step3Global928Complete': step3Global928Complete,
       'step4LROComplete': step4LROComplete,
+      'step5CredentialCardComplete': step5CredentialCardComplete,
       'step1CompletionDate': step1CompletionDate?.toIso8601String(),
       'step2CompletionDate': step2CompletionDate?.toIso8601String(),
       'step3CompletionDate': step3CompletionDate?.toIso8601String(),
       'step4CompletionDate': step4CompletionDate?.toIso8601String(),
+      'step5CompletionDate': step5CompletionDate?.toIso8601String(),
       'step1ApprovedBy': step1ApprovedBy,
       'step2ApprovedBy': step2ApprovedBy,
       'step3ApprovedBy': step3ApprovedBy,
       'step4ApprovedBy': step4ApprovedBy,
+      'step5ApprovedBy': step5ApprovedBy,
       'isLocked': isLocked,
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
@@ -542,14 +572,17 @@ class Member {
       step2Global528Complete: _asBool(map['step2Global528Complete']),
       step3Global928Complete: _asBool(map['step3Global928Complete']),
       step4LROComplete: _asBool(map['step4LROComplete']),
+      step5CredentialCardComplete: _asBool(map['step5CredentialCardComplete']),
       step1CompletionDate: _asDate(map['step1CompletionDate']),
       step2CompletionDate: _asDate(map['step2CompletionDate']),
       step3CompletionDate: _asDate(map['step3CompletionDate']),
       step4CompletionDate: _asDate(map['step4CompletionDate']),
+      step5CompletionDate: _asDate(map['step5CompletionDate']),
       step1ApprovedBy: map['step1ApprovedBy'] as String?,
       step2ApprovedBy: map['step2ApprovedBy'] as String?,
       step3ApprovedBy: map['step3ApprovedBy'] as String?,
       step4ApprovedBy: map['step4ApprovedBy'] as String?,
+      step5ApprovedBy: map['step5ApprovedBy'] as String?,
       isLocked: _asBool(map['isLocked']),
       lockedDate: _asDate(map['lockedDate']),
       lockedBy: map['lockedBy'] as String?,
@@ -592,6 +625,8 @@ class Member {
       'step2Global528Complete': map['step2Global528Complete'] == true ? 1 : 0,
       'step3Global928Complete': map['step3Global928Complete'] == true ? 1 : 0,
       'step4LROComplete': map['step4LROComplete'] == true ? 1 : 0,
+      'step5CredentialCardComplete':
+          map['step5CredentialCardComplete'] == true ? 1 : 0,
       'isLocked': map['isLocked'] == true ? 1 : 0,
       'isCancelled': map['isCancelled'] == true ? 1 : 0,
       'deleted': map['deleted'] == true ? 1 : 0,

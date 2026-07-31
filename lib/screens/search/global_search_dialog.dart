@@ -132,6 +132,9 @@ class _GlobalSearchDialogState extends ConsumerState<GlobalSearchDialog> {
         ActionButton(
           onPressed: () => Navigator.of(context).pop(),
           text: strings.close,
+          backgroundColor: AppButtonColors.closeBg,
+          foregroundColor: AppButtonColors.closeFg,
+          borderColor: AppButtonColors.whiteRing,
         ),
         ActionButton(
           onPressed: _search,

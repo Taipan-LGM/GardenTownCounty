@@ -7,23 +7,23 @@ import 'core/theme/app_theme.dart';
 import 'l10n/app_strings.dart';
 import 'models/user_role.dart';
 import 'providers/providers.dart';
-import 'services/app_preferences_service.dart';
-import 'services/auth_service.dart';
-import 'services/reminder_expiry_service.dart';
 import 'screens/activities/activities_screen.dart';
-import 'screens/auth/login_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/home/info_content_screen.dart';
 import 'screens/home/videos_content_screen.dart';
 import 'screens/landing/landing_screen.dart';
-import 'screens/member/duplicate_report_screen.dart';
 import 'screens/member/cancellations_screen.dart';
+import 'screens/member/duplicate_report_screen.dart';
 import 'screens/member/member_form_screen.dart';
-import 'screens/placeholders/placeholder_screen.dart';
+import 'screens/member/step_workflow_screen.dart';
 import 'screens/reminders/reminders_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/sos/sos_screen.dart';
 import 'screens/users/add_user_screen.dart';
+import 'services/app_preferences_service.dart';
+import 'services/auth_service.dart';
+import 'services/reminder_expiry_service.dart';
+import 'screens/auth/login_screen.dart';
 import 'widgets/app_drawer.dart';
 import 'widgets/app_top_bar.dart';
 import 'widgets/sync_status_indicator.dart';
@@ -70,11 +70,46 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _backupReminderShown = false;
+  late final Map<AppSection, Widget> _sectionBodies;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _sectionBodies = {
+      AppSection.home: LandingScreen(onFinished: _onLandingFinished),
+      AppSection.settings: const SettingsScreen(),
+      AppSection.memberInfo: const MemberFormScreen(),
+      AppSection.sos: const SosScreen(),
+      AppSection.reminders: const RemindersScreen(),
+      AppSection.activities: const ActivitiesScreen(),
+      AppSection.addUser: const AddUserScreen(),
+      AppSection.backupRestore: const BackupRestoreScreen(),
+      AppSection.global528: const StepWorkflowScreen(
+        stepNumber: 1,
+        title: 'Payments',
+      ),
+      AppSection.global528Step2: const StepWorkflowScreen(
+        stepNumber: 2,
+        title: 'Step 2_Global 528',
+      ),
+      AppSection.global928: const StepWorkflowScreen(
+        stepNumber: 3,
+        title: 'Step 3_Global 928',
+      ),
+      AppSection.lro: const StepWorkflowScreen(
+        stepNumber: 4,
+        title: 'Step 4_LRO',
+      ),
+      AppSection.credentialCard: const StepWorkflowScreen(
+        stepNumber: 5,
+        title: 'Step 5_Credential Card',
+      ),
+      AppSection.lockedMembers: const CancellationsScreen(),
+      AppSection.duplicateReport: const DuplicateReportScreen(),
+      AppSection.countyInfo: const InfoContentScreen(),
+      AppSection.countyVideos: const VideosContentScreen(),
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ReminderExpiryService.start(ref.read(reminderServiceProvider));
@@ -182,16 +217,12 @@ class _AppShellState extends ConsumerState<AppShell>
                         child: SizedBox(
                           height: constraints.maxHeight,
                           width: constraints.maxWidth,
-                          child: effectiveSection == AppSection.home
-                              ? LandingScreen(
-                                  onFinished: _onLandingFinished,
-                                )
-                              : KeyedSubtree(
-                                  key: ValueKey(
-                                    'section-$effectiveSection-$refreshTick-${language.name}',
-                                  ),
-                                  child: _bodyFor(effectiveSection),
-                                ),
+                          child: KeyedSubtree(
+                            key: ValueKey(
+                              'section-$effectiveSection-$refreshTick-${language.name}',
+                            ),
+                            child: _bodyFor(effectiveSection),
+                          ),
                         ),
                       ),
                     );
@@ -245,42 +276,47 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 
-  Widget _bodyFor(AppSection section) {
+  static int sectionIndexFor(AppSection section) {
     switch (section) {
       case AppSection.home:
-        return LandingScreen(onFinished: _onLandingFinished);
+        return 0;
       case AppSection.settings:
-        return const SettingsScreen();
+        return 1;
       case AppSection.memberInfo:
-        return const MemberFormScreen();
+        return 2;
       case AppSection.sos:
-        return const SosScreen();
+        return 3;
       case AppSection.reminders:
-        return const RemindersScreen();
+        return 4;
       case AppSection.activities:
-        return const ActivitiesScreen();
+        return 5;
       case AppSection.addUser:
-        return const AddUserScreen();
+        return 6;
       case AppSection.backupRestore:
-        return const BackupRestoreScreen();
+        return 7;
       case AppSection.global528:
-        return const PlaceholderScreen(title: 'Step 1_Global 528');
+        return 8;
       case AppSection.global528Step2:
-        return const PlaceholderScreen(title: 'Step 2_Global 528');
+        return 9;
       case AppSection.global928:
-        return const PlaceholderScreen(title: 'Step 3_Global 928');
+        return 10;
       case AppSection.lro:
-        return const PlaceholderScreen(title: 'Step 4_LRO');
+        return 11;
       case AppSection.credentialCard:
-        return const PlaceholderScreen(title: 'Step 5_Credential Card');
+        return 12;
       case AppSection.lockedMembers:
-        return const CancellationsScreen();
+        return 13;
       case AppSection.duplicateReport:
-        return const DuplicateReportScreen();
+        return 14;
       case AppSection.countyInfo:
-        return const InfoContentScreen();
+        return 15;
       case AppSection.countyVideos:
-        return const VideosContentScreen();
+        return 16;
     }
+  }
+
+  Widget _bodyFor(AppSection section) {
+    final body = _sectionBodies[section] ?? LandingScreen(onFinished: _onLandingFinished);
+    return body;
   }
 }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/member.dart';
+import '../../providers/providers.dart';
 import '../standard_buttons.dart';
 
 /// Top bar shown while viewing a member profile — First / Prev / Next / Last.
-class ProfileNavigationBar extends StatelessWidget {
+class ProfileNavigationBar extends ConsumerWidget {
   const ProfileNavigationBar({
     super.key,
     required this.currentMember,
@@ -62,7 +64,8 @@ class ProfileNavigationBar extends StatelessWidget {
   final ValueChanged<bool>? onRsRadioChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final fromDraft = currentIndex < 0;
     final hasPrev =
         (currentIndex > 0) || (fromDraft && totalMembers > 0);
@@ -145,6 +148,9 @@ class ProfileNavigationBar extends StatelessWidget {
                       text: 'New',
                       icon: Icons.person_add_outlined,
                       height: 40,
+                      backgroundColor: AppButtonColors.newBg,
+                      foregroundColor: AppButtonColors.newFg,
+                      borderColor: AppButtonColors.blackRing,
                     ),
                   ),
                 if (onEdit != null)
@@ -184,6 +190,9 @@ class ProfileNavigationBar extends StatelessWidget {
                     text: 'Close',
                     icon: Icons.close,
                     height: 40,
+                    backgroundColor: AppButtonColors.closeBg,
+                    foregroundColor: AppButtonColors.closeFg,
+                    borderColor: AppButtonColors.whiteRing,
                   ),
                 ),
               ],

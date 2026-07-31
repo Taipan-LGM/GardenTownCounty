@@ -17,6 +17,9 @@ class BackupCrypto {
   static const int _keyLength = 32;
 
   /// Encrypt with a user-chosen [password] (GTB2).
+  ///
+  /// New backups require a password supplied at runtime. The legacy app-wide
+  /// master password is no longer used for new exports.
   static Uint8List encrypt(Uint8List plain, {required String password}) {
     if (password.trim().length < 8) {
       throw Exception('Backup password must be at least 8 characters.');
@@ -64,11 +67,9 @@ class BackupCrypto {
       return _aesDecrypt(key, iv, cipherBytes);
     }
     if (magic == 'GTB1') {
-      // Legacy backups encrypted with the app master password.
-      final iv = payload.sublist(4, 20);
-      final cipherBytes = payload.sublist(20);
-      final key = _legacyMasterKey();
-      return _aesDecrypt(key, iv, cipherBytes);
+      throw Exception(
+        'Legacy GTB1 backups are not supported for restore in this build.',
+      );
     }
     throw Exception('Not a Garden Town Backup (.gtb) file.');
   }
@@ -101,13 +102,6 @@ class BackupCrypto {
     final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
       ..init(Pbkdf2Parameters(salt, _pbkdf2Iterations, _keyLength));
     return derivator.process(Uint8List.fromList(utf8.encode(password)));
-  }
-
-  static Uint8List _legacyMasterKey() {
-    final digest = sha256.convert(
-      utf8.encode(AppConstants.backupMasterPassword),
-    );
-    return Uint8List.fromList(digest.bytes);
   }
 
   static Uint8List _randomBytes(int length) {

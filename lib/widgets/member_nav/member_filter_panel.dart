@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/member_navigation_state.dart';
 import '../../providers/member_navigation_provider.dart';
+import '../../providers/providers.dart';
 
 class MemberFilterPanel extends ConsumerWidget {
   const MemberFilterPanel({
@@ -19,6 +20,7 @@ class MemberFilterPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(memberNavigationProvider).selectedFilter;
     final nav = ref.read(memberNavigationProvider.notifier);
+    final strings = ref.watch(appStringsProvider);
 
     final children = MemberQuickFilter.values.map((f) {
       final count = counts[f] ?? 0;
@@ -38,7 +40,7 @@ class MemberFilterPanel extends ConsumerWidget {
           ),
         ),
         title: Text(
-          '${f.label} ($count)',
+          '${strings.quickFilterLabel(f)} ($count)',
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             // MODIFIED - selected filter labels (incl. All) white on green
@@ -59,7 +61,7 @@ class MemberFilterPanel extends ConsumerWidget {
           return FilterChip(
             selected: isSelected,
             label: Text(
-              '${f.iconLabel} ${f.label} ($count)',
+              '${f.iconLabel} ${strings.quickFilterLabel(f)} ($count)',
               style: TextStyle(
                 color: isSelected ? Colors.white : null,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -81,15 +83,16 @@ class MemberFilterPanel extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(8, 8, 8, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
             child: Material(
               color: AppTheme.forestGreen,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  'FILTERS',
-                  style: TextStyle(
+                  strings.filterTitle,
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),

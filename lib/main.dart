@@ -3,44 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
-import 'providers/providers.dart';
-import 'services/database_service.dart';
-import 'services/firebase_bootstrap.dart';
+import 'services/app_bootstrap.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await FirebaseBootstrap.initialize();
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exception}');
+    if (details.stack != null) {
+      debugPrint(details.stack.toString());
+    }
+  };
 
-  // SQLite on desktop/mobile; in-memory store on web preview.
-  await DatabaseService.instance.init();
-  if (kIsWeb) {
-    debugPrint('Running web preview with in-memory database.');
-  }
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('PlatformDispatcher error: $error');
+    debugPrint(stack.toString());
+    return true;
+  };
 
   final container = ProviderContainer();
-  final auth = container.read(authServiceProvider);
-  await auth.restoreSession();
-  if (auth.currentUser != null) {
-    container.read(authUserProvider.notifier).state = auth.currentUser;
-  }
-
-  final prefs = container.read(appPreferencesServiceProvider);
-  container.read(themeModeProvider.notifier).state =
-      await prefs.loadThemeMode();
-  container.read(appLanguageProvider.notifier).state =
-      await prefs.loadLanguage();
-
-  final sync = container.read(syncEngineProvider);
-  await sync.start();
-
-  final connectivity = container.read(connectivityServiceProvider);
-  await connectivity.start();
-
-  final autoBackup = container.read(autoBackupSchedulerProvider);
-  autoBackup.start();
-
-  container.read(tempAccessExpiryServiceProvider).start();
+  await AppBootstrap.initialize(container);
 
   runApp(
     UncontrolledProviderScope(
@@ -49,3 +32,5 @@ Future<void> main() async {
     ),
   );
 }
+
+Widget buildApp() => const ProviderScope(child: GardenTownCountyApp());

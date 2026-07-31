@@ -48,6 +48,7 @@ Future<void> showMemberContextMenu({
   bool isFavorite = false,
   bool isAdmin = false,
 }) async {
+  final strings = ref.read(appStringsProvider);
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final selected = await showMenu<String>(
     context: context,
@@ -56,34 +57,41 @@ Future<void> showMemberContextMenu({
       Offset.zero & overlay.size,
     ),
     items: [
-      const PopupMenuItem(value: 'view', child: Text('👁️ View Profile')),
-      const PopupMenuItem(value: 'edit', child: Text('✏️ Edit Member')),
-      const PopupMenuItem(value: 'upload', child: Text('📎 Upload Files')),
+      PopupMenuItem(value: 'view', child: Text('👁️ ${strings.viewProfile}')),
+      PopupMenuItem(value: 'edit', child: Text('✏️ ${strings.editMember}')),
+      PopupMenuItem(value: 'upload', child: Text('📎 ${strings.uploadFiles}')),
       if (onComplete != null)
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'complete',
-          child: Text('🔒 Complete Member'),
+          child: Text('🔒 ${strings.completeMember}'),
         ),
       if (isAdmin && onGrantTempAccess != null)
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'grant',
-          child: Text('🔑 Grant Temp Access'),
+          child: Text('🔑 ${strings.grantTempAccess}'),
         ),
       PopupMenuItem(
         value: 'favorite',
-        child: Text(isFavorite ? '⭐ Remove Favorite' : '⭐ Add Favorite'),
+        child: Text(
+          isFavorite
+              ? '⭐ ${strings.removeFavorite}'
+              : '⭐ ${strings.addFavorite}',
+        ),
       ),
       const PopupMenuDivider(),
-      const PopupMenuItem(value: 'copy', child: Text('📋 Copy SA ID')),
+      PopupMenuItem(value: 'copy', child: Text('📋 ${strings.copySaId}')),
       if (member.emailAddress.trim().isNotEmpty)
-        const PopupMenuItem(value: 'email', child: Text('📧 Send Email')),
+        PopupMenuItem(value: 'email', child: Text('📧 ${strings.sendEmail}')),
       if (member.contactNo1.trim().isNotEmpty)
-        const PopupMenuItem(value: 'call', child: Text('📞 Call Contact')),
+        PopupMenuItem(value: 'call', child: Text('📞 ${strings.callContact}')),
       if (onDelete != null) ...[
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'delete',
-          child: Text('🗑️ Delete Member', style: TextStyle(color: Colors.red)),
+          child: Text(
+            '🗑️ ${strings.deleteMember}',
+            style: const TextStyle(color: Colors.red),
+          ),
         ),
       ],
     ],
@@ -106,7 +114,7 @@ Future<void> showMemberContextMenu({
       await Clipboard.setData(ClipboardData(text: member.saId));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('SA ID copied')),
+          SnackBar(content: Text(strings.saIdCopied)),
         );
       }
     case 'email':
@@ -173,6 +181,7 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
   Widget build(BuildContext context) {
     final navState = ref.watch(memberNavigationProvider);
     final nav = ref.read(memberNavigationProvider.notifier);
+    final strings = ref.watch(appStringsProvider);
     final users = ref.watch(appUsersProvider).valueOrNull ?? const [];
     // memberId → role badge for Admin/RS (AppUser.role, not Member column).
     // NEW ADDITION - role badges (Delete map + badge UI to revert)
@@ -214,10 +223,10 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'MEMBER LIST',
-                      style: TextStyle(
+                      strings.memberList,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.labelText,
                       ),
@@ -226,9 +235,12 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
                   if (widget.onAddNew != null)
                     AddButton(
                       onPressed: widget.onAddNew,
-                      text: 'New',
+                      text: strings.newLabel,
                       icon: Icons.person_add,
                       height: 35,
+                      backgroundColor: AppButtonColors.newBg,
+                      foregroundColor: AppButtonColors.newFg,
+                      borderColor: AppButtonColors.blackRing,
                     ),
                 ],
               ),
@@ -241,7 +253,7 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
             controller: _searchCtrl,
             focusNode: widget.searchFocusNode,
             decoration: InputDecoration(
-              hintText: 'Search by Name, Surname, or SA ID...',
+              hintText: strings.searchByNameSurnameSaId,
               prefixIcon: const Icon(Icons.search),
               suffixIcon: navState.searchQuery.isEmpty
                   ? null
@@ -275,7 +287,7 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
                       title: Text(m.fullName),
                       subtitle: Text('SA ID: ${m.saId}'),
                       trailing: Text(
-                        '${memberStatusEmoji(m)} ${MemberNavigationLogic.statusLabel(m)}',
+                        '${memberStatusEmoji(m)} ${strings.memberStatusLabel(m)}',
                       ),
                       onTap: () => widget.onOpen(m),
                     ),
@@ -291,12 +303,14 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
             children: [
               for (final sort in MemberSortBy.values)
                 ChoiceChip(
-                  label: Text(_sortLabel(sort)),
+                  label: Text(strings.sortLabel(sort)),
                   selected: navState.sortBy == sort,
                   onSelected: (_) => nav.setSort(sort),
                 ),
               IconButton(
-                tooltip: navState.sortAscending ? 'Ascending' : 'Descending',
+                tooltip: navState.sortAscending
+                    ? strings.ascending
+                    : strings.descending,
                 onPressed: () => nav.setSort(
                   navState.sortBy,
                   ascending: !navState.sortAscending,
@@ -314,7 +328,7 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
         const Divider(height: 1),
         Expanded(
           child: page.isEmpty
-              ? const Center(child: Text('No members match this filter.'))
+              ? Center(child: Text(strings.noMembersMatchFilter))
               : ListView.builder(
                   itemCount: page.length,
                   itemBuilder: (context, i) {
@@ -375,8 +389,8 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
             children: [
               Text(
                 filtered.isEmpty
-                    ? 'Showing 0 of 0'
-                    : 'Showing $start-$end of ${filtered.length}',
+                    ? strings.showingRange(0, 0, 0)
+                    : strings.showingRange(start, end, filtered.length),
                 style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
               ),
               const Spacer(),
@@ -384,15 +398,15 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
                 onPressed:
                     navState.currentPage > 0 ? () => nav.previousPage() : null,
                 icon: const Icon(Icons.chevron_left),
-                tooltip: 'Previous page (←)',
+                tooltip: '${strings.previous} (←)',
               ),
-              Text('${navState.currentPage + 1} / $pages'),
+              Text(strings.ofTotal(navState.currentPage + 1, pages)),
               IconButton(
                 onPressed: navState.currentPage < pages - 1
                     ? () => nav.nextPage(filtered.length)
                     : null,
                 icon: const Icon(Icons.chevron_right),
-                tooltip: 'Next page (→)',
+                tooltip: '${strings.next} (→)',
               ),
             ],
           ),
@@ -401,21 +415,9 @@ class _MemberListPanelState extends ConsumerState<MemberListPanel> {
     );
   }
 
-  String _sortLabel(MemberSortBy sort) {
-    switch (sort) {
-      case MemberSortBy.name:
-        return 'Name';
-      case MemberSortBy.surname:
-        return 'Surname';
-      case MemberSortBy.saId:
-        return 'SA ID';
-      case MemberSortBy.date:
-        return 'Updated';
-    }
-  }
 }
 
-class _MemberRow extends StatelessWidget {
+class _MemberRow extends ConsumerWidget {
   const _MemberRow({
     required this.index,
     required this.member,
@@ -437,7 +439,8 @@ class _MemberRow extends StatelessWidget {
   final GestureTapDownCallback onSecondaryTapDown;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     return Material(
       color: highlighted
           ? AppTheme.forestGreen.withValues(alpha: 0.12)
@@ -526,7 +529,7 @@ class _MemberRow extends StatelessWidget {
                 ),
               ),
               Text(
-                '${memberStatusEmoji(member)} ${MemberNavigationLogic.statusLabel(member)}',
+                '${memberStatusEmoji(member)} ${strings.memberStatusLabel(member)}',
                 style: const TextStyle(fontSize: 12),
               ),
               if (isFavorite)

@@ -74,6 +74,7 @@ class AuthService {
   static const _prefsMemberIdKey = 'gtc_member_id';
 
   AuthUser? _currentUser;
+  String? _currentCredentialHash;
   AuthUser? get currentUser => _currentUser;
 
   /// Restore a prior session only when the local user still exists and is active.
@@ -111,10 +112,45 @@ class AuthService {
       throw Exception('Username and password are required.');
     }
 
-    if (FirebaseBootstrap.ready) {
-      return _signInWithFirebase(trimmed, password);
+    final user = FirebaseBootstrap.ready
+        ? await _signInWithFirebase(trimmed, password)
+        : await _signInLocally(trimmed, password);
+    _currentCredentialHash = PasswordHasher.hash(password);
+    return user;
+  }
+
+  Future<AppUser> verifyPaymentAssistantCredentials({
+    required String assistantId,
+    required String username,
+    required String password,
+  }) async {
+    if (username.trim().isEmpty || password.isEmpty) {
+      throw Exception('Username and password are required.');
     }
-    return _signInLocally(trimmed, password);
+
+    final assistant = await _db.getAppUserById(assistantId);
+    if (assistant == null ||
+        assistant.deleted ||
+        !assistant.active ||
+        (!assistant.isSecretary && !assistant.isAdmin)) {
+      throw Exception('The selected payment assistant account is unavailable.');
+    }
+    final usernameMatches =
+      assistant.username.toLowerCase() == username.trim().toLowerCase();
+    final sessionCredentialMatches = _currentUser?.id == assistant.id &&
+      _currentCredentialHash != null &&
+      PasswordHasher.verify(password, _currentCredentialHash!);
+    final storedCredentialMatches =
+      PasswordHasher.verify(password, assistant.passwordHash);
+    if (!usernameMatches ||
+      (!sessionCredentialMatches && !storedCredentialMatches)) {
+      throw Exception('Invalid credentials for ${assistant.displayName}.');
+    }
+
+    if (storedCredentialMatches) {
+      await _maybeUpgradePasswordHash(assistant, password);
+    }
+    return assistant;
   }
 
   Future<AuthUser> _signInWithFirebase(
@@ -174,9 +210,11 @@ class AuthService {
       return authUser;
     }
 
-    // Seeded admin bootstrap — only when local DB has no matching user yet,
-    // and only with the well-known demo credentials (debug UI may advertise them).
-    if (usernameOrEmail.toLowerCase() == AppConstants.demoUsername &&
+    // Explicit demo login is disabled outside a trusted development context.
+    // The app should require a real operator account instead of silently
+    // authenticating with the seeded admin credentials.
+    if (kDebugMode &&
+        usernameOrEmail.toLowerCase() == AppConstants.demoUsername &&
         password == AppConstants.demoPassword) {
       await _db.ensureSeedAdmin();
       final seeded =
@@ -527,6 +565,9 @@ class AuthService {
 
     if (actor != null && actor.id == updated.id) {
       await _persist(AuthUser.fromAppUser(updated, email: actor.email));
+      if (passwordHash != null) {
+        _currentCredentialHash = PasswordHasher.hash(newPassword!.trim());
+      }
     }
 
     return updated;
@@ -674,7 +715,9 @@ class AuthService {
     await prefs.remove(_prefsUsernameKey);
     await prefs.remove(_prefsPermissionsKey);
     await prefs.remove(_prefsMemberIdKey);
+    await prefs.remove('gtc_backup_password');
     _currentUser = null;
+    _currentCredentialHash = null;
   }
 
   Future<void> _persist(AuthUser user) async {

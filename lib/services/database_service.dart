@@ -166,7 +166,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 18,
+      version: 20,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -482,6 +482,40 @@ class DatabaseService extends _DatabaseServiceBase
     if (oldVersion < 18) {
       await _migrateMembersDropUniques(database);
     }
+    if (oldVersion < 19) {
+      await _addColumnIfMissing(database, 'members', 'step5CredentialCardComplete', 'INTEGER');
+      await _addColumnIfMissing(database, 'members', 'step5CompletionDate', 'TEXT');
+      await _addColumnIfMissing(database, 'members', 'step5ApprovedBy', 'TEXT');
+      await _addColumnIfMissing(database, 'remuneration_settings', 'step1Amount', 'REAL');
+      await _addColumnIfMissing(database, 'remuneration_settings', 'step5Amount', 'REAL');
+      await _addColumnIfMissing(database, 'remuneration_settings', 'bankDetails', 'TEXT');
+    }
+    if (oldVersion < 20) {
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'bankAccountName',
+        "TEXT NOT NULL DEFAULT 'Garden Town County'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'bankName',
+        "TEXT NOT NULL DEFAULT 'Capitec Bank'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'bankAccountNumber',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'bankAccountCode',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+    }
   }
 
   /// Rebuild members without UNIQUE(saId) / UNIQUE(globalRecordNo).
@@ -515,14 +549,17 @@ class DatabaseService extends _DatabaseServiceBase
         step2Global528Complete INTEGER,
         step3Global928Complete INTEGER,
         step4LROComplete INTEGER,
+        step5CredentialCardComplete INTEGER,
         step1CompletionDate TEXT,
         step2CompletionDate TEXT,
         step3CompletionDate TEXT,
         step4CompletionDate TEXT,
+        step5CompletionDate TEXT,
         step1ApprovedBy TEXT,
         step2ApprovedBy TEXT,
         step3ApprovedBy TEXT,
         step4ApprovedBy TEXT,
+        step5ApprovedBy TEXT,
         isLocked INTEGER,
         lockedDate TEXT,
         lockedBy TEXT,
@@ -576,9 +613,16 @@ class DatabaseService extends _DatabaseServiceBase
       CREATE TABLE IF NOT EXISTS remuneration_settings (
         id TEXT PRIMARY KEY,
         firestoreId TEXT,
+        step1Amount REAL NOT NULL DEFAULT 100,
         step2Amount REAL NOT NULL DEFAULT 200,
         step3Amount REAL NOT NULL DEFAULT 300,
         step4Amount REAL NOT NULL DEFAULT 250,
+        step5Amount REAL NOT NULL DEFAULT 150,
+        bankDetails TEXT NOT NULL DEFAULT 'Bank: Standard Bank\nAccount: 00123456789\nBranch: 001\nReference: Membership',
+        bankAccountName TEXT NOT NULL DEFAULT 'Garden Town County',
+        bankName TEXT NOT NULL DEFAULT 'Capitec Bank',
+        bankAccountNumber TEXT NOT NULL DEFAULT '',
+        bankAccountCode TEXT NOT NULL DEFAULT '',
         extraServicesJson TEXT NOT NULL DEFAULT '[]',
         lastUpdated TEXT NOT NULL,
         syncStatus TEXT NOT NULL DEFAULT 'pending'
@@ -859,14 +903,17 @@ class DatabaseService extends _DatabaseServiceBase
         step2Global528Complete INTEGER,
         step3Global928Complete INTEGER,
         step4LROComplete INTEGER,
+        step5CredentialCardComplete INTEGER,
         step1CompletionDate TEXT,
         step2CompletionDate TEXT,
         step3CompletionDate TEXT,
         step4CompletionDate TEXT,
+        step5CompletionDate TEXT,
         step1ApprovedBy TEXT,
         step2ApprovedBy TEXT,
         step3ApprovedBy TEXT,
         step4ApprovedBy TEXT,
+        step5ApprovedBy TEXT,
         isLocked INTEGER,
         lockedDate TEXT,
         lockedBy TEXT,

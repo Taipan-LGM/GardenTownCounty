@@ -1,4 +1,5 @@
 import '../models/app_user.dart';
+import '../models/activity_log.dart';
 import '../models/county_article.dart';
 import '../models/county_video.dart';
 import '../models/member.dart';
@@ -73,6 +74,38 @@ class DemoDataService {
     final cancelledCreated = await _generateCancelledMembers(now);
     final articlesCreated = await _generateInfoArticles(now);
     final videosCreated = await _generateVideos(now);
+
+    final auditEvents = [
+      ActivityLog(
+        id: 'demo_audit_payment',
+        userName: 'County Administrator',
+        action:
+            '[PAY-MANUAL-RECORDED] recorded_manual_payment for Mary Brown amount R 200.00',
+        occurredAt: now.subtract(const Duration(minutes: 4)),
+      ),
+      ActivityLog(
+        id: 'demo_audit_pdf_release',
+        userName: 'County Administrator',
+        action: '[DOC-PDF-RELEASED] pdf_released for Mary Brown',
+        occurredAt: now.subtract(const Duration(minutes: 3)),
+      ),
+      ActivityLog(
+        id: 'demo_audit_ai_id',
+        userName: 'County Administrator',
+        action: '[MEM-AI-ID-GENERATED] ai_id_generated for Mary Brown',
+        occurredAt: now.subtract(const Duration(minutes: 2)),
+      ),
+      ActivityLog(
+        id: 'demo_audit_card_issued',
+        userName: 'County Administrator',
+        action:
+            '[CARD-CREDENTIAL-ISSUED] credential_card_issued for Mary Brown',
+        occurredAt: now.subtract(const Duration(minutes: 1)),
+      ),
+    ];
+    for (final event in auditEvents) {
+      await _db.insertActivity(event);
+    }
 
     return DemoDataResult(
       membersCreated: membersCreated,

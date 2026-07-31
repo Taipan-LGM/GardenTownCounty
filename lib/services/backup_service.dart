@@ -39,7 +39,7 @@ class BackupService {
     onProgress?.call(0.7);
 
     final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
-    final resolvedPassword = password ?? await _auth.loadBackupPassword();
+    final resolvedPassword = password;
     if (resolvedPassword == null ||
         resolvedPassword.trim().length < AppConstants.backupPasswordMinLength) {
       throw Exception(

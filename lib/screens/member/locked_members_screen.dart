@@ -14,9 +14,10 @@ class LockedMembersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final user = ref.watch(authUserProvider);
     if (user == null || !user.isAdmin) {
-      return const Center(child: Text('Admin access required.'));
+      return Center(child: Text(strings.adminAccessRequired));
     }
 
     final membersAsync = ref.watch(membersProvider);
@@ -43,9 +44,9 @@ class LockedMembersScreen extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Locked Members',
-                style: TextStyle(
+              Text(
+                strings.lockedMembers,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.bodyText,
@@ -67,7 +68,7 @@ class LockedMembersScreen extends ConsumerWidget {
                 flex: 3,
                 child: Card(
                   child: locked.isEmpty
-                      ? const Center(child: Text('No locked members yet.'))
+                      ? Center(child: Text(strings.noLockedMembers))
                       : SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: SingleChildScrollView(
@@ -75,14 +76,16 @@ class LockedMembersScreen extends ConsumerWidget {
                               headingRowColor: WidgetStateProperty.all(
                                 AppTheme.forestGreen.withValues(alpha: 0.12),
                               ),
-                              columns: const [
-                                DataColumn(label: Text('#')),
-                                DataColumn(label: Text('Member Name')),
-                                DataColumn(label: Text('SA ID')),
-                                DataColumn(label: Text('Locked By')),
-                                DataColumn(label: Text('Locked Date')),
-                                DataColumn(label: Text('Temporary Access')),
-                                DataColumn(label: Text('Actions')),
+                              columns: [
+                                const DataColumn(label: Text('#')),
+                                DataColumn(label: Text(strings.memberName)),
+                                DataColumn(label: Text(strings.sortSaId)),
+                                const DataColumn(label: Text('Locked By')),
+                                const DataColumn(label: Text('Locked Date')),
+                                const DataColumn(
+                                  label: Text('Temporary Access'),
+                                ),
+                                const DataColumn(label: Text('Actions')),
                               ],
                               rows: [
                                 for (var i = 0; i < locked.length; i++)
@@ -132,6 +135,7 @@ class LockedMembersScreen extends ConsumerWidget {
     required String lockedByName,
     required DateFormat dateFmt,
   }) {
+    final strings = ref.watch(appStringsProvider);
     final temp = member.hasActiveTemporaryAccess
         ? '🟢 Active (${member.temporaryAccessCode})'
         : '🔴 None';
@@ -154,7 +158,7 @@ class LockedMembersScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                tooltip: 'View Member',
+                tooltip: strings.viewMember,
                 icon: const Icon(Icons.visibility),
                 onPressed: () {
                   ref.read(selectedMemberIdProvider.notifier).state =
@@ -164,7 +168,7 @@ class LockedMembersScreen extends ConsumerWidget {
                 },
               ),
               IconButton(
-                tooltip: 'Unlock Member',
+                tooltip: strings.unlockMember,
                 icon: const Icon(Icons.lock_open),
                 onPressed: () async {
                   final admin = ref.read(authUserProvider);
@@ -172,18 +176,18 @@ class LockedMembersScreen extends ConsumerWidget {
                   final ok = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Unlock Member'),
+                      title: Text(strings.unlockMember),
                       content: Text(
                         'Unlock ${member.fullName}? Recording Secretaries will be able to edit again.',
                       ),
                       actions: [
                         CancelButton(
                           onPressed: () => Navigator.pop(ctx, false),
-                          text: 'Cancel',
+                          text: strings.cancel,
                         ),
                         ActionButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          text: 'Unlock',
+                          text: strings.unlockMember,
                         ),
                       ],
                     ),
@@ -198,7 +202,7 @@ class LockedMembersScreen extends ConsumerWidget {
                 },
               ),
               IconButton(
-                tooltip: 'Grant Temporary Access',
+                tooltip: strings.grantTemporaryAccess,
                 icon: const Icon(Icons.vpn_key),
                 onPressed: () async {
                   await showGrantTemporaryAccessDialog(
@@ -257,6 +261,7 @@ class _TempAccessPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final logsAsync = ref.watch(temporaryAccessLogsProvider);
     final dateFmt = DateFormat('yyyy-MM-dd HH:mm');
     final memberName = {
@@ -292,7 +297,7 @@ class _TempAccessPanel extends ConsumerWidget {
                     ActionButton(
                       onPressed: () =>
                           ref.invalidate(temporaryAccessLogsProvider),
-                      text: 'Refresh',
+                      text: strings.refresh,
                       icon: Icons.refresh,
                       height: 35,
                     ),

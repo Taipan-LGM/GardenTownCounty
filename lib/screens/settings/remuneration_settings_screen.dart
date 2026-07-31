@@ -24,9 +24,25 @@ class _RemunerationSettingsScreenState
   bool _isLoading = true;
   bool _saving = false;
 
+  final _step1Controller = TextEditingController();
   final _step2Controller = TextEditingController();
   final _step3Controller = TextEditingController();
   final _step4Controller = TextEditingController();
+  final _step5Controller = TextEditingController();
+  final _bankAccountNameController = TextEditingController();
+  final _bankAccountNumberController = TextEditingController();
+  final _bankAccountCodeController = TextEditingController();
+  String _selectedBankName = 'Capitec Bank';
+
+  static const List<String> _bankNames = <String>[
+    'Capitec Bank',
+    'Standard Bank',
+    'FNB',
+    'ABSA',
+    'Nedbank',
+    'TymeBank',
+    'African Bank',
+  ];
 
   @override
   void initState() {
@@ -36,9 +52,14 @@ class _RemunerationSettingsScreenState
 
   @override
   void dispose() {
+    _step1Controller.dispose();
     _step2Controller.dispose();
     _step3Controller.dispose();
     _step4Controller.dispose();
+    _step5Controller.dispose();
+    _bankAccountNameController.dispose();
+    _bankAccountNumberController.dispose();
+    _bankAccountCodeController.dispose();
     super.dispose();
   }
 
@@ -49,29 +70,77 @@ class _RemunerationSettingsScreenState
           await ref.read(remunerationServiceProvider).getSettings();
       _settings = settings;
       _extraServices = List.of(settings.extraServices);
+      _step1Controller.text = settings.step1Amount.toStringAsFixed(2);
       _step2Controller.text = settings.step2Amount.toStringAsFixed(2);
       _step3Controller.text = settings.step3Amount.toStringAsFixed(2);
       _step4Controller.text = settings.step4Amount.toStringAsFixed(2);
+      _step5Controller.text = settings.step5Amount.toStringAsFixed(2);
+      _bankAccountNameController.text = settings.bankAccountName;
+      _bankAccountNumberController.text = settings.bankAccountNumber;
+      _bankAccountCodeController.text = settings.bankAccountCode;
+      _selectedBankName = _bankNames.contains(settings.bankName)
+          ? settings.bankName
+          : _bankNames.first;
     } catch (_) {
       _settings = RemunerationSettings.defaults();
       _extraServices = [];
+      _step1Controller.text = '100.00';
       _step2Controller.text = '200.00';
       _step3Controller.text = '300.00';
       _step4Controller.text = '250.00';
+      _step5Controller.text = '150.00';
+      _bankAccountNameController.text = 'Garden Town County';
+      _bankAccountNumberController.text = '';
+      _bankAccountCodeController.text = '';
+      _selectedBankName = _bankNames.first;
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveSettings() async {
+    final step1 = double.tryParse(_step1Controller.text.trim());
+    final step2 = double.tryParse(_step2Controller.text.trim());
+    final step3 = double.tryParse(_step3Controller.text.trim());
+    final step4 = double.tryParse(_step4Controller.text.trim());
+    final step5 = double.tryParse(_step5Controller.text.trim());
+
+    if ([step1, step2, step3, step4, step5].contains(null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All step amounts must be valid numbers.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_bankAccountNameController.text.trim().isEmpty ||
+        _bankAccountNumberController.text.trim().isEmpty ||
+        _bankAccountCodeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Complete all bank particulars fields.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final settings = RemunerationSettings(
         id: _settings?.id ?? const Uuid().v4(),
         firestoreId: _settings?.firestoreId,
-        step2Amount: double.parse(_step2Controller.text),
-        step3Amount: double.parse(_step3Controller.text),
-        step4Amount: double.parse(_step4Controller.text),
+        step1Amount: step1!,
+        step2Amount: step2!,
+        step3Amount: step3!,
+        step4Amount: step4!,
+        step5Amount: step5!,
+        bankAccountName: _bankAccountNameController.text.trim(),
+        bankName: _selectedBankName,
+        bankAccountNumber: _bankAccountNumberController.text.trim(),
+        bankAccountCode: _bankAccountCodeController.text.trim(),
         extraServices: _extraServices,
         lastUpdated: DateTime.now().toUtc(),
         syncStatus: 'pending',
@@ -270,6 +339,12 @@ class _RemunerationSettingsScreenState
                     ),
                     const SizedBox(height: 16),
                     _buildAmountField(
+                      label: 'Step 1 (Member Information)',
+                      controller: _step1Controller,
+                      icon: Icons.person,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildAmountField(
                       label: 'Step 2 (Global 528)',
                       controller: _step2Controller,
                       icon: Icons.numbers,
@@ -285,6 +360,80 @@ class _RemunerationSettingsScreenState
                       label: 'Step 4 (LRO)',
                       controller: _step4Controller,
                       icon: Icons.gavel,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildAmountField(
+                      label: 'Step 5 (Credential Card)',
+                      controller: _step5Controller,
+                      icon: Icons.credit_card,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Bank Particulars',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _bankAccountNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Bank Account Name',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedBankName,
+                      decoration: const InputDecoration(
+                        labelText: 'Bank Name',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.account_balance),
+                      ),
+                      items: _bankNames
+                          .map(
+                            (name) => DropdownMenuItem<String>(
+                              value: name,
+                              child: Text(name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _selectedBankName = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _bankAccountNumberController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Bank Account Number',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.pin_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _bankAccountCodeController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Bank Account Code',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.qr_code_2_outlined),
+                      ),
                     ),
                   ],
                 ),

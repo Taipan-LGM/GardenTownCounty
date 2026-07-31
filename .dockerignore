@@ -22,8 +22,14 @@ ios
 macos
 windows
 linux
+
 # Keep web/ for base_href / icons if present
 # web is included
+
+# Large or sensitive assets that are not required in the image
+assets/images/*.png
+!assets/images/county_logo.png
+!assets/images/county_logo_alt.png
 
 # Docs / local tooling
 graphify-out

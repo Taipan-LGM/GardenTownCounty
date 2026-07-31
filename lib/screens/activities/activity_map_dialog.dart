@@ -85,6 +85,9 @@ class ActivityMapDialog extends StatelessWidget {
           ActionButton(
             onPressed: () => Navigator.pop(context),
             text: 'Close',
+            backgroundColor: AppButtonColors.closeBg,
+            foregroundColor: AppButtonColors.closeFg,
+            borderColor: AppButtonColors.whiteRing,
           ),
         ],
       );
@@ -127,6 +130,14 @@ class ActivityMapDialog extends StatelessWidget {
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppButtonColors.closeBg,
+                      foregroundColor: AppButtonColors.closeFg,
+                      side: const BorderSide(
+                        color: AppButtonColors.whiteRing,
+                        width: 2.0,
+                      ),
+                    ),
                     icon: const Icon(Icons.close),
                   ),
                 ],
