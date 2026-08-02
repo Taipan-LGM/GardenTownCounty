@@ -34,55 +34,44 @@ class MemberLockService {
       actor.hasPermission(AppPermission.onboarding) ||
       actor.hasPermission(AppPermission.memberInfo);
 
-  bool _isStepComplete(Member member, int step) {
-    switch (step) {
-      case 1:
-        return member.step1MemberInfoComplete;
-      case 2:
-        return member.step2Global528Complete;
-      case 3:
-        return member.step3Global928Complete;
-      case 4:
-        return member.step4LROComplete;
-      case 5:
-        return member.step5CredentialCardComplete;
-      default:
-        return false;
-    }
-  }
-
   Future<void> _validateStepTransition({
     required Member member,
     required int step,
     required bool complete,
+    required String Function(int) stepLabel,
+    required List<int> configuredSteps,
   }) async {
+    final stepIndex = configuredSteps.indexOf(step);
+    if (stepIndex < 0) throw Exception('Invalid onboarding step.');
     if (complete) {
-      if (step > 1) {
-        final previousStepComplete = _isStepComplete(member, step - 1);
+      if (stepIndex > 0) {
+        final previousStep = configuredSteps[stepIndex - 1];
+        final previousStepComplete = member.isStepCompleteAt(previousStep);
         if (!previousStepComplete) {
           throw Exception(
-            'Step $step is locked. Complete Step ${step - 1} first.',
+            '${stepLabel(step)} is locked. Complete ${stepLabel(previousStep)} first.',
           );
         }
       }
 
-      final paid = await _remuneration?.hasPaidStepPayment(
+      final paid =
+          await _remuneration?.hasPaidStepPayment(
             memberId: member.id,
             stepNumber: step,
           ) ??
           false;
       if (!paid) {
         throw Exception(
-          'Payment required before Step $step can be completed.',
+          'Payment required before ${stepLabel(step)} can be completed.',
         );
       }
       return;
     }
 
-    for (var next = step + 1; next <= 5; next++) {
-      if (_isStepComplete(member, next)) {
+    for (final next in configuredSteps.skip(stepIndex + 1)) {
+      if (member.isStepCompleteAt(next)) {
         throw Exception(
-          'Cannot uncheck Step $step while Step $next is already complete.',
+          'Cannot uncheck ${stepLabel(step)} while ${stepLabel(next)} is already complete.',
         );
       }
     }
@@ -92,13 +81,14 @@ class MemberLockService {
     required Member member,
     required AuthUser actor,
     required int step,
+    required String stepName,
   }) async {
     var updated = member;
     if (step >= 1 && step <= 3) {
       await _activity.record(
         userName: 'System',
         action:
-            '[$_idStepPdfRelease] 📄 step_${step}_pdf_released for ${updated.fullName}',
+            '[$_idStepPdfRelease] 📄 step_${step}_pdf_released ($stepName) for ${updated.fullName}',
         captureGps: false,
       );
     }
@@ -117,14 +107,14 @@ class MemberLockService {
         await _activity.record(
           userName: 'System',
           action:
-              '[$_idStep4AiId] 🆔 step_4_ai_id_generated $generatedId for ${updated.fullName}',
+              '[$_idStep4AiId] 🆔 step_4_ai_id_generated ($stepName) $generatedId for ${updated.fullName}',
           captureGps: false,
         );
       }
       await _activity.record(
         userName: 'System',
         action:
-            '[$_idStep4PdfRelease] 📄 step_4_pdf_released for ${updated.fullName}',
+            '[$_idStep4PdfRelease] 📄 step_4_pdf_released ($stepName) for ${updated.fullName}',
         captureGps: false,
       );
     }
@@ -133,7 +123,7 @@ class MemberLockService {
       await _activity.record(
         userName: 'System',
         action:
-            '[$_idCardIssued] 🪪 credential_card_issued for ${updated.fullName}',
+            '[$_idCardIssued] 🪪 credential_card_issued ($stepName) for ${updated.fullName}',
         captureGps: false,
       );
     }
@@ -153,65 +143,33 @@ class MemberLockService {
     if (member.isLocked && !actor.isAdmin) {
       throw Exception('🔒 Locked members cannot have steps changed.');
     }
-    if (step < 1 || step > 5) {
-      throw Exception('Invalid onboarding step.');
-    }
+    final settings = await _remuneration?.getSettings();
+    final configuredSteps =
+        settings?.configuredSteps.map((step) => step.number).toList() ??
+        const [1, 2, 3, 4, 5];
+    String stepLabel(int stepNumber) =>
+        settings?.stepName(stepNumber) ?? 'Step $stepNumber';
     await _validateStepTransition(
       member: member,
       step: step,
       complete: complete,
+      stepLabel: stepLabel,
+      configuredSteps: configuredSteps,
     );
 
     final now = DateTime.now().toUtc();
-    final labels = {
-      1: 'Member Info',
-      2: 'Global 528',
-      3: 'Global 928',
-      4: 'LRO',
-      5: 'Credential Card',
-    };
-    var updated = member;
-    switch (step) {
-      case 1:
-        updated = member.copyWith(
-          step1MemberInfoComplete: complete,
-          step1CompletionDate: complete ? now : member.step1CompletionDate,
-          step1ApprovedBy: complete ? actor.id : member.step1ApprovedBy,
-        );
-      case 2:
-        updated = member.copyWith(
-          step2Global528Complete: complete,
-          step2CompletionDate: complete ? now : member.step2CompletionDate,
-          step2ApprovedBy: complete ? actor.id : member.step2ApprovedBy,
-        );
-      case 3:
-        updated = member.copyWith(
-          step3Global928Complete: complete,
-          step3CompletionDate: complete ? now : member.step3CompletionDate,
-          step3ApprovedBy: complete ? actor.id : member.step3ApprovedBy,
-        );
-      case 4:
-        updated = member.copyWith(
-          step4LROComplete: complete,
-          step4CompletionDate: complete ? now : member.step4CompletionDate,
-          step4ApprovedBy: complete ? actor.id : member.step4ApprovedBy,
-        );
-      case 5:
-        updated = member.copyWith(
-          step5CredentialCardComplete: complete,
-          step5CompletionDate: complete ? now : member.step5CompletionDate,
-          step5ApprovedBy: complete ? actor.id : member.step5ApprovedBy,
-        );
-    }
+    final stepName = stepLabel(step);
+    var updated = member.withStepState(
+      step: step,
+      complete: complete,
+      changedAt: now,
+      approvedBy: actor.id,
+    );
 
     String nextStatus = updated.registrationStatus;
     if (!updated.isLocked) {
-      final anyStep = updated.step1MemberInfoComplete ||
-          updated.step2Global528Complete ||
-          updated.step3Global928Complete ||
-          updated.step4LROComplete ||
-          updated.step5CredentialCardComplete;
-      if (updated.allStepsComplete) {
+      final anyStep = configuredSteps.any(updated.isStepCompleteAt);
+      if (updated.allStepsCompleteFor(configuredSteps)) {
         nextStatus = 'complete';
       } else if (anyStep) {
         nextStatus = 'in_progress';
@@ -231,15 +189,15 @@ class MemberLockService {
     await _activity.record(
       userName: actor.displayName,
       action: complete
-          ? '[$_idStepMarked] ✅ step_$step (${labels[step]}) completed for ${member.fullName}'
-          : '[$_idStepUnmarked] ⬜ step_$step (${labels[step]}) unchecked for ${member.fullName}',
+          ? '[$_idStepMarked] ✅ step_$step ($stepName) completed for ${member.fullName}'
+          : '[$_idStepUnmarked] ⬜ step_$step ($stepName) unchecked for ${member.fullName}',
       captureGps: false,
     );
     if (complete) {
       await _activity.record(
         userName: 'System',
         action:
-            '📧 Notify ${member.fullName}: Step $step (${labels[step]}) approved '
+            '📧 Notify ${member.fullName}: $stepName approved '
             'by ${actor.displayName}',
         captureGps: false,
       );
@@ -247,6 +205,7 @@ class MemberLockService {
         member: updated,
         actor: actor,
         step: step,
+        stepName: stepName,
       );
     }
     await _sync.pushPending();
@@ -265,8 +224,12 @@ class MemberLockService {
     if (member.isLocked) {
       throw Exception('⚠️ Member is already locked.');
     }
-    if (!member.allStepsComplete) {
-      throw Exception('❌ Member has not completed all 5 steps.');
+    final settings = await _remuneration?.getSettings();
+    final configuredSteps =
+        settings?.configuredSteps.map((step) => step.number).toList() ??
+        const [1, 2, 3, 4, 5];
+    if (!member.allStepsCompleteFor(configuredSteps)) {
+      throw Exception('❌ Member has not completed all configured steps.');
     }
 
     final now = DateTime.now().toUtc();

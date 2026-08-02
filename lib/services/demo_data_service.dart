@@ -3,7 +3,9 @@ import '../models/activity_log.dart';
 import '../models/county_article.dart';
 import '../models/county_video.dart';
 import '../models/member.dart';
+import '../models/member_file.dart';
 import '../models/reminder.dart';
+import '../models/secretary_remuneration.dart';
 import '../models/user_role.dart';
 import 'database_service.dart';
 import 'password_hasher.dart';
@@ -72,6 +74,9 @@ class DemoDataService {
 
     final duplicatesCreated = await _generateDuplicateMembers(now);
     final cancelledCreated = await _generateCancelledMembers(now);
+    membersCreated += await _generatePaymentSummaryMembers(now);
+    await _generatePaymentSummaryFiles(now);
+    await _generatePaymentSummaryRecords(now);
     final articlesCreated = await _generateInfoArticles(now);
     final videosCreated = await _generateVideos(now);
 
@@ -115,6 +120,163 @@ class DemoDataService {
       articlesCreated: articlesCreated,
       videosCreated: videosCreated,
     );
+  }
+
+  Future<int> _generatePaymentSummaryMembers(DateTime now) async {
+    const completedSteps = <int>[
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+    ];
+    var created = 0;
+
+    for (var index = 0; index < completedSteps.length; index++) {
+      final sequence = index + 1;
+      final id = 'pay_demo_${sequence.toString().padLeft(3, '0')}';
+      final existing = await _db.getMemberById(id);
+      final saId = '990000${sequence.toString().padLeft(7, '0')}';
+      final bySaId = await _db.getMemberBySaId(saId);
+      if (existing == null && bySaId != null) continue;
+      if (existing != null && existing.createdBy != 'demo') continue;
+
+      final completedStep = completedSteps[index];
+      final member = existing != null
+          ? existing.copyWith(
+              registrationStatus: 'in_progress',
+              step1MemberInfoComplete: true,
+              step2Global528Complete: completedStep >= 2,
+              step3Global928Complete: completedStep >= 3,
+              step4LROComplete: false,
+              step5CredentialCardComplete: false,
+              updatedAt: now,
+              pendingSync: true,
+            )
+          : Member(
+              id: id,
+              saId: saId,
+              globalRecordNo: 'GRPAY${sequence.toString().padLeft(3, '0')}',
+              memberName: 'Payment Demo',
+              surname: sequence.toString().padLeft(3, '0'),
+              address: '1 Demo Payment Way',
+              suburb: 'Garden Town',
+              townCity: 'Garden Town',
+              postalCode: '0001',
+              contactNo1: '080${sequence.toString().padLeft(7, '0')}',
+              emailAddress: 'payment.demo.$sequence@gardentown.local',
+              registrationStatus: 'in_progress',
+              isEmailVerified: true,
+              step1MemberInfoComplete: true,
+              step2Global528Complete: completedStep >= 2,
+              step3Global928Complete: completedStep >= 3,
+              step4LROComplete: false,
+              step5CredentialCardComplete: false,
+              createdBy: 'demo',
+              createdAt: now.subtract(Duration(minutes: sequence)),
+              updatedAt: now,
+              pendingSync: true,
+            );
+      await _db.upsertMember(member);
+      if (existing == null) created++;
+    }
+
+    for (var sequence = completedSteps.length + 1; sequence <= 22; sequence++) {
+      final id = 'pay_demo_${sequence.toString().padLeft(3, '0')}';
+      final obsolete = await _db.getMemberById(id);
+      if (obsolete == null || obsolete.createdBy != 'demo') continue;
+      await _db.forceUpsertMember(
+        obsolete.copyWith(deleted: true, updatedAt: now, pendingSync: true),
+      );
+    }
+    return created;
+  }
+
+  Future<void> _generatePaymentSummaryFiles(DateTime now) async {
+    for (var sequence = 1; sequence <= 27; sequence++) {
+      final memberId = 'pay_demo_${sequence.toString().padLeft(3, '0')}';
+      if (await _db.getMemberById(memberId) == null) continue;
+      final stepNumber = sequence <= 12 ? 1 : (sequence <= 20 ? 2 : 3);
+      await _db.upsertMemberFile(
+        MemberFile(
+          id: 'pay_demo_pdf_step_${stepNumber}_$memberId',
+          memberId: memberId,
+          fileName: 'step_${stepNumber}_completed.pdf',
+          description: 'Completed Step $stepNumber PDF',
+          uploadedBy: 'Jane Smith',
+          uploadedAt: now,
+          localPath: 'demo://member_files/$memberId/step_$stepNumber.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 1024,
+          pendingSync: true,
+        ),
+      );
+    }
+  }
+
+  Future<void> _generatePaymentSummaryRecords(DateTime now) async {
+    const amountPerMember = <int, double>{1: 100, 2: 200, 3: 300};
+    final members = await _db.getAllMembers();
+    final desiredIds = <String>{};
+
+    for (final member in members) {
+      if (!member.id.startsWith('pay_demo_')) continue;
+      final sequence = int.tryParse(member.id.substring('pay_demo_'.length));
+      if (sequence == null || sequence < 1 || sequence > 27) continue;
+      final stepNumber = sequence <= 12 ? 1 : (sequence <= 20 ? 2 : 3);
+      final id = 'pay_demo_summary_step_${stepNumber}_${member.id}';
+      desiredIds.add(id);
+      await _db.saveRemuneration(
+        SecretaryRemuneration(
+          id: id,
+          secretaryId: 'sec_001',
+          secretaryName: 'Jane Smith',
+          memberId: member.id,
+          memberName: member.fullName,
+          type: 'step$stepNumber',
+          description: 'Demo payment for Step $stepNumber',
+          amount: amountPerMember[stepNumber]!,
+          status: 'paid',
+          dateEarned: now,
+          datePaid: now,
+          paidBy: 'demo',
+          syncStatus: 'pending',
+        ),
+      );
+    }
+
+    final records = await _db.getAllRemunerationRecords();
+    for (final record in records) {
+      if (!record.id.startsWith('pay_demo_summary_') ||
+          desiredIds.contains(record.id)) {
+        continue;
+      }
+      await _db.updateRemuneration(
+        record.copyWith(isDeleted: true, syncStatus: 'pending'),
+      );
+    }
   }
 
   /// 3 duplicate pairs (6 members) for Duplicate Manager.
@@ -785,8 +947,9 @@ The full plan is available for review at the County Office or on our website.
             passwordHash: hash,
             role: UserRole.secretary.storageName,
             memberId: s.memberId,
-            permissionsRaw:
-                AppPermission.encodeList(AppPermission.defaultSecretary),
+            permissionsRaw: AppPermission.encodeList(
+              AppPermission.defaultSecretary,
+            ),
             updatedAt: now,
             pendingSync: true,
             active: true,

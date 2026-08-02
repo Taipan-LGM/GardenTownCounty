@@ -5,12 +5,13 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/reminder.dart';
+import '../../models/remuneration_settings.dart';
 import '../../providers/providers.dart';
 import '../../widgets/standard_buttons.dart';
 import '../../widgets/form_dialog_title.dart';
 import '../../widgets/reminders/reminder_rs_assignment_row.dart';
 
-/// Onboarding reminder dashboard (steps 1–4 + 24h expiry).
+/// Onboarding reminder dashboard for configured steps + 24h expiry.
 class RemindersScreen extends ConsumerStatefulWidget {
   const RemindersScreen({super.key});
 
@@ -33,8 +34,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   Future<void> _autoAssignAll() async {
     setState(() => _isAutoAssigning = true);
     try {
-      final result =
-          await ref.read(smartAutoAssignmentServiceProvider).autoAssignAll();
+      final result = await ref
+          .read(smartAutoAssignmentServiceProvider)
+          .autoAssignAll();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -46,10 +48,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isAutoAssigning = false);
@@ -96,7 +95,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               onTap: () async {
                 Navigator.pop(ctx);
                 final user = ref.read(authUserProvider);
-                await ref.read(reminderServiceProvider).completeReminder(
+                await ref
+                    .read(reminderServiceProvider)
+                    .completeReminder(
                       reminderId: reminder.id,
                       completedBy: user?.id ?? 'user',
                     );
@@ -118,7 +119,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (dCtx) => AlertDialog(
-                    title: FormDialogTitle(title: strings.dismissReminderConfirm),
+                    title: FormDialogTitle(
+                      title: strings.dismissReminderConfirm,
+                    ),
                     titlePadding: formDialogTitlePadding,
                     content: Text(
                       '${strings.dismissReminder} — ${reminder.displayName}?',
@@ -137,7 +140,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 );
                 if (confirm != true) return;
                 final user = ref.read(authUserProvider);
-                await ref.read(reminderServiceProvider).dismissReminder(
+                await ref
+                    .read(reminderServiceProvider)
+                    .dismissReminder(
                       reminderId: reminder.id,
                       dismissedBy: user?.id ?? 'user',
                     );
@@ -160,8 +165,10 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
   @override
   Widget build(BuildContext context) {
     final remindersAsync = ref.watch(activeOnboardingRemindersProvider);
-    final statsAsync = ref.watch(reminderStatsProvider);
     final strings = ref.watch(appStringsProvider);
+    final settings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        RemunerationSettings.defaults();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,13 +199,13 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             ),
           ),
         ),
-        statsAsync.when(
+        remindersAsync.when(
           loading: () => const SizedBox(height: 72),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(12),
             child: Text('${strings.errorLabel}: $e'),
           ),
-          data: (stats) => _buildStatsCards(stats, strings),
+          data: (reminders) => _buildStatsCards(reminders, strings, settings),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -206,10 +213,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
             spacing: 8,
             children: [
               _filterChip(strings.filterAll, null),
-              _filterChip('${strings.step} 1', 1),
-              _filterChip('${strings.step} 2', 2),
-              _filterChip('${strings.step} 3', 3),
-              _filterChip('${strings.step} 4', 4),
+              ...settings.configuredSteps.map(
+                (step) => _filterChip(step.name, step.number),
+              ),
             ],
           ),
         ),
@@ -222,14 +228,14 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               final filtered = _filterStep == null
                   ? reminders
                   : reminders
-                      .where((r) => r.stepNumber == _filterStep)
-                      .toList();
+                        .where((r) => r.stepNumber == _filterStep)
+                        .toList();
               if (filtered.isEmpty) return _buildEmptyState(strings);
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 itemCount: filtered.length,
                 itemBuilder: (context, index) =>
-                    _buildReminderCard(filtered[index], strings),
+                    _buildReminderCard(filtered[index], strings, settings),
               );
             },
           ),
@@ -297,27 +303,35 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     );
   }
 
-  Widget _buildStatsCards(ReminderStats stats, AppStrings strings) {
+  Widget _buildStatsCards(
+    List<Reminder> reminders,
+    AppStrings strings,
+    RemunerationSettings settings,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          _statCard(strings.total, stats.total, Colors.grey.shade700),
-          const SizedBox(width: 8),
-          _statCard('${strings.step} 1', stats.step1, ReminderStep.getColor(1)),
-          const SizedBox(width: 8),
-          _statCard('${strings.step} 2', stats.step2, ReminderStep.getColor(2)),
-          const SizedBox(width: 8),
-          _statCard('${strings.step} 3', stats.step3, ReminderStep.getColor(3)),
-          const SizedBox(width: 8),
-          _statCard('${strings.step} 4', stats.step4, ReminderStep.getColor(4)),
+          _statCard(strings.total, reminders.length, Colors.grey.shade700),
+          ...settings.configuredSteps.map(
+            (step) => _statCard(
+              step.name,
+              reminders
+                  .where((reminder) => reminder.stepNumber == step.number)
+                  .length,
+              ReminderStep.getColor(step.number),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _statCard(String label, int count, Color color) {
-    return Expanded(
+    return SizedBox(
+      width: 120,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
@@ -354,12 +368,15 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     );
   }
 
-  Widget _buildReminderCard(Reminder reminder, AppStrings strings) {
+  Widget _buildReminderCard(
+    Reminder reminder,
+    AppStrings strings,
+    RemunerationSettings settings,
+  ) {
     final step = reminder.stepNumber ?? 0;
     final color = ReminderStep.getColor(step);
     final icon = ReminderStep.getIcon(step);
-    final remaining =
-        reminder.timeRemaining ?? const Duration(hours: 24);
+    final remaining = reminder.timeRemaining ?? const Duration(hours: 24);
     final urgent = reminder.isUrgent;
 
     return Card(
@@ -408,7 +425,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${strings.step} $step: ${reminder.stepDescription ?? ReminderStep.getDescription(step)}',
+                    settings.stepName(step),
                     style: TextStyle(color: color, fontWeight: FontWeight.w600),
                   ),
                   Text(
@@ -424,11 +441,12 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color:
-                          urgent ? Colors.red.shade50 : Colors.green.shade50,
+                      color: urgent ? Colors.red.shade50 : Colors.green.shade50,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

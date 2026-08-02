@@ -15,6 +15,7 @@ import '../../models/lookup_item.dart';
 import '../../models/member.dart';
 import '../../models/member_form_mode.dart';
 import '../../models/member_navigation_state.dart';
+import '../../models/remuneration_settings.dart';
 import '../../providers/member_navigation_provider.dart';
 import '../../providers/providers.dart';
 import '../../services/member_form_save_gate.dart';
@@ -79,12 +80,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   String? _photoLocalPath;
   String? _photoUrl;
   Uint8List? _photoBytes;
+
   /// Stable id for new (unsaved) members so a photo can be staged.
   String? _draftId;
   List<Member> _members = const [];
   bool _loading = true;
   bool _saving = false;
   bool _photoBusy = false;
+  RemunerationSettings _remunerationSettings = RemunerationSettings.defaults();
   String? _adminLinkedMemberId;
   Member? _loadedMember;
   // NEW ADDITION - RS radio in nav bar (always OFF until Admin activates)
@@ -124,25 +127,24 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool get _viewerIsSecretary =>
       ref.read(authUserProvider)?.isSecretary ?? false;
 
-  bool get _isMemberOnly =>
-      ref.read(authUserProvider)?.isMemberRole ?? false;
+  bool get _isMemberOnly => ref.read(authUserProvider)?.isMemberRole ?? false;
 
   String? get _persistedGlobalRecord => _loadedMember?.globalRecordNo;
 
   String? get _persistedLroRecord => _loadedMember?.lroRecordNo;
 
   bool get _showGlobalRecordField => RecordFieldPolicy.shouldShow(
-        isAdmin: _viewerIsAdmin,
-        isSecretary: _viewerIsSecretary,
-        value: _persistedGlobalRecord ?? _globalRecordNo.text,
-      );
+    isAdmin: _viewerIsAdmin,
+    isSecretary: _viewerIsSecretary,
+    value: _persistedGlobalRecord ?? _globalRecordNo.text,
+  );
 
   bool get _globalRecordReadOnly => RecordFieldPolicy.isReadOnly(
-        isAdmin: _viewerIsAdmin,
-        isSecretary: _viewerIsSecretary,
-        persistedValue: _persistedGlobalRecord,
-        formReadOnly: _formReadOnly,
-      );
+    isAdmin: _viewerIsAdmin,
+    isSecretary: _viewerIsSecretary,
+    persistedValue: _persistedGlobalRecord,
+    formReadOnly: _formReadOnly,
+  );
 
   String? get _viewerMemberId => ref.read(authUserProvider)?.memberId;
 
@@ -153,10 +155,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   MemberFormMode get _formMode => determineMemberFormMode(
-        member: _loadedMember,
-        user: ref.read(authUserProvider),
-        sessionVerifiedTempAccess: _sessionTempAccess,
-      );
+    member: _loadedMember,
+    user: ref.read(authUserProvider),
+    sessionVerifiedTempAccess: _sessionTempAccess,
+  );
 
   bool _isProtectedAdminMember(String? memberId) {
     if (memberId == null || _adminLinkedMemberId == null) return false;
@@ -206,7 +208,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _saId.addListener(_onSaIdChanged);
     _globalRecordNo.addListener(_onGlobalRecordChanged);
     _lroRecordNo.addListener(_onFormFieldChanged);
+    _loadRemunerationSettings();
     _bootstrap();
+  }
+
+  Future<void> _loadRemunerationSettings() async {
+    final settings = await ref.read(remunerationServiceProvider).getSettings();
+    if (mounted) setState(() => _remunerationSettings = settings);
   }
 
   @override
@@ -271,8 +279,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   void _applySnapshot(MemberFormSnapshot snap) {
     _suppressDirty = true;
     _saId.text = snap.saId;
-    _globalRecordNo.text =
-        GlobalRecordValidator.displayValue(snap.globalRecordNo);
+    _globalRecordNo.text = GlobalRecordValidator.displayValue(
+      snap.globalRecordNo,
+    );
     _lroRecordNo.text = snap.lroRecordNo;
     _memberName.text = snap.memberName;
     _surname.text = snap.surname;
@@ -293,11 +302,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (restoreSnapshot && _snapshot != null) {
       _applySnapshot(_snapshot!);
       if (_loadedMember != null && !_fieldsMasked) {
-        _loadPhotoBytes(
-          _loadedMember!.id,
-          _photoLocalPath,
-          _photoUrl,
-        );
+        _loadPhotoBytes(_loadedMember!.id, _photoLocalPath, _photoUrl);
       }
     }
     setState(() {
@@ -311,9 +316,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (!_canEnterEditMode) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            '🔒 You do not have permission to edit this member.',
-          ),
+          content: Text('🔒 You do not have permission to edit this member.'),
         ),
       );
       return;
@@ -357,19 +360,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   bool get _step1FormComplete => Step1Validator.isFormComplete(
-        saId: _saId.text,
-        globalRecordNo: _globalRecordNo.text,
-        lroRecordNo: _lroRecordNo.text,
-        memberName: _memberName.text,
-        surname: _surname.text,
-        address: _address.text,
-        suburb: _suburb,
-        townCity: _townCity,
-        postalCode: _postalCode,
-        contactNo1: _contactNo1.text,
-        contactNo2: _contactNo2.text,
-        emailAddress: _email.text,
-      );
+    saId: _saId.text,
+    globalRecordNo: _globalRecordNo.text,
+    lroRecordNo: _lroRecordNo.text,
+    memberName: _memberName.text,
+    surname: _surname.text,
+    address: _address.text,
+    suburb: _suburb,
+    townCity: _townCity,
+    postalCode: _postalCode,
+    contactNo1: _contactNo1.text,
+    contactNo2: _contactNo2.text,
+    emailAddress: _email.text,
+  );
 
   InputDecoration _fieldDecoration(
     String label, {
@@ -386,14 +389,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       helperText: helperText,
       helperMaxLines: 2,
       errorMaxLines: 3,
-      suffixIcon: suffixIcon ??
+      suffixIcon:
+          suffixIcon ??
           (filled
               ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
               : Icon(
                   _isEditing && !_formReadOnly ? Icons.edit : Icons.lock,
                   size: 16,
-                  color:
-                      _isEditing && !_formReadOnly ? Colors.blue : Colors.grey,
+                  color: _isEditing && !_formReadOnly
+                      ? Colors.blue
+                      : Colors.grey,
                 )),
       enabledBorder: _isEditing && !_formReadOnly
           ? OutlineInputBorder(
@@ -457,10 +462,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
       final soft = SaIdValidator.softWarning(value);
       final excludeId = _currentId ?? _draftId;
-      final result = await ref.read(memberDuplicateServiceProvider).checkSaId(
-            value.trim(),
-            excludeMemberId: excludeId,
-          );
+      final result = await ref
+          .read(memberDuplicateServiceProvider)
+          .checkSaId(value.trim(), excludeMemberId: excludeId);
       if (!mounted) return;
       setState(() {
         _saIdWarning = soft;
@@ -507,11 +511,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
 
       final excludeId = _currentId ?? _draftId;
-      final result =
-          await ref.read(memberDuplicateServiceProvider).checkGlobalRecord(
-                value.trim(),
-                excludeMemberId: excludeId,
-              );
+      final result = await ref
+          .read(memberDuplicateServiceProvider)
+          .checkGlobalRecord(value.trim(), excludeMemberId: excludeId);
       if (!mounted) return;
       setState(() {
         if (result.isDuplicate) {
@@ -547,12 +549,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       );
 
   bool get _canPressSave => MemberFormSaveGate.canEnableSave(
-        isEditing: _isEditing,
-        saving: _saving,
-        formReadOnly: _formReadOnly,
-        fieldsMasked: _fieldsMasked,
-        missingLabels: _missingSaveLabels,
-      );
+    isEditing: _isEditing,
+    saving: _saving,
+    formReadOnly: _formReadOnly,
+    fieldsMasked: _fieldsMasked,
+    missingLabels: _missingSaveLabels,
+  );
 
   /// Admin All / New / RS filter applied before list search/sort.
   // NEW ADDITION - Delete getter to revert admin view filter
@@ -657,10 +659,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
     final refreshed = _members.indexWhere((m) => m.id == memberId);
     if (refreshed < 0) return;
-    await ref.read(memberNavigationProvider.notifier).openMember(
-          _members[refreshed],
-          all: _members,
-        );
+    await ref
+        .read(memberNavigationProvider.notifier)
+        .openMember(_members[refreshed], all: _members);
     _loadMember(_members[refreshed], refreshed);
   }
 
@@ -686,8 +687,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
     }
 
-    var members =
-        await ref.read(dataAccessServiceProvider).getVisibleMembers(auth);
+    var members = await ref
+        .read(dataAccessServiceProvider)
+        .getVisibleMembers(auth);
     if (auth?.isMemberRole == true) {
       final linked = auth!.memberId;
       if (linked != null) {
@@ -712,10 +714,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         final index = members.indexWhere((m) => m.id == linked);
         if (index >= 0) {
           _loadMember(members[index], index);
-          await ref.read(memberNavigationProvider.notifier).openMember(
-                members[index],
-                all: members,
-              );
+          await ref
+              .read(memberNavigationProvider.notifier)
+              .openMember(members[index], all: members);
           return;
         }
       }
@@ -727,10 +728,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       final index = members.indexWhere((m) => m.id == selectedId);
       if (index >= 0) {
         _loadMember(members[index], index);
-        await ref.read(memberNavigationProvider.notifier).openMember(
-              members[index],
-              all: members,
-            );
+        await ref
+            .read(memberNavigationProvider.notifier)
+            .openMember(members[index], all: members);
         return;
       }
       // Cancelled members are excluded from the active list — still open by id.
@@ -824,7 +824,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     // Log once per browse selection while this screen is open.
     if (_lastLoggedSecureViewId != member.id) {
       _lastLoggedSecureViewId = member.id;
-      await ref.read(activityServiceProvider).record(
+      await ref
+          .read(activityServiceProvider)
+          .record(
             userName: user.displayName,
             action:
                 '🔒 view_locked_member ${member.fullName} '
@@ -837,10 +839,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   Future<void> _logScreenshotAttempt(Member member) async {
     final user = ref.read(authUserProvider);
     if (user == null) return;
-    await ref.read(activityServiceProvider).record(
+    await ref
+        .read(activityServiceProvider)
+        .record(
           userName: user.displayName,
-          action:
-              '⚠️ screenshot_attempt on locked member ${member.fullName}',
+          action: '⚠️ screenshot_attempt on locked member ${member.fullName}',
           captureGps: false,
         );
   }
@@ -947,15 +950,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Member photo saved.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Member photo saved.')));
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Photo upload failed: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Photo upload failed: $error')));
       }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
@@ -971,7 +974,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       });
       return;
     }
-    await ref.read(databaseServiceProvider).updateMemberPhoto(
+    await ref
+        .read(databaseServiceProvider)
+        .updateMemberPhoto(
           id: _currentId!,
           photoLocalPath: null,
           photoUrl: null,
@@ -999,9 +1004,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Click Edit to make changes before saving.',
-            ),
+            content: Text('Click Edit to make changes before saving.'),
           ),
         );
       }
@@ -1043,12 +1046,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             _persistedGlobalRecord ?? _globalRecordNo.text,
           )
         : GlobalRecordValidator.displayValue(_globalRecordNo.text);
-    final nextLroRaw = RecordFieldPolicy.isReadOnly(
-      isAdmin: _viewerIsAdmin,
-      isSecretary: _viewerIsSecretary,
-      persistedValue: _persistedLroRecord,
-      formReadOnly: _formReadOnly,
-    )
+    final nextLroRaw =
+        RecordFieldPolicy.isReadOnly(
+          isAdmin: _viewerIsAdmin,
+          isSecretary: _viewerIsSecretary,
+          persistedValue: _persistedLroRecord,
+          formReadOnly: _formReadOnly,
+        )
         ? (_persistedLroRecord ?? _lroRecordNo.text)
         : _lroRecordNo.text;
     final nextLro = nextLroRaw.trim().isEmpty ? null : nextLroRaw.trim();
@@ -1065,10 +1069,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           : await ref.read(memberRepositoryProvider).getById(_currentId!);
 
       // Keep draft id when creating so a pre-picked photo stays linked.
-      final memberId = _currentId ??
-          _draftId ??
-          existing?.id ??
-          const Uuid().v4();
+      final memberId =
+          _currentId ?? _draftId ?? existing?.id ?? const Uuid().v4();
 
       // UNIQUE(globalRecordNo) forbids multiple ''; use per-member pending token.
       // MODIFIED - pending GR token (Delete to require real GR again)
@@ -1084,43 +1086,46 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         nextLroRecordNo: nextLro,
       );
 
-      final member = (existing ??
-              Member.create(
+      final member =
+          (existing ??
+                  Member.create(
+                    saId: _saId.text.trim(),
+                    globalRecordNo: nextGlobal,
+                    memberName: _memberName.text.trim(),
+                    surname: _surname.text.trim(),
+                    lroRecordNo: nextLro,
+                  ))
+              .copyWith(
+                id: memberId,
                 saId: _saId.text.trim(),
                 globalRecordNo: nextGlobal,
+                lroRecordNo: nextLro,
+                clearLroRecordNo: nextLro == null,
                 memberName: _memberName.text.trim(),
                 surname: _surname.text.trim(),
-                lroRecordNo: nextLro,
-              ))
-          .copyWith(
-        id: memberId,
-        saId: _saId.text.trim(),
-        globalRecordNo: nextGlobal,
-        lroRecordNo: nextLro,
-        clearLroRecordNo: nextLro == null,
-        memberName: _memberName.text.trim(),
-        surname: _surname.text.trim(),
-        address: _address.text.trim(),
-        suburb: _suburb ?? '',
-        townCity: _townCity ?? '',
-        postalCode: _postalCode ?? '',
-        contactNo1: _contactNo1.text.trim(),
-        contactNo2: _contactNo2.text.trim(),
-        emailAddress: _email.text.trim(),
-        comment: _comment.text.trim(),
-        photoLocalPath: _photoLocalPath,
-        photoUrl: _photoUrl,
-        updatedAt: DateTime.now().toUtc(),
-        pendingSync: true,
-        deleted: false,
-      );
+                address: _address.text.trim(),
+                suburb: _suburb ?? '',
+                townCity: _townCity ?? '',
+                postalCode: _postalCode ?? '',
+                contactNo1: _contactNo1.text.trim(),
+                contactNo2: _contactNo2.text.trim(),
+                emailAddress: _email.text.trim(),
+                comment: _comment.text.trim(),
+                photoLocalPath: _photoLocalPath,
+                photoUrl: _photoUrl,
+                updatedAt: DateTime.now().toUtc(),
+                pendingSync: true,
+                deleted: false,
+              );
 
       final toSave = member;
 
       var saved = await ref.read(memberRepositoryProvider).save(toSave);
       final user = ref.read(authUserProvider);
       if (user != null) {
-        await ref.read(activityServiceProvider).record(
+        await ref
+            .read(activityServiceProvider)
+            .record(
               userName: user.displayName,
               action: existing == null
                   ? 'Created member ${saved.fullName}'
@@ -1135,7 +1140,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           oldLro: existing?.lroRecordNo,
           newLro: saved.lroRecordNo,
         )) {
-          await ref.read(activityServiceProvider).record(
+          await ref
+              .read(activityServiceProvider)
+              .record(
                 userName: user.displayName,
                 action: line,
                 captureGps: false,
@@ -1148,8 +1155,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       saved = await ref
           .read(stepActivationServiceProvider)
           .checkAndActivateStep1(saved);
-      final step1JustActivated =
-          !beforeStep1 && saved.step1MemberInfoComplete;
+      final step1JustActivated = !beforeStep1 && saved.step1MemberInfoComplete;
 
       // Automated onboarding reminders (step 1–4, 24h expiry).
       try {
@@ -1183,10 +1189,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       await _bootstrap();
       final index = _members.indexWhere((m) => m.id == saved.id);
       if (index >= 0) {
-        await ref.read(memberNavigationProvider.notifier).openMember(
-              _members[index],
-              all: _members,
-            );
+        await ref
+            .read(memberNavigationProvider.notifier)
+            .openMember(_members[index], all: _members);
         _loadMember(_members[index], index);
       }
       setState(() {
@@ -1283,8 +1288,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     return asyncItems.when(
       data: (items) {
         final values = items.map((e) => e.value).toList();
-        final effective =
-            value != null && values.contains(value) ? value : null;
+        final effective = value != null && values.contains(value)
+            ? value
+            : null;
         return Row(
           children: [
             Expanded(
@@ -1318,9 +1324,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               onPressed: _formReadOnly
                   ? null
                   : () async {
-                await showLookupManagerDialog(context, ref, type);
-                ref.invalidate(lookupsProvider(type));
-              },
+                      await showLookupManagerDialog(context, ref, type);
+                      ref.invalidate(lookupsProvider(type));
+                    },
             ),
           ],
         );
@@ -1341,7 +1347,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final strings = AppStrings(ref.watch(appLanguageProvider));
     final authUser = ref.read(authUserProvider);
     final isMemberOnly = _isMemberOnly;
-    final showList = !isMemberOnly && navState.currentView == MemberNavView.list;
+    final showList =
+        !isMemberOnly && navState.currentView == MemberNavView.list;
     final listSource = _adminViewMembers;
     final filtered = nav.filtered(listSource);
     final page = nav.pageMembers(listSource);
@@ -1492,9 +1499,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       enabled: !isMemberOnly,
       onPrevious: () => goPrev(),
       onNext: () => goNext(),
-      onPagePrevious: showList
-          ? () => nav.previousPage()
-          : () => goPrev(),
+      onPagePrevious: showList ? () => nav.previousPage() : () => goPrev(),
       onPageNext: showList
           ? () => nav.nextPage(filtered.length)
           : () => goNext(),
@@ -1523,7 +1528,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       onHome: () => goFirst(),
       onEnd: () => goLast(),
       onOpenHighlighted: openHighlighted,
-      onCancelMembership: (_viewerIsAdmin &&
+      onCancelMembership:
+          (_viewerIsAdmin &&
               _loadedMember != null &&
               !_loadedMember!.isCancelled)
           ? () => guardedCancelMembership()
@@ -1653,10 +1659,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                             ? openMemberDraft
                                             : null,
                                         onOpen: (m, {forceEdit = false}) =>
-                                            openMember(
-                                          m,
-                                          forceEdit: forceEdit,
-                                        ),
+                                            openMember(m, forceEdit: forceEdit),
                                         onEdit: (m) =>
                                             openMember(m, forceEdit: true),
                                         onUpload: (m) => showMemberFilesDialog(
@@ -1744,9 +1747,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final member = _loadedMember;
     if (member == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.saveOrCancelFirst)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.saveOrCancelFirst)));
       return;
     }
 
@@ -1760,9 +1763,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text(strings.activateRs),
-            content: Text(
-              'Promote ${member.fullName} to Recording Secretary?',
-            ),
+            content: Text('Promote ${member.fullName} to Recording Secretary?'),
             actions: [
               CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -1777,10 +1778,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
         if (confirm != true) return;
 
-        await ref.read(promotionServiceProvider).promoteToRecordingSecretary(
-              member: member,
-              admin: admin,
-            );
+        await ref
+            .read(promotionServiceProvider)
+            .promoteToRecordingSecretary(member: member, admin: admin);
         if (!mounted) return;
         setState(() => _rsRadioOn = true);
         ref.invalidate(appUsersProvider);
@@ -1795,9 +1795,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text(strings.deactivateRs),
-            content: Text(
-              'Demote ${member.fullName} to Regular Member?',
-            ),
+            content: Text('Demote ${member.fullName} to Regular Member?'),
             actions: [
               CancelButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -1812,10 +1810,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
         if (confirm != true) return;
 
-        await ref.read(promotionServiceProvider).demoteToMember(
-              member: member,
-              admin: admin,
-            );
+        await ref
+            .read(promotionServiceProvider)
+            .demoteToMember(member: member, admin: admin);
         if (!mounted) return;
         setState(() => _rsRadioOn = false);
         ref.invalidate(appUsersProvider);
@@ -1847,6 +1844,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     required Future<void> Function() onLast,
   }) {
     final strings = ref.watch(appStringsProvider);
+    final remunerationSettings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        _remunerationSettings;
     final member = _loadedMember;
     final idx = navState.currentIndex;
     String? prevName;
@@ -1867,7 +1867,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     Widget buildNavHeader() {
       // MODIFIED - always show ProfileNavigationBar (incl. New Member draft)
       // so Previous/Next stay visible.
-      final displayMember = member ??
+      final displayMember =
+          member ??
           Member(
             id: 'draft',
             saId: '',
@@ -1891,9 +1892,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         canNew: _canAddMembers,
         showRsRadio: ref.watch(isAdminProvider),
         rsRadioOn: _rsRadioOn,
-        rsRadioEnabled: ref.watch(isAdminProvider) &&
-            member != null &&
-            !_rsRadioBusy,
+        rsRadioEnabled:
+            ref.watch(isAdminProvider) && member != null && !_rsRadioBusy,
         onEdit: (member != null && _canEnterEditMode && !_isEditing)
             ? _enterEditMode
             : null,
@@ -1991,9 +1991,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: MemberOnboardingSummary(
                 member: _loadedMember!,
+                remunerationSettings: remunerationSettings,
                 readOnly: _formMode.checklistReadOnly || !_isEditing,
-                showCompleteButton:
-                    _formMode.showCompleteButton && !_isEditing,
+                showCompleteButton: _formMode.showCompleteButton && !_isEditing,
                 onToggleStep: _toggleOnboardingStep,
                 onComplete: _completeAndLock,
               ),
@@ -2068,7 +2068,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     );
                                     if (err != null) return err;
                                     if (_globalRecordError != null &&
-                                        _duplicateGlobalRecordMemberId != null) {
+                                        _duplicateGlobalRecordMemberId !=
+                                            null) {
                                       return _globalRecordError;
                                     }
                                     return null;
@@ -2077,22 +2078,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                       LroRecordValidator.validate(v ?? ''),
                                   memberNameValidator: (v) =>
                                       (v == null || v.trim().isEmpty)
-                                          ? strings.requiredField
-                                          : null,
+                                      ? strings.requiredField
+                                      : null,
                                   surnameValidator: (v) =>
                                       (v == null || v.trim().isEmpty)
-                                          ? strings.requiredField
-                                          : null,
+                                      ? strings.requiredField
+                                      : null,
                                   onManageRecordVisibility: () =>
                                       RecordVisibilityDialog.show(context),
                                   onViewExistingSaIdDuplicate: () =>
                                       _openExistingDuplicate(
-                                    _duplicateSaIdMemberId,
-                                  ),
+                                        _duplicateSaIdMemberId,
+                                      ),
                                   onViewExistingGlobalRecordDuplicate: () =>
                                       _openExistingDuplicate(
-                                    _duplicateGlobalRecordMemberId,
-                                  ),
+                                        _duplicateGlobalRecordMemberId,
+                                      ),
                                   onLroChanged: (value) {
                                     setState(() {
                                       _lroRecordError =
@@ -2132,15 +2133,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     fieldDecorationBuilder: _fieldDecoration,
                     addressValidator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    contactNo1Validator: (v) =>
-                        (v == null || v.trim().isEmpty)
-                            ? strings.requiredField
-                            : null,
+                    contactNo1Validator: (v) => (v == null || v.trim().isEmpty)
+                        ? strings.requiredField
+                        : null,
                     emailValidator: (v) {
                       final value = (v ?? '').trim();
                       if (value.isEmpty) return strings.requiredField;
-                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                          .hasMatch(value)) {
+                      if (!RegExp(
+                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                      ).hasMatch(value)) {
                         return strings.enterValidEmail;
                       }
                       return null;
@@ -2214,9 +2215,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final lockedMember = _loadedMember;
     final authUser = ref.read(authUserProvider);
     Widget formArea = formChrome;
-    if (lockedMember != null &&
-        lockedMember.isLocked &&
-        authUser != null) {
+    if (lockedMember != null && lockedMember.isLocked && authUser != null) {
       formArea = SizedBox.expand(
         child: ScreenshotProtectedView(
           member: lockedMember,
@@ -2260,7 +2259,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (complete && !(user.isSecretary || user.isAdmin)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Only Recording Secretaries or Administrators can record payments.'),
+          content: Text(
+            'Only Recording Secretaries or Administrators can record payments.',
+          ),
         ),
       );
       return;
@@ -2304,23 +2305,29 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
         if (confirmed != true) return;
         final paidAt = DateTime.now();
-        await ref.read(remunerationServiceProvider).recordManualPayment(
-          memberId: member.id,
-          memberName: member.fullName,
-          secretaryId: user.id,
-          stepNumber: step,
-          paymentDateTime: paidAt,
-          receiptNumber: 'AUTO-${paidAt.millisecondsSinceEpoch}',
-          notes: 'Manual payment recorded in member form',
-        );
-        await ref.read(activityServiceProvider).record(
-          userName: user.displayName,
-          action:
-              '[ACT-PAY-MEMBER-FORM] 💳 recorded_manual_payment for ${member.fullName} step_$step',
-          captureGps: false,
-        );
+        await ref
+            .read(remunerationServiceProvider)
+            .recordManualPayment(
+              memberId: member.id,
+              memberName: member.fullName,
+              secretaryId: user.id,
+              stepNumber: step,
+              paymentDateTime: paidAt,
+              receiptNumber: 'AUTO-${paidAt.millisecondsSinceEpoch}',
+              notes: 'Manual payment recorded in member form',
+            );
+        await ref
+            .read(activityServiceProvider)
+            .record(
+              userName: user.displayName,
+              action:
+                  '[ACT-PAY-MEMBER-FORM] 💳 recorded_manual_payment for ${member.fullName} step_$step',
+              captureGps: false,
+            );
       }
-      final updated = await ref.read(memberLockServiceProvider).setOnboardingStep(
+      final updated = await ref
+          .read(memberLockServiceProvider)
+          .setOnboardingStep(
             member: member,
             actor: user,
             step: step,
@@ -2336,10 +2343,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       }
       ref.invalidate(membersProvider);
       try {
-        await ref.read(reminderServiceProvider).syncFromMember(
-              updated,
-              actor: user.id,
-            );
+        await ref
+            .read(reminderServiceProvider)
+            .syncFromMember(updated, actor: user.id);
         ref.invalidate(activeOnboardingRemindersProvider);
         ref.invalidate(reminderStatsProvider);
         ref.invalidate(activeReminderCountProvider);
@@ -2398,19 +2404,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
     if (ok != true) return;
     try {
-      final locked = await ref.read(memberLockServiceProvider).completeAndLock(
-            member: member,
-            actor: user,
-          );
+      final locked = await ref
+          .read(memberLockServiceProvider)
+          .completeAndLock(member: member, actor: user);
       if (!mounted) return;
       setState(() => _loadedMember = locked);
       ref.invalidate(membersProvider);
       ref.invalidate(lockedMembersProvider);
       try {
-        await ref.read(reminderServiceProvider).onLROCompleted(
-              locked,
-              actor: user.id,
-            );
+        await ref
+            .read(reminderServiceProvider)
+            .onLROCompleted(locked, actor: user.id);
         ref.invalidate(activeOnboardingRemindersProvider);
         ref.invalidate(reminderStatsProvider);
         ref.invalidate(activeReminderCountProvider);

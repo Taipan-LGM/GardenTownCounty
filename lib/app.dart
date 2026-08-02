@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'l10n/app_strings.dart';
+import 'models/remuneration_settings.dart';
 import 'models/user_role.dart';
 import 'providers/providers.dart';
 import 'screens/activities/activities_screen.dart';
@@ -36,8 +37,9 @@ class GardenTownCountyApp extends ConsumerWidget {
     final user = ref.watch(authUserProvider);
     final themeMode = ref.watch(themeModeProvider);
     final language = ref.watch(appLanguageProvider);
-    final locale =
-        language == AppLanguage.afrikaans ? const Locale('af') : const Locale('en');
+    final locale = language == AppLanguage.afrikaans
+        ? const Locale('af')
+        : const Locale('en');
 
     return MaterialApp(
       title: AppConstants.appName,
@@ -46,10 +48,7 @@ class GardenTownCountyApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       locale: locale,
-      supportedLocales: const [
-        Locale('en'),
-        Locale('af'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('af')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -85,26 +84,11 @@ class _AppShellState extends ConsumerState<AppShell>
       AppSection.activities: const ActivitiesScreen(),
       AppSection.addUser: const AddUserScreen(),
       AppSection.backupRestore: const BackupRestoreScreen(),
-      AppSection.global528: const StepWorkflowScreen(
-        stepNumber: 1,
-        title: 'Payments',
-      ),
-      AppSection.global528Step2: const StepWorkflowScreen(
-        stepNumber: 2,
-        title: 'Step 2_Global 528',
-      ),
-      AppSection.global928: const StepWorkflowScreen(
-        stepNumber: 3,
-        title: 'Step 3_Global 928',
-      ),
-      AppSection.lro: const StepWorkflowScreen(
-        stepNumber: 4,
-        title: 'Step 4_LRO',
-      ),
-      AppSection.credentialCard: const StepWorkflowScreen(
-        stepNumber: 5,
-        title: 'Step 5_Credential Card',
-      ),
+      AppSection.global528: const StepWorkflowScreen(stepNumber: 1),
+      AppSection.global528Step2: const StepWorkflowScreen(stepNumber: 2),
+      AppSection.global928: const StepWorkflowScreen(stepNumber: 3),
+      AppSection.lro: const StepWorkflowScreen(stepNumber: 4),
+      AppSection.credentialCard: const StepWorkflowScreen(stepNumber: 5),
       AppSection.lockedMembers: const CancellationsScreen(),
       AppSection.duplicateReport: const DuplicateReportScreen(),
       AppSection.countyInfo: const InfoContentScreen(),
@@ -132,15 +116,15 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 
-
   Future<void> _maybeRemindBackup() async {
     if (_backupReminderShown) return;
     final isAdmin = ref.read(isAdminProvider);
     if (!isAdmin) return;
     final auth = await ref.read(backupAuthServiceProvider).checkAuthorization();
     if (!auth.authorized) return;
-    final overdue =
-        await ref.read(backupAuthServiceProvider).isBackupOverdue(days: 7);
+    final overdue = await ref
+        .read(backupAuthServiceProvider)
+        .isBackupOverdue(days: 7);
     if (!overdue || !mounted) return;
     _backupReminderShown = true;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -163,6 +147,9 @@ class _AppShellState extends ConsumerState<AppShell>
     final user = ref.watch(authUserProvider);
     final language = ref.watch(appLanguageProvider);
     final strings = AppStrings(language);
+    final remunerationSettings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        RemunerationSettings.defaults();
     final effectiveSection = !_canAccessSection(section, user)
         ? AppSection.home
         : section;
@@ -173,7 +160,8 @@ class _AppShellState extends ConsumerState<AppShell>
       });
     }
 
-    final isHomeHub = effectiveSection == AppSection.home ||
+    final isHomeHub =
+        effectiveSection == AppSection.home ||
         effectiveSection == AppSection.settings ||
         effectiveSection == AppSection.countyInfo ||
         effectiveSection == AppSection.countyVideos;
@@ -182,7 +170,9 @@ class _AppShellState extends ConsumerState<AppShell>
     return Scaffold(
       appBar: showAppBar
           ? AppBar(
-              title: Text(strings.sectionTitle(effectiveSection)),
+              title: Text(
+                _sectionTitle(effectiveSection, strings, remunerationSettings),
+              ),
             )
           : null,
       drawer: const AppDrawer(),
@@ -239,6 +229,21 @@ class _AppShellState extends ConsumerState<AppShell>
         ],
       ),
     );
+  }
+
+  String _sectionTitle(
+    AppSection section,
+    AppStrings strings,
+    RemunerationSettings settings,
+  ) {
+    return switch (section) {
+      AppSection.global528 => strings.global528,
+      AppSection.global528Step2 => settings.stepName(2),
+      AppSection.global928 => settings.stepName(3),
+      AppSection.lro => settings.stepName(4),
+      AppSection.credentialCard => settings.stepName(5),
+      _ => strings.sectionTitle(section),
+    };
   }
 
   bool _canAccessSection(AppSection section, AuthUser? user) {
@@ -316,7 +321,9 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Widget _bodyFor(AppSection section) {
-    final body = _sectionBodies[section] ?? LandingScreen(onFinished: _onLandingFinished);
+    final body =
+        _sectionBodies[section] ??
+        LandingScreen(onFinished: _onLandingFinished);
     return body;
   }
 }

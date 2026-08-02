@@ -7,7 +7,7 @@ import 'database_service.dart';
 import 'reminder_notification_service.dart';
 import 'sync_engine.dart';
 
-/// Automated onboarding reminder lifecycle (steps 1–4, 24h expiry).
+/// Automated onboarding reminder lifecycle for configured steps (24h expiry).
 class ReminderService {
   ReminderService(
     this._db,
@@ -23,10 +23,7 @@ class ReminderService {
 
   Future<void> _persist(Reminder reminder) async {
     await _db.upsertReminder(
-      reminder.copyWith(
-        updatedAt: DateTime.now().toUtc(),
-        pendingSync: true,
-      ),
+      reminder.copyWith(updatedAt: DateTime.now().toUtc(), pendingSync: true),
     );
     try {
       await _sync.pushPending();
@@ -48,6 +45,8 @@ class ReminderService {
     required int stepNumber,
     String? createdBy,
   }) async {
+    final settings = await _db.getRemunerationSettings();
+    final stepDescription = settings.stepName(stepNumber);
     final existing = await _getActiveReminderByMember(memberId);
     if (existing != null) {
       return updateReminderStep(
@@ -69,7 +68,7 @@ class ReminderService {
     await _notifications.notifyNewReminder(
       memberName: reminder.displayName,
       step: stepNumber,
-      stepDescription: ReminderStep.getDescription(stepNumber),
+      stepDescription: stepDescription,
     );
     await _logActivity(
       'Reminder created for ${reminder.displayName} (step $stepNumber)',
@@ -88,7 +87,8 @@ class ReminderService {
     }
 
     final now = DateTime.now().toUtc();
-    final desc = ReminderStep.getDescription(newStep);
+    final settings = await _db.getRemunerationSettings();
+    final desc = settings.stepName(newStep);
     final expiry = now.add(const Duration(hours: 24));
     final updated = reminder.copyWith(
       stepNumber: newStep,
@@ -131,9 +131,7 @@ class ReminderService {
       pendingSync: true,
     );
     await _persist(done);
-    await _notifications.notifyReminderCompleted(
-      memberName: done.displayName,
-    );
+    await _notifications.notifyReminderCompleted(memberName: done.displayName);
     return done;
   }
 
@@ -194,14 +192,16 @@ class ReminderService {
     );
   }
 
-  /// Derive target step from member onboarding flags.
+  /// Derive the first incomplete step from the active configured sequence.
   /// Returns null when all steps complete (reminder should be removed).
-  static int? expectedStepForMember(Member member) {
-    if (member.allStepsComplete) return null;
-    if (member.step3Global928Complete) return ReminderStep.step4LRO;
-    if (member.step2Global528Complete) return ReminderStep.step3Global928;
-    if (member.step1MemberInfoComplete) return ReminderStep.step2Global528;
-    return ReminderStep.step1MemberInfo;
+  static int? expectedStepForMember(
+    Member member, [
+    Iterable<int> configuredSteps = const [1, 2, 3, 4, 5],
+  ]) {
+    for (final step in configuredSteps) {
+      if (!member.isStepCompleteAt(step)) return step;
+    }
+    return null;
   }
 
   /// Sync reminder to member's current onboarding progress.
@@ -210,7 +210,11 @@ class ReminderService {
     String? actor,
     bool isNewMember = false,
   }) async {
-    final expected = expectedStepForMember(member);
+    final settings = await _db.getRemunerationSettings();
+    final expected = expectedStepForMember(
+      member,
+      settings.configuredSteps.map((step) => step.number),
+    );
     final existing = await _getActiveReminderByMember(member.id);
 
     if (expected == null) {
@@ -229,7 +233,7 @@ class ReminderService {
         memberName: member.memberName,
         surname: member.surname,
         saId: member.saId,
-        stepNumber: isNewMember ? ReminderStep.step1MemberInfo : expected,
+        stepNumber: expected,
         createdBy: actor ?? 'system',
       );
       return;
@@ -254,13 +258,10 @@ class ReminderService {
   }
 
   Future<void> onMemberCreated(Member member, {String? actor}) async {
-    await createReminder(
-      memberId: member.id,
-      memberName: member.memberName,
-      surname: member.surname,
-      saId: member.saId,
-      stepNumber: ReminderStep.step1MemberInfo,
-      createdBy: actor ?? member.createdBy ?? 'system',
+    await syncFromMember(
+      member,
+      actor: actor ?? member.createdBy ?? 'system',
+      isNewMember: true,
     );
   }
 

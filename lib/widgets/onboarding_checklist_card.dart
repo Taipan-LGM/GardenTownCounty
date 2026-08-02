@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/member.dart';
+import '../models/remuneration_settings.dart';
 import 'standard_buttons.dart';
 
 final _dayFmt = DateFormat('yyyy-MM-dd');
@@ -12,6 +13,7 @@ class OnboardingChecklistCard extends StatelessWidget {
   const OnboardingChecklistCard({
     super.key,
     required this.member,
+    required this.remunerationSettings,
     required this.readOnly,
     required this.onToggleStep,
     this.onComplete,
@@ -19,6 +21,7 @@ class OnboardingChecklistCard extends StatelessWidget {
   });
 
   final Member member;
+  final RemunerationSettings remunerationSettings;
   final bool readOnly;
   final Future<void> Function(int step, bool complete) onToggleStep;
   final VoidCallback? onComplete;
@@ -61,25 +64,25 @@ class OnboardingChecklistCard extends StatelessWidget {
             const SizedBox(height: 8),
             _stepRow(
               step: 1,
-              label: 'Step 1: Member Info',
+              label: remunerationSettings.stepName(1),
               done: member.step1MemberInfoComplete,
               date: member.step1CompletionDate,
             ),
             _stepRow(
               step: 2,
-              label: 'Step 2: Global 528',
+              label: remunerationSettings.stepName(2),
               done: member.step2Global528Complete,
               date: member.step2CompletionDate,
             ),
             _stepRow(
               step: 3,
-              label: 'Step 3: Global 928',
+              label: remunerationSettings.stepName(3),
               done: member.step3Global928Complete,
               date: member.step3CompletionDate,
             ),
             _stepRow(
               step: 4,
-              label: 'Step 4: LRO',
+              label: remunerationSettings.stepName(4),
               done: member.step4LROComplete,
               date: member.step4CompletionDate,
             ),

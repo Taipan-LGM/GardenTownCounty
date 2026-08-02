@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/app_user.dart';
 import '../../models/member.dart';
+import '../../models/member_file.dart';
+import '../../models/remuneration_settings.dart';
 import '../../models/secretary_remuneration.dart';
 import '../../providers/providers.dart';
 import '../../widgets/standard_buttons.dart';
@@ -28,24 +30,16 @@ class _ManualPaymentRequest {
 }
 
 class _CardPaymentRequest {
-  const _CardPaymentRequest({
-    required this.memberId,
-    required this.stepNumber,
-  });
+  const _CardPaymentRequest({required this.memberId, required this.stepNumber});
 
   final String memberId;
   final int stepNumber;
 }
 
 class StepWorkflowScreen extends ConsumerStatefulWidget {
-  const StepWorkflowScreen({
-    super.key,
-    required this.stepNumber,
-    required this.title,
-  });
+  const StepWorkflowScreen({super.key, required this.stepNumber});
 
   final int stepNumber;
-  final String title;
 
   @override
   ConsumerState<StepWorkflowScreen> createState() => _StepWorkflowScreenState();
@@ -55,31 +49,15 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
   final Set<String> _busyMemberIds = <String>{};
   int _historyRefreshTick = 0;
 
-  String _stepLabel(int stepNumber) => switch (stepNumber) {
-        1 => 'Step 1_Global 528',
-        2 => 'Step 2_Global 528',
-        3 => 'Step 3_Global 928',
-        4 => 'Step 4_LRO',
-        5 => 'Step 5_Credential Card',
-        _ => 'Step $stepNumber',
-      };
+  String _stepLabel(int stepNumber) =>
+      ref
+          .read(remunerationSettingsProvider)
+          .valueOrNull
+          ?.stepName(stepNumber) ??
+      RemunerationSettings.defaults().stepName(stepNumber);
 
-  bool _stepCompleteAt(Member member, int stepNumber) {
-    switch (stepNumber) {
-      case 1:
-        return member.step1MemberInfoComplete;
-      case 2:
-        return member.step2Global528Complete;
-      case 3:
-        return member.step3Global928Complete;
-      case 4:
-        return member.step4LROComplete;
-      case 5:
-        return member.step5CredentialCardComplete;
-      default:
-        return false;
-    }
-  }
+  bool _stepCompleteAt(Member member, int stepNumber) =>
+      member.isStepCompleteAt(stepNumber);
 
   bool _stepComplete(Member member) {
     return _stepCompleteAt(member, widget.stepNumber);
@@ -91,7 +69,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
 
     setState(() => _busyMemberIds.add(member.id));
     try {
-      await ref.read(memberLockServiceProvider).setOnboardingStep(
+      await ref
+          .read(memberLockServiceProvider)
+          .setOnboardingStep(
             member: member,
             actor: actor,
             step: stepNumber,
@@ -160,7 +140,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                     username: usernameController.text,
                     password: passwordController.text,
                   );
-              await ref.read(activityServiceProvider).record(
+              await ref
+                  .read(activityServiceProvider)
+                  .record(
                     userName: assistant.displayName,
                     action:
                         '[ACT-PAY-ASSIST-VERIFY-SUCCESS] payment_assistant_verified role ${assistant.userRole.label} for manual payment assistance requested by ${operator?.displayName ?? 'Unknown operator'}',
@@ -171,18 +153,21 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                 Navigator.pop(dialogContext, true);
               }
             } catch (error) {
-              await ref.read(activityServiceProvider).record(
-                  userName: operator?.displayName ?? 'Unknown operator',
+              await ref
+                  .read(activityServiceProvider)
+                  .record(
+                    userName: operator?.displayName ?? 'Unknown operator',
                     action:
-                    '[ACT-PAY-ASSIST-VERIFY-FAILED] payment_assistant_verification_failed for ${assistant.displayName} role ${assistant.userRole.label} during manual payment assistance',
+                        '[ACT-PAY-ASSIST-VERIFY-FAILED] payment_assistant_verification_failed for ${assistant.displayName} role ${assistant.userRole.label} during manual payment assistance',
                     captureGps: false,
                   );
               ref.invalidate(activitiesProvider);
               if (dialogContext.mounted) {
                 setDialogState(() {
-                  errorMessage = error
-                      .toString()
-                      .replaceFirst('Exception: ', '');
+                  errorMessage = error.toString().replaceFirst(
+                    'Exception: ',
+                    '',
+                  );
                   verifying = false;
                   passwordController.clear();
                 });
@@ -229,8 +214,8 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                       onPressed: verifying
                           ? null
                           : () => setDialogState(
-                                () => obscurePassword = !obscurePassword,
-                              ),
+                              () => obscurePassword = !obscurePassword,
+                            ),
                     ),
                   ),
                   onSubmitted: (_) => verify(),
@@ -246,8 +231,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
             ),
             actions: [
               CancelButton(
-                onPressed:
-                    verifying ? null : () => Navigator.pop(dialogContext, false),
+                onPressed: verifying
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
                 text: 'Cancel',
               ),
               SubmitButton(
@@ -274,16 +260,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
   }) async {
     final settings = await ref.read(remunerationServiceProvider).getSettings();
 
-    double amountForStep(int step) {
-      return switch (step) {
-        1 => settings.step1Amount,
-        2 => settings.step2Amount,
-        3 => settings.step3Amount,
-        4 => settings.step4Amount,
-        5 => settings.step5Amount,
-        _ => 0,
-      };
-    }
+    double amountForStep(int step) => settings.stepAmount(step);
 
     var selectedMemberId = initialMember.id;
     String? selectedSecretaryId;
@@ -306,7 +283,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
             final selectedSecretary = selectedSecretaryId == null
                 ? null
                 : assistants.firstWhere(
-                  (assistant) => assistant.id == selectedSecretaryId,
+                    (assistant) => assistant.id == selectedSecretaryId,
                   );
             final amount = amountForStep(selectedStep);
 
@@ -322,11 +299,11 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                         labelText: 'Step',
                         border: OutlineInputBorder(),
                       ),
-                      items: const [1, 2, 3, 4, 5]
+                      items: settings.configuredSteps
                           .map(
                             (step) => DropdownMenuItem<int>(
-                              value: step,
-                              child: Text(_stepLabel(step)),
+                              value: step.number,
+                              child: Text(step.name),
                             ),
                           )
                           .toList(),
@@ -387,8 +364,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                           selectedSecretaryId = null;
                           verifiedSecretaryId = null;
                         });
-                        final verified =
-                          await _confirmAssistantCredentials(assistant);
+                        final verified = await _confirmAssistantCredentials(
+                          assistant,
+                        );
                         if (!context.mounted) return;
                         setDialogState(() {
                           selectedSecretaryId = verified ? assistant.id : null;
@@ -547,19 +525,20 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
     if (actor == null) return;
 
     final users = await ref.read(databaseServiceProvider).getAppUsers();
-    final assistants = users
-        .where(
-          (user) =>
-          (user.isAdmin || user.isSecretary) &&
-          user.active &&
-          !user.deleted,
-        )
-        .toList()
-      ..sort(
-        (a, b) => a.displayName.toLowerCase().compareTo(
+    final assistants =
+        users
+            .where(
+              (user) =>
+                  (user.isAdmin || user.isSecretary) &&
+                  user.active &&
+                  !user.deleted,
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.displayName.toLowerCase().compareTo(
               b.displayName.toLowerCase(),
             ),
-      );
+          );
     if (assistants.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -600,7 +579,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
 
     setState(() => _busyMemberIds.add(selectedMember.id));
     try {
-      final record = await ref.read(remunerationServiceProvider).recordManualPayment(
+      final record = await ref
+          .read(remunerationServiceProvider)
+          .recordManualPayment(
             memberId: selectedMember.id,
             memberName: selectedMember.fullName,
             secretaryId: request.secretaryId,
@@ -639,8 +620,11 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
   }
 
   Future<void> _validatePaymentSequence(Member member, int stepNumber) async {
-    if (stepNumber <= 1) return;
-    final previousStep = stepNumber - 1;
+    final settings = await ref.read(remunerationServiceProvider).getSettings();
+    final configured = settings.configuredSteps;
+    final index = configured.indexWhere((step) => step.number == stepNumber);
+    if (index <= 0) return;
+    final previousStep = configured[index - 1].number;
     final previousComplete = _stepCompleteAt(member, previousStep);
     final previousPaid = await ref
         .read(remunerationServiceProvider)
@@ -660,14 +644,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
     var selectedMemberId = initialMember.id;
     var selectedStep = widget.stepNumber;
 
-    double amountForStep(int step) => switch (step) {
-          1 => settings.step1Amount,
-          2 => settings.step2Amount,
-          3 => settings.step3Amount,
-          4 => settings.step4Amount,
-          5 => settings.step5Amount,
-          _ => 0,
-        };
+    double amountForStep(int step) => settings.stepAmount(step);
 
     if (!mounted) return null;
     return showDialog<_CardPaymentRequest>(
@@ -693,11 +670,11 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                       labelText: 'Payment step',
                       border: OutlineInputBorder(),
                     ),
-                    items: [1, 2, 3, 4, 5]
+                    items: settings.configuredSteps
                         .map(
                           (step) => DropdownMenuItem<int>(
-                            value: step,
-                            child: Text(_stepLabel(step)),
+                            value: step.number,
+                            child: Text(step.name),
                           ),
                         )
                         .toList(),
@@ -737,7 +714,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${selectedMember.fullName}\n${_stepLabel(selectedStep)}\nAmount: R ${amount.toStringAsFixed(2)}',
+                      '${selectedMember.fullName}\n${settings.stepName(selectedStep)}\nAmount: R ${amount.toStringAsFixed(2)}',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -747,7 +724,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                         ? 'Card details are handled securely by the configured payment provider and are never stored in this app.'
                         : 'Card gateway setup is required before a payment can be processed.',
                     style: TextStyle(
-                      color: configured ? Colors.green.shade800 : Colors.orange.shade900,
+                      color: configured
+                          ? Colors.green.shade800
+                          : Colors.orange.shade900,
                     ),
                   ),
                 ],
@@ -761,12 +740,12 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
               SubmitButton(
                 onPressed: configured
                     ? () => Navigator.pop(
-                          context,
-                          _CardPaymentRequest(
-                            memberId: selectedMemberId,
-                            stepNumber: selectedStep,
-                          ),
-                        )
+                        context,
+                        _CardPaymentRequest(
+                          memberId: selectedMemberId,
+                          stepNumber: selectedStep,
+                        ),
+                      )
                     : null,
                 text: 'Process Card Payment',
                 icon: Icons.credit_card,
@@ -811,20 +790,26 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
       final amount = await ref
           .read(remunerationServiceProvider)
           .getStepAmount(request.stepNumber);
-      await ref.read(activityServiceProvider).record(
+      await ref
+          .read(activityServiceProvider)
+          .record(
             userName: actor.displayName,
             action:
                 '[ACT-PAY-CARD-INIT] card_payment_initiated step ${request.stepNumber} for ${selectedMember.fullName} amount R ${amount.toStringAsFixed(2)}',
             captureGps: false,
           );
-      final result = await ref.read(cardPaymentGatewayProvider).authorize(
+      final result = await ref
+          .read(cardPaymentGatewayProvider)
+          .authorize(
             memberId: selectedMember.id,
             memberName: selectedMember.fullName,
             stepNumber: request.stepNumber,
             amount: amount,
             requestedBy: actor.displayName,
           );
-      final record = await ref.read(remunerationServiceProvider).recordCardPayment(
+      final record = await ref
+          .read(remunerationServiceProvider)
+          .recordCardPayment(
             memberId: selectedMember.id,
             memberName: selectedMember.fullName,
             secretaryId: secretaryId,
@@ -847,7 +832,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
         ),
       );
     } catch (error) {
-      await ref.read(activityServiceProvider).record(
+      await ref
+          .read(activityServiceProvider)
+          .record(
             userName: actor.displayName,
             action:
                 '[ACT-PAY-CARD-FAILED] card_payment_failed step ${request.stepNumber} for ${selectedMember.fullName}: ${error.toString()}',
@@ -878,6 +865,221 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
       default:
         return Colors.orange;
     }
+  }
+
+  Widget _summaryField(
+    String text, {
+    required double fontSize,
+    FontWeight fontWeight = FontWeight.w500,
+    Color? color,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: fontSize + 5,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryStatusField(bool completed) {
+    final color = completed ? Colors.green : Colors.red;
+    return Semantics(
+      label: completed ? 'Completed' : 'Not completed',
+      child: SizedBox(
+        width: double.infinity,
+        height: 17,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                completed ? Icons.check_circle : Icons.cancel,
+                size: 14,
+                color: color,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                completed ? 'COMPLETED' : 'NOT COMPLETED',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _paymentsSummary({
+    required List<Member> members,
+    required List<SecretaryRemuneration> records,
+    required Map<String, List<MemberFile>> filesByMember,
+    required RemunerationSettings settings,
+  }) {
+    final steps = settings.configuredSteps.take(5).toList(growable: false);
+    final stepTotals = <int, double>{};
+    final memberCounts = <int, int>{};
+    final memberById = {for (final member in members) member.id: member};
+
+    bool hasStepPdf(String memberId, int stepNumber, String stepName) {
+      final stepPattern = RegExp(
+        '(^|[^0-9])step[_ -]*$stepNumber([^0-9]|\$)',
+        caseSensitive: false,
+      );
+      final normalizedName = stepName.toLowerCase().replaceAll('_', ' ');
+      return (filesByMember[memberId] ?? const <MemberFile>[]).any((file) {
+        final isPdf =
+            file.contentType.toLowerCase() == 'application/pdf' ||
+            file.fileName.toLowerCase().endsWith('.pdf');
+        final searchable = '${file.fileName} ${file.description}'.toLowerCase();
+        return isPdf &&
+            (stepPattern.hasMatch(searchable) ||
+                searchable.contains(normalizedName));
+      });
+    }
+
+    for (final step in steps) {
+      final completedRecords = records
+          .where(
+            (record) =>
+                !record.isDeleted &&
+                record.status == 'paid' &&
+                record.type == 'step${step.number}' &&
+                (memberById[record.memberId]?.isStepCompleteAt(step.number) ??
+                    false) &&
+                (step.number == 5 ||
+                    hasStepPdf(record.memberId, step.number, step.name)),
+          )
+          .toList(growable: false);
+      final memberCount = completedRecords
+          .map((record) => record.memberId)
+          .toSet()
+          .length;
+      memberCounts[step.number] = memberCount;
+      stepTotals[step.number] = memberCount * step.amount;
+    }
+
+    final totalAmount = stepTotals.values.fold<double>(0, (a, b) => a + b);
+    final totalMembers = memberCounts.values.fold<int>(0, (a, b) => a + b);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Payments',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  ActionButton(
+                    onPressed: () {
+                      ref.invalidate(membersProvider);
+                      ref.invalidate(remunerationSettingsProvider);
+                      setState(() => _historyRefreshTick++);
+                    },
+                    text: 'Refresh',
+                    icon: Icons.refresh,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (var index = 0; index < steps.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 4),
+                    Expanded(
+                      child: Container(
+                        height: 96,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainer,
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _summaryField(
+                              steps[index].name,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            _summaryStatusField(
+                              (memberCounts[steps[index].number] ?? 0) > 0,
+                            ),
+                            _summaryField(
+                              (memberCounts[steps[index].number] ?? 0) > 0
+                                  ? (steps[index].number == 5
+                                        ? '(Paid + Printed)'
+                                        : '(Paid + PDF Uploaded)')
+                                  : (steps[index].number == 5
+                                        ? '(Not paid/printed)'
+                                        : '(Not paid/PDF)'),
+                              fontSize: 10,
+                              color:
+                                  (memberCounts[steps[index].number] ?? 0) > 0
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                            _summaryField(
+                              'RS Amount: R ${(stepTotals[steps[index].number] ?? 0).toStringAsFixed(2)}',
+                              fontSize: 12,
+                            ),
+                            _summaryField(
+                              'Total Members: ${memberCounts[steps[index].number] ?? 0}',
+                              fontSize: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const Divider(height: 16),
+              _summaryField(
+                'Total RS Amount: R ${totalAmount.toStringAsFixed(2)}   |   Total Members: $totalMembers',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _historyPanel() {
@@ -930,18 +1132,20 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                 )
               else
                 ...records.take(50).map((record) {
-                    final description = record.description.toLowerCase();
-                    final isManual = description.contains('manual payment');
-                    final isCard = description.contains('card payment');
+                  final description = record.description.toLowerCase();
+                  final isManual = description.contains('manual payment');
+                  final isCard = description.contains('card payment');
                   final earned = record.dateEarned.toLocal();
                   final paid = record.datePaid?.toLocal();
                   return ListTile(
                     dense: true,
                     leading: Icon(
-                        isCard
+                      isCard
                           ? Icons.credit_card
-                          : (isManual ? Icons.payments_outlined : Icons.auto_graph),
-                        color: isCard
+                          : (isManual
+                                ? Icons.payments_outlined
+                                : Icons.auto_graph),
+                      color: isCard
                           ? Colors.blue
                           : (isManual ? Colors.deepPurple : Colors.teal),
                     ),
@@ -958,13 +1162,16 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                         Chip(
                           visualDensity: VisualDensity.compact,
                           label: Text(
-                            isCard ? 'Card' : (isManual ? 'Manual' : 'Integrated'),
+                            isCard
+                                ? 'Card'
+                                : (isManual ? 'Manual' : 'Integrated'),
                           ),
                         ),
                         Chip(
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: _statusColor(record.status)
-                              .withValues(alpha: 0.15),
+                          backgroundColor: _statusColor(
+                            record.status,
+                          ).withValues(alpha: 0.15),
                           label: Text(
                             record.status,
                             style: TextStyle(
@@ -987,6 +1194,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(membersProvider);
+    final remunerationSettings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        RemunerationSettings.defaults();
 
     return membersAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -997,17 +1207,37 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
         ),
       ),
       data: (members) {
-        if (members.isEmpty) {
-          return const Center(
-            child: Text('No members available for payment.'),
-          );
-        }
-
-        return FutureBuilder<List<SecretaryRemuneration>>(
+        return FutureBuilder<
+          ({
+            List<SecretaryRemuneration> records,
+            Map<String, List<MemberFile>> filesByMember,
+          })
+        >(
           key: ValueKey('step-gates-${widget.stepNumber}-$_historyRefreshTick'),
-          future: ref.read(databaseServiceProvider).getAllRemunerationRecords(),
+          future: () async {
+            final database = ref.read(databaseServiceProvider);
+            final records = await database.getAllRemunerationRecords();
+            final memberFiles = await Future.wait(
+              members.map((member) async {
+                return MapEntry(
+                  member.id,
+                  await database.getFilesForMember(member.id),
+                );
+              }),
+            );
+            return (
+              records: records,
+              filesByMember: Map<String, List<MemberFile>>.fromEntries(
+                memberFiles,
+              ),
+            );
+          }(),
           builder: (context, paySnapshot) {
-            final allRecords = paySnapshot.data ?? const <SecretaryRemuneration>[];
+            final allRecords =
+                paySnapshot.data?.records ?? const <SecretaryRemuneration>[];
+            final filesByMember =
+                paySnapshot.data?.filesByMember ??
+                const <String, List<MemberFile>>{};
 
             bool hasPaidStep(Member member, int stepNumber) {
               final type = 'step$stepNumber';
@@ -1021,8 +1251,12 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
             }
 
             bool previousStepReady(Member member) {
-              if (widget.stepNumber == 1) return true;
-              final previous = widget.stepNumber - 1;
+              final index = remunerationSettings.configuredSteps.indexWhere(
+                (step) => step.number == widget.stepNumber,
+              );
+              if (index <= 0) return true;
+              final previous =
+                  remunerationSettings.configuredSteps[index - 1].number;
               return _stepCompleteAt(member, previous) &&
                   hasPaidStep(member, previous);
             }
@@ -1032,40 +1266,20 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              widget.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          ActionButton(
-                            onPressed: () {
-                              ref.invalidate(membersProvider);
-                            },
-                            text: 'Refresh',
-                            icon: Icons.refresh,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _paymentsSummary(
+                  members: members,
+                  records: allRecords,
+                  filesByMember: filesByMember,
+                  settings: remunerationSettings,
                 ),
                 _historyPanel(),
                 Expanded(
                   child: filteredMembers.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
-                            'No members are unlocked for this step yet.\nComplete and pay the previous step first.',
+                            members.isEmpty
+                                ? 'No members available for payment.'
+                                : 'No members are unlocked for this step yet.\nComplete and pay the previous step first.',
                             textAlign: TextAlign.center,
                           ),
                         )
@@ -1076,7 +1290,10 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                             final member = filteredMembers[index];
                             final complete = _stepComplete(member);
                             final busy = _busyMemberIds.contains(member.id);
-                            final stepPaid = hasPaidStep(member, widget.stepNumber);
+                            final stepPaid = hasPaidStep(
+                              member,
+                              widget.stepNumber,
+                            );
                             final canMarkComplete = complete || stepPaid;
                             return Card(
                               margin: const EdgeInsets.only(bottom: 10),
@@ -1099,7 +1316,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                         Chip(
                                           label: Text(
                                             complete ? 'Complete' : 'Pending',
-                                            style: const TextStyle(color: Colors.black),
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                            ),
                                           ),
                                           backgroundColor: complete
                                               ? Colors.green.shade100
@@ -1116,31 +1335,70 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                     Wrap(
                                       spacing: 8,
                                       runSpacing: 8,
-                                      children: [1, 2, 3, 4, 5].map((step) {
-                                        final paid = hasPaidStep(member, step);
-                                        final unlocked = step == 1 ||
-                                            (_stepCompleteAt(member, step - 1) &&
-                                                hasPaidStep(member, step - 1));
-                                        return Chip(
-                                          avatar: Icon(
-                                            paid
-                                                ? Icons.check_circle
-                                                : (unlocked
-                                                      ? Icons.payment
-                                                      : Icons.lock_outline),
-                                            size: 18,
-                                          ),
-                                          label: Text(
-                                            '${_stepLabel(step)}: ${paid ? 'Paid' : (unlocked ? 'Due' : 'Locked')}',
-                                            style: const TextStyle(color: Colors.black),
-                                          ),
-                                          backgroundColor: paid
-                                              ? Colors.green.shade100
-                                              : (unlocked
-                                                    ? Colors.orange.shade100
-                                                    : Colors.grey.shade200),
-                                        );
-                                      }).toList(),
+                                      children: remunerationSettings
+                                          .configuredSteps
+                                          .asMap()
+                                          .entries
+                                          .map((entry) {
+                                            final configuredStep = entry.value;
+                                            final step = configuredStep.number;
+                                            final completed = _stepCompleteAt(
+                                              member,
+                                              step,
+                                            );
+                                            final paid = hasPaidStep(
+                                              member,
+                                              step,
+                                            );
+                                            final previous = entry.key == 0
+                                                ? null
+                                                : remunerationSettings
+                                                      .configuredSteps[entry
+                                                              .key -
+                                                          1]
+                                                      .number;
+                                            final unlocked =
+                                                previous == null ||
+                                                (_stepCompleteAt(
+                                                      member,
+                                                      previous,
+                                                    ) &&
+                                                    hasPaidStep(
+                                                      member,
+                                                      previous,
+                                                    ));
+                                            return Chip(
+                                              avatar: Icon(
+                                                completed
+                                                    ? Icons.check_circle
+                                                    : Icons.cancel,
+                                                size: 18,
+                                                color: completed
+                                                    ? Colors.green.shade700
+                                                    : Colors.red.shade700,
+                                                semanticLabel: completed
+                                                    ? 'Completed'
+                                                    : 'Not completed',
+                                              ),
+                                              label: Text(
+                                                '${configuredStep.name} · ${completed ? 'Completed' : 'Not Completed'} · R ${configuredStep.amount.toStringAsFixed(2)} · ${paid ? 'Paid' : (unlocked ? 'Pending · Due' : 'Pending · Locked')}',
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                ),
+                                              ),
+                                              backgroundColor: completed
+                                                  ? Colors.green.shade100
+                                                  : Colors.red.shade50,
+                                            );
+                                          })
+                                          .toList(),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Total: R ${remunerationSettings.configuredTotalAmount.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                     const SizedBox(height: 10),
                                     Wrap(
@@ -1150,7 +1408,10 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                         SubmitButton(
                                           onPressed: busy || !canMarkComplete
                                               ? null
-                                              : () => _toggleStep(member, !complete),
+                                              : () => _toggleStep(
+                                                  member,
+                                                  !complete,
+                                                ),
                                           text: busy
                                               ? 'Working...'
                                               : (complete
@@ -1159,28 +1420,30 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                           icon: complete
                                               ? Icons.remove_circle_outline
                                               : Icons.check_circle_outline,
-                                            textColor: Colors.black,
+                                          textColor: Colors.black,
                                         ),
                                         ActionButton(
                                           onPressed: busy
                                               ? null
                                               : () => _recordManualPayment(
-                                                    member: member,
-                                                    members: members,
-                                                  ),
+                                                  member: member,
+                                                  members: members,
+                                                ),
                                           text: 'Manual Payment',
                                           icon: Icons.payments_outlined,
-                                          backgroundColor: AppButtonColors.editBg,
+                                          backgroundColor:
+                                              AppButtonColors.editBg,
                                           foregroundColor: Colors.black,
-                                          borderColor: AppButtonColors.blackRing,
+                                          borderColor:
+                                              AppButtonColors.blackRing,
                                         ),
                                         ActionButton(
                                           onPressed: busy
                                               ? null
                                               : () => _recordCardPayment(
-                                                    member: member,
-                                                    members: members,
-                                                  ),
+                                                  member: member,
+                                                  members: members,
+                                                ),
                                           text: 'Card Payment',
                                           icon: Icons.credit_card,
                                           foregroundColor: Colors.white,

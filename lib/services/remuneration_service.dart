@@ -1,4 +1,3 @@
-import '../models/member.dart';
 import '../models/remuneration_settings.dart';
 import '../models/secretary_remuneration.dart';
 import 'activity_service.dart';
@@ -13,8 +12,8 @@ class RemunerationService {
     this._db, {
     ReminderNotificationService? notifications,
     ActivityService? activity,
-  })  : _notifications = notifications,
-        _activity = activity;
+  }) : _notifications = notifications,
+       _activity = activity;
 
   final DatabaseService _db;
   final ReminderNotificationService? _notifications;
@@ -33,25 +32,19 @@ class RemunerationService {
       _db.saveRemunerationSettings(settings);
 
   Future<double> getStepAmount(int stepNumber) async {
-    if (stepNumber < 1 || stepNumber > 5) {
-      throw ArgumentError('Step number must be between 1 and 5.');
-    }
     final settings = await getSettings();
-    return switch (stepNumber) {
-      1 => settings.step1Amount,
-      2 => settings.step2Amount,
-      3 => settings.step3Amount,
-      4 => settings.step4Amount,
-      5 => settings.step5Amount,
-      _ => 0,
-    };
+    final step = settings.configuredSteps
+        .where((step) => step.number == stepNumber)
+        .firstOrNull;
+    if (step == null) throw ArgumentError('Step is not active.');
+    return step.amount;
   }
 
   Future<bool> hasPaidStepPayment({
     required String memberId,
     required int stepNumber,
   }) async {
-    if (stepNumber < 1 || stepNumber > 5) return false;
+    if (stepNumber < 1) return false;
     final type = 'step$stepNumber';
     final records = await _db.getAllRemunerationRecords();
     return records.any(
@@ -69,35 +62,18 @@ class RemunerationService {
     required int stepNumber,
     required String secretaryId,
   }) async {
-    if (stepNumber < 1 || stepNumber > 5) return null;
-
     final type = 'step$stepNumber';
     if (await _db.hasStepRemuneration(memberId: memberId, type: type)) {
       return null;
     }
 
     final settings = await getSettings();
-    late final double amount;
-    late final String description;
-    switch (stepNumber) {
-      case 1:
-        amount = settings.step1Amount;
-        description = 'Member Info Completion';
-      case 2:
-        amount = settings.step2Amount;
-        description = 'Global 528 Completion';
-      case 3:
-        amount = settings.step3Amount;
-        description = 'Global 928 Completion';
-      case 4:
-        amount = settings.step4Amount;
-        description = 'LRO Completion';
-      case 5:
-        amount = settings.step5Amount;
-        description = 'Credential Card Issuance';
-      default:
-        return null;
-    }
+    final configuredStep = settings.configuredSteps
+        .where((step) => step.number == stepNumber)
+        .firstOrNull;
+    if (configuredStep == null) return null;
+    final amount = configuredStep.amount;
+    final description = '${settings.stepName(stepNumber)} Completion';
 
     final member = await _db.getMemberById(memberId);
     final users = await _db.getAppUsers();
@@ -122,7 +98,7 @@ class RemunerationService {
     await _activity?.record(
       userName: 'System',
       action:
-          '[$_idInAppStepRecorded] 💰 in_app_step_${stepNumber}_recorded for ${member?.fullName ?? memberId} amount R ${amount.toStringAsFixed(2)}',
+          '[$_idInAppStepRecorded] 💰 ${settings.stepName(stepNumber)} recorded for ${member?.fullName ?? memberId} amount R ${amount.toStringAsFixed(2)}',
       captureGps: false,
     );
 
@@ -147,16 +123,21 @@ class RemunerationService {
     String? notes,
     String? paymentReference,
   }) async {
-    if (stepNumber < 1 || stepNumber > 5) {
-      throw ArgumentError('Step number must be between 1 and 5.');
-    }
-
     final type = 'step$stepNumber';
-    final existing = await _db.hasStepRemuneration(memberId: memberId, type: type);
+    final settings = await getSettings();
+    final configuredStep = settings.configuredSteps
+        .where((step) => step.number == stepNumber)
+        .firstOrNull;
+    if (configuredStep == null) throw ArgumentError('Step is not active.');
+    final existing = await _db.hasStepRemuneration(
+      memberId: memberId,
+      type: type,
+    );
     if (existing) {
       final existingRecords = await _db.getAllRemunerationRecords();
       final record = existingRecords.firstWhere(
-        (item) => item.memberId == memberId && item.type == type && !item.isDeleted,
+        (item) =>
+            item.memberId == memberId && item.type == type && !item.isDeleted,
         orElse: () => throw StateError('Remuneration record not found.'),
       );
       if (record.status == 'paid') {
@@ -181,49 +162,42 @@ class RemunerationService {
       await _activity?.record(
         userName: 'System',
         action:
-          '[$_idManualPaymentConfirmed] 💳 manual_payment_step_$stepNumber confirmed for $memberName assisted by ${secretaryName.isEmpty ? secretaryId : secretaryName} receipt $receiptNumber',
+            '[$_idManualPaymentConfirmed] 💳 manual payment for ${settings.stepName(stepNumber)} confirmed for $memberName assisted by ${secretaryName.isEmpty ? secretaryId : secretaryName} receipt $receiptNumber',
         captureGps: false,
       );
       return updated;
     }
 
-    final amount = await getStepAmount(stepNumber);
+    final amount = configuredStep.amount;
+    final description = 'Manual payment - ${settings.stepName(stepNumber)}';
 
-    final description = switch (stepNumber) {
-      1 => 'Manual payment – Member Info',
-      2 => 'Manual payment – Global 528',
-      3 => 'Manual payment – Global 928',
-      4 => 'Manual payment – LRO',
-      5 => 'Manual payment – Credential Card',
-      _ => 'Manual payment',
-    };
-
-    final record = SecretaryRemuneration.create(
-      secretaryId: secretaryId,
-      secretaryName: secretaryName,
-      memberId: memberId,
-      memberName: memberName,
-      type: type,
-      description: description,
-      amount: amount,
-    ).copyWith(
-      status: 'paid',
-      datePaid: paymentDateTime.toUtc(),
-      notes: [
-        'receiptNo=$receiptNumber',
-        'manualPaidAt=${paymentDateTime.toUtc().toIso8601String()}',
-        if (notes != null && notes.isNotEmpty) notes,
-        if (paymentReference != null && paymentReference.isNotEmpty)
-          'reference=$paymentReference',
-      ].join(' | '),
-      syncStatus: 'pending',
-    );
+    final record =
+        SecretaryRemuneration.create(
+          secretaryId: secretaryId,
+          secretaryName: secretaryName,
+          memberId: memberId,
+          memberName: memberName,
+          type: type,
+          description: description,
+          amount: amount,
+        ).copyWith(
+          status: 'paid',
+          datePaid: paymentDateTime.toUtc(),
+          notes: [
+            'receiptNo=$receiptNumber',
+            'manualPaidAt=${paymentDateTime.toUtc().toIso8601String()}',
+            if (notes != null && notes.isNotEmpty) notes,
+            if (paymentReference != null && paymentReference.isNotEmpty)
+              'reference=$paymentReference',
+          ].join(' | '),
+          syncStatus: 'pending',
+        );
 
     await _db.saveRemuneration(record);
     await _activity?.record(
       userName: 'System',
       action:
-          '[$_idManualPaymentCreated] 💳 manual_payment_step_$stepNumber for $memberName assisted by ${secretaryName.isEmpty ? secretaryId : secretaryName} ($secretaryId) receipt $receiptNumber',
+          '[$_idManualPaymentCreated] 💳 manual payment for ${settings.stepName(stepNumber)} and $memberName assisted by ${secretaryName.isEmpty ? secretaryId : secretaryName} ($secretaryId) receipt $receiptNumber',
       captureGps: false,
     );
     return record;
@@ -240,12 +214,13 @@ class RemunerationService {
     required String gateway,
     required String actorName,
   }) async {
-    if (stepNumber < 1 || stepNumber > 5) {
-      throw ArgumentError('Step number must be between 1 and 5.');
-    }
-
     final type = 'step$stepNumber';
-    final amount = await getStepAmount(stepNumber);
+    final settings = await getSettings();
+    final configuredStep = settings.configuredSteps
+        .where((step) => step.number == stepNumber)
+        .firstOrNull;
+    if (configuredStep == null) throw ArgumentError('Step is not active.');
+    final amount = configuredStep.amount;
     final records = await _db.getAllRemunerationRecords();
     SecretaryRemuneration? existing;
     for (final item in records) {
@@ -275,36 +250,30 @@ class RemunerationService {
       );
       await _db.updateRemuneration(paidRecord);
     } else {
-      final description = switch (stepNumber) {
-        1 => 'Card payment - Global 528',
-        2 => 'Card payment - Global 528 Step 2',
-        3 => 'Card payment - Global 928',
-        4 => 'Card payment - LRO',
-        5 => 'Card payment - Credential Card',
-        _ => 'Card payment',
-      };
-      paidRecord = SecretaryRemuneration.create(
-        secretaryId: secretaryId,
-        secretaryName: '',
-        memberId: memberId,
-        memberName: memberName,
-        type: type,
-        description: description,
-        amount: amount,
-      ).copyWith(
-        status: 'paid',
-        datePaid: paymentDateTime.toUtc(),
-        paidBy: actorName,
-        notes: notes,
-        syncStatus: 'pending',
-      );
+      final description = 'Card payment - ${settings.stepName(stepNumber)}';
+      paidRecord =
+          SecretaryRemuneration.create(
+            secretaryId: secretaryId,
+            secretaryName: '',
+            memberId: memberId,
+            memberName: memberName,
+            type: type,
+            description: description,
+            amount: amount,
+          ).copyWith(
+            status: 'paid',
+            datePaid: paymentDateTime.toUtc(),
+            paidBy: actorName,
+            notes: notes,
+            syncStatus: 'pending',
+          );
       await _db.saveRemuneration(paidRecord);
     }
 
     await _activity?.record(
       userName: actorName,
       action:
-          '[$_idCardPaymentApproved] card_payment_approved step $stepNumber for $memberName amount R ${amount.toStringAsFixed(2)} gateway $gateway transaction $transactionId receipt $receiptNumber',
+          '[$_idCardPaymentApproved] card payment approved for ${settings.stepName(stepNumber)} and $memberName amount R ${amount.toStringAsFixed(2)} gateway $gateway transaction $transactionId receipt $receiptNumber',
       captureGps: false,
     );
     return paidRecord;
@@ -357,10 +326,7 @@ class RemunerationService {
     );
   }
 
-  Future<void> payRemuneration(
-    String remunerationId,
-    String adminId,
-  ) async {
+  Future<void> payRemuneration(String remunerationId, String adminId) async {
     final record = await _db.getRemuneration(remunerationId);
     if (record == null) return;
     final updated = record.copyWith(

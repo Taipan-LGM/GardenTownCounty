@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_user.dart';
+import '../models/remuneration_settings.dart';
 import '../models/user_role.dart'; // AppPermission
 import '../providers/providers.dart';
 import 'standard_buttons.dart';
@@ -58,6 +59,9 @@ class _PermissionEditorDialogState
   @override
   Widget build(BuildContext context) {
     final name = widget.user.displayName;
+    final settings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        RemunerationSettings.defaults();
     return AlertDialog(
       title: Row(
         children: [
@@ -88,7 +92,10 @@ class _PermissionEditorDialogState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Text('SA ID: ${widget.saId ?? widget.user.username}'),
                     const Text('Role: Recording Secretary'),
                     Text('Assigned Members: ${widget.assignedMembersCount}'),
@@ -104,17 +111,20 @@ class _PermissionEditorDialogState
               ...AppPermission.assignable.map(
                 (p) => _tile(
                   permission: p,
+                  label: _permissionLabel(p, settings),
                   checked: _granted.contains(p),
                   enabled: true,
                   badge: p.isDefaultForSecretary ? 'Default' : 'Optional',
-                  badgeColor:
-                      p.isDefaultForSecretary ? Colors.green : Colors.orange,
+                  badgeColor: p.isDefaultForSecretary
+                      ? Colors.green
+                      : Colors.orange,
                 ),
               ),
               const Divider(),
               ...AppPermission.adminOnly.map(
                 (p) => _tile(
                   permission: p,
+                  label: _permissionLabel(p, settings),
                   checked: false,
                   enabled: false,
                   badge: 'Admin Only',
@@ -177,6 +187,7 @@ class _PermissionEditorDialogState
 
   Widget _tile({
     required AppPermission permission,
+    required String label,
     required bool checked,
     required bool enabled,
     required String badge,
@@ -199,7 +210,7 @@ class _PermissionEditorDialogState
       controlAffinity: ListTileControlAffinity.leading,
       title: Row(
         children: [
-          Expanded(child: Text(permission.label)),
+          Expanded(child: Text(label)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
@@ -220,21 +231,38 @@ class _PermissionEditorDialogState
     );
   }
 
+  String _permissionLabel(
+    AppPermission permission,
+    RemunerationSettings settings,
+  ) {
+    return switch (permission) {
+      AppPermission.global528 => settings.stepName(1),
+      AppPermission.global528Step2 => settings.stepName(2),
+      AppPermission.global928 => settings.stepName(3),
+      AppPermission.lro => settings.stepName(4),
+      AppPermission.credentialCard => settings.stepName(5),
+      _ => permission.label,
+    };
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
       final perms = AppPermission.mergeSecretaryPermissions(_granted);
       // Persist by AppUser id — no Member link required.
       // MODIFIED - use updateSecretaryPermissions (Delete to revert)
-      final saved =
-          await ref.read(authServiceProvider).updateSecretaryPermissions(
-                userId: widget.user.id,
-                permissions: perms,
-              );
+      final saved = await ref
+          .read(authServiceProvider)
+          .updateSecretaryPermissions(
+            userId: widget.user.id,
+            permissions: perms,
+          );
 
       final admin = ref.read(authUserProvider);
       if (admin != null) {
-        await ref.read(activityServiceProvider).record(
+        await ref
+            .read(activityServiceProvider)
+            .record(
               userName: admin.displayName,
               action:
                   'update_permissions ${saved.displayName}: '

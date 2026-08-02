@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../models/member.dart';
+import '../../models/remuneration_settings.dart';
 import '../standard_buttons.dart';
 
 class MemberOnboardingSummary extends StatelessWidget {
   const MemberOnboardingSummary({
     super.key,
     required this.member,
+    required this.remunerationSettings,
     required this.readOnly,
     required this.showCompleteButton,
     required this.onToggleStep,
@@ -14,6 +16,7 @@ class MemberOnboardingSummary extends StatelessWidget {
   });
 
   final Member member;
+  final RemunerationSettings remunerationSettings;
   final bool readOnly;
   final bool showCompleteButton;
   final Future<void> Function(int step, bool complete) onToggleStep;
@@ -21,6 +24,8 @@ class MemberOnboardingSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final configuredSteps = remunerationSettings.configuredSteps;
+    final stepNumbers = configuredSteps.map((step) => step.number);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -39,30 +44,34 @@ class MemberOnboardingSummary extends StatelessWidget {
                 child: Text(
                   'Onboarding progress',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (showCompleteButton)
-                SubmitButton(
-                  onPressed: onComplete,
-                  text: 'Complete',
-                ),
+                SubmitButton(onPressed: onComplete, text: 'Complete'),
             ],
           ),
           const SizedBox(height: 8),
-          Text('Steps completed: ${member.completedStepCount}/${member.totalStepCount}'),
+          Text(
+            'Steps completed: ${member.completedStepCountFor(stepNumbers)}/${configuredSteps.length}',
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _buildStepChip(context, 1, 'Profile', member.step1MemberInfoComplete, readOnly, onToggleStep),
-              _buildStepChip(context, 2, 'Global 528', member.step2Global528Complete, readOnly, onToggleStep),
-              _buildStepChip(context, 3, 'Global 928', member.step3Global928Complete, readOnly, onToggleStep),
-              _buildStepChip(context, 4, 'LRO', member.step4LROComplete, readOnly, onToggleStep),
-              _buildStepChip(context, 5, 'Credential Card', member.step5CredentialCardComplete, readOnly, onToggleStep),
-            ],
+            children: configuredSteps
+                .map(
+                  (step) => _buildStepChip(
+                    context,
+                    step.number,
+                    '${step.name} · R ${step.amount.toStringAsFixed(2)}',
+                    member.isStepCompleteAt(step.number),
+                    readOnly,
+                    onToggleStep,
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),

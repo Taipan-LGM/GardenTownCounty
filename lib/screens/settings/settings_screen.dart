@@ -158,14 +158,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
                   },
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.science, color: Colors.orange),
-                  title: Text(strings.generateTestData),
-                  subtitle: Text(strings.generateTestDataSubtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _generateTestData(context),
-                ),
               ],
             ),
           ),
@@ -180,66 +172,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SizedBox(height: 48),
       ],
     );
-  }
-
-  // NEW ADDITION - test data confirm dialog (Delete method to revert)
-  Future<void> _generateTestData(BuildContext context) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Generate Test Data?'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This will create test data including:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text('• 3 Recording Secretaries'),
-            Text('• 4 Test Members'),
-            Text('• 3 Active Reminders'),
-            Text('• 3 Remuneration Records'),
-            SizedBox(height: 8),
-            Text('Existing rows with same IDs are skipped.'),
-          ],
-        ),
-        actions: [
-          CancelButton(
-            onPressed: () => Navigator.pop(context, false),
-            text: 'Cancel',
-          ),
-          ActionButton(
-            onPressed: () => Navigator.pop(context, true),
-            text: 'Generate',
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !context.mounted) return;
-    try {
-      await ref.read(testDataServiceProvider).generateTestData();
-      ref.invalidate(membersProvider);
-      ref.invalidate(appUsersProvider);
-      ref.invalidate(activeOnboardingRemindersProvider);
-      ref.invalidate(reminderStatsProvider);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Test data generated successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error generating test data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 }
 

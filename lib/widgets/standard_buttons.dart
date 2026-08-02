@@ -40,7 +40,7 @@ abstract final class AppButtonColors {
   static Color get enableFg => Colors.white;
 
   static Color get viewBg => Colors.grey.shade700;
-  static Color get viewFg => Colors.white;
+  static Color get viewFg => Colors.black;
 
   // Light fills (black ring)
   static Color get editBg => Colors.amber.shade600;

@@ -8,21 +8,14 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/activity_log.dart';
+import '../../models/remuneration_settings.dart';
 import '../../providers/providers.dart';
 import '../../widgets/standard_buttons.dart';
 import 'activity_map_dialog.dart';
 
-enum _ActivityViewMode {
-  all,
-  audit,
-}
+enum _ActivityViewMode { all, audit }
 
-enum _AuditCategory {
-  payment,
-  pdfRelease,
-  aiId,
-  cardIssuance,
-}
+enum _AuditCategory { payment, pdfRelease, aiId, cardIssuance }
 
 enum _AuditDateRangeFilter {
   today,
@@ -81,6 +74,24 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   String? _extractActionId(String action) {
     final match = RegExp(r'\[([A-Z0-9-]+)\]').firstMatch(action);
     return match?.group(1);
+  }
+
+  String _displayAction(String action, RemunerationSettings settings) {
+    final match = RegExp(
+      r'step[_ ](\d+)',
+      caseSensitive: false,
+    ).firstMatch(action);
+    final step = int.tryParse(match?.group(1) ?? '');
+    if (step == null) return action;
+
+    final stepName = settings.stepName(step);
+    if (action.contains(stepName)) return action;
+
+    final labeledStep = RegExp('step_$step \\([^)]+\\)', caseSensitive: false);
+    if (labeledStep.hasMatch(action)) {
+      return action.replaceFirst(labeledStep, 'step_$step ($stepName)');
+    }
+    return '$action ($stepName)';
   }
 
   bool _withinAuditDateRange(ActivityLog activity) {
@@ -144,7 +155,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   String _auditTypeFor(ActivityLog activity) {
     final action = activity.action.toLowerCase();
     if (_isAuditMatch(activity, _AuditCategory.payment)) return 'Payment';
-    if (_isAuditMatch(activity, _AuditCategory.pdfRelease)) return 'PDF Release';
+    if (_isAuditMatch(activity, _AuditCategory.pdfRelease))
+      return 'PDF Release';
     if (_isAuditMatch(activity, _AuditCategory.aiId)) return 'AI ID';
     if (_isAuditMatch(activity, _AuditCategory.cardIssuance)) {
       return 'Card Issuance';
@@ -182,8 +194,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       );
 
     for (final row in rows) {
-      final localTime = DateFormat('yyyy-MM-dd HH:mm:ss')
-          .format(row.occurredAt.toLocal());
+      final localTime = DateFormat(
+        'yyyy-MM-dd HH:mm:ss',
+      ).format(row.occurredAt.toLocal());
       buffer.writeln(
         [
           _csvEscape(_extractActionId(row.action) ?? ''),
@@ -273,9 +286,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     final strings = ref.read(appStringsProvider);
     final target = specific ?? _bestGpsActivity(activities);
     if (target == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.noGpsYet)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.noGpsYet)));
       return;
     }
     await showActivityMapDialog(context, target);
@@ -285,6 +298,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   Widget build(BuildContext context) {
     final activitiesAsync = ref.watch(activitiesProvider);
     final strings = ref.watch(appStringsProvider);
+    final remunerationSettings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        RemunerationSettings.defaults();
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
 
     return Padding(
@@ -326,7 +342,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               activitiesAsync.maybeWhen(
                 data: (activities) {
                   final isAudit =
-                      _mode == _ActivityViewMode.audit && ref.watch(isAdminProvider);
+                      _mode == _ActivityViewMode.audit &&
+                      ref.watch(isAdminProvider);
                   if (!isAudit) return const SizedBox.shrink();
                   final rows = _filteredAuditLogs(activities);
                   return ActionButton(
@@ -343,7 +360,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               activitiesAsync.maybeWhen(
                 data: (activities) {
                   final isAudit =
-                      _mode == _ActivityViewMode.audit && ref.watch(isAdminProvider);
+                      _mode == _ActivityViewMode.audit &&
+                      ref.watch(isAdminProvider);
                   if (!isAudit) return const SizedBox.shrink();
                   final rows = _filteredAuditLogs(activities);
                   return ActionButton(
@@ -387,7 +405,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                 runSpacing: 8,
                 children: [
                   ..._AuditCategory.values.map((category) {
-                    final selected = _selectedAuditCategories.contains(category);
+                    final selected = _selectedAuditCategories.contains(
+                      category,
+                    );
                     return FilterChip(
                       selected: selected,
                       label: Text(_categoryLabel(category)),
@@ -455,27 +475,30 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           Expanded(
             child: activitiesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('${strings.errorLabel}: $e')),
+              error: (e, _) => Center(child: Text('${strings.errorLabel}: $e')),
               data: (activities) {
                 if (activities.isEmpty) {
                   return Center(child: Text(strings.noActivitiesYet));
                 }
 
                 final isAudit =
-                    _mode == _ActivityViewMode.audit && ref.watch(isAdminProvider);
+                    _mode == _ActivityViewMode.audit &&
+                    ref.watch(isAdminProvider);
                 final rows = isAudit
                     ? _filteredAuditLogs(activities)
                     : activities;
 
                 if (rows.isEmpty) {
                   return const Center(
-                    child: Text('No matching audit events for selected filters.'),
+                    child: Text(
+                      'No matching audit events for selected filters.',
+                    ),
                   );
                 }
 
-                final summary =
-                    isAudit ? _summaryByActionIdCategory(rows) : const <String, int>{};
+                final summary = isAudit
+                    ? _summaryByActionIdCategory(rows)
+                    : const <String, int>{};
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -514,7 +537,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                       child: SingleChildScrollView(
                         child: DataTable(
                           columns: [
-                            if (isAudit) const DataColumn(label: Text('Action ID')),
+                            if (isAudit)
+                              const DataColumn(label: Text('Action ID')),
                             if (isAudit) const DataColumn(label: Text('Type')),
                             DataColumn(label: Text(strings.dateTime)),
                             DataColumn(label: Text(strings.user)),
@@ -528,7 +552,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                             return DataRow(
                               cells: [
                                 if (isAudit)
-                                  DataCell(Text(_extractActionId(a.action) ?? '—')),
+                                  DataCell(
+                                    Text(_extractActionId(a.action) ?? '—'),
+                                  ),
                                 if (isAudit)
                                   DataCell(
                                     Text(
@@ -539,10 +565,19 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                                     ),
                                   ),
                                 DataCell(
-                                  Text(dateFormat.format(a.occurredAt.toLocal())),
+                                  Text(
+                                    dateFormat.format(a.occurredAt.toLocal()),
+                                  ),
                                 ),
                                 DataCell(Text(a.userName)),
-                                DataCell(Text(a.action)),
+                                DataCell(
+                                  Text(
+                                    _displayAction(
+                                      a.action,
+                                      remunerationSettings,
+                                    ),
+                                  ),
+                                ),
                                 DataCell(Text(a.locationLabel ?? '—')),
                                 DataCell(
                                   hasGps

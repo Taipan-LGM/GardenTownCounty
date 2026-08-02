@@ -4,12 +4,7 @@ import '../models/user_role.dart';
 import 'app_section.dart';
 
 /// How a drawer row behaves when tapped.
-enum AppDrawerAction {
-  navigate,
-  search,
-  demoData,
-  signOut,
-}
+enum AppDrawerAction { navigate, search, demoData, signOut }
 
 /// Single source of truth for left-drawer rows + Recording Secretary Rights.
 ///
@@ -28,6 +23,7 @@ class AppDrawerItemDef {
     this.defaultSecretary = false,
     this.requiredSecretary = false,
     this.alwaysVisible = false,
+    this.showInDrawer = true,
     this.showInRsRights = true,
     this.showDividerAfter = false,
     this.showReminderBadge = false,
@@ -44,6 +40,7 @@ class AppDrawerItemDef {
   final bool defaultSecretary;
   final bool requiredSecretary;
   final bool alwaysVisible;
+  final bool showInDrawer;
   final bool showInRsRights;
   final bool showDividerAfter;
   final bool showReminderBadge;
@@ -173,6 +170,7 @@ class AppDrawerCatalog {
       action: AppDrawerAction.demoData,
       permission: AppPermission.demoData,
       adminOnly: true,
+      showInDrawer: false,
       accentColor: Colors.purpleAccent,
     ),
     AppDrawerItemDef(
@@ -196,6 +194,7 @@ class AppDrawerCatalog {
     required bool isAdmin,
     required bool Function(AppPermission permission) hasPermission,
   }) {
+    if (!item.showInDrawer) return false;
     if (item.alwaysVisible) return true;
     if (item.adminOnly) return isAdmin;
     final p = item.permission;

@@ -10,12 +10,14 @@ class AppPreferencesService {
   Future<ThemeMode> loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     switch (prefs.getString(_themeKey)) {
+      case 'light':
+        return ThemeMode.light;
       case 'dark':
         return ThemeMode.dark;
       case 'system':
         return ThemeMode.system;
       default:
-        return ThemeMode.light;
+        return ThemeMode.dark;
     }
   }
 

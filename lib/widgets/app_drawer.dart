@@ -50,8 +50,7 @@ class AppDrawer extends ConsumerWidget {
                             ? AppTheme.gold
                             : Colors.white,
                       ),
-                      onPressed: () =>
-                          _go(context, ref, AppSection.settings),
+                      onPressed: () => _go(context, ref, AppSection.settings),
                     ),
                   ),
                   Align(
@@ -143,10 +142,7 @@ class AppDrawer extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _countyField(
-                      label: strings.countyName,
-                      value: countyName,
-                    ),
+                    _countyField(label: strings.countyName, value: countyName),
                     const SizedBox(height: 6),
                     _countyField(
                       label: strings.countyAddress,
@@ -173,10 +169,7 @@ class AppDrawer extends ConsumerWidget {
               child: Text(
                 AppConstants.versionLabel,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ),
           ],
@@ -192,13 +185,14 @@ class AppDrawer extends ConsumerWidget {
     required AppSection section,
     required AppStrings strings,
   }) {
+    final label = strings.drawerLabel(item.id);
     switch (item.action) {
       case AppDrawerAction.search:
         return _item(
           context,
           ref,
           icon: item.icon,
-          label: strings.drawerLabel(item.id),
+          label: label,
           selected: false,
           onTap: () async {
             Navigator.of(context).pop();
@@ -211,10 +205,7 @@ class AppDrawer extends ConsumerWidget {
             item.icon,
             color: item.accentColor ?? Colors.purpleAccent,
           ),
-          title: Text(
-            strings.drawerLabel(item.id),
-            style: const TextStyle(color: Colors.white),
-          ),
+          title: Text(label, style: const TextStyle(color: Colors.white)),
           subtitle: Text(
             strings.demoDataSubtitle,
             style: const TextStyle(color: Colors.white54, fontSize: 12),
@@ -223,15 +214,10 @@ class AppDrawer extends ConsumerWidget {
         );
       case AppDrawerAction.signOut:
         return ListTile(
-          leading: Icon(
-            item.icon,
-            color: item.accentColor ?? Colors.redAccent,
-          ),
+          leading: Icon(item.icon, color: item.accentColor ?? Colors.redAccent),
           title: Text(
-            strings.drawerLabel(item.id),
-            style: TextStyle(
-              color: item.accentColor ?? Colors.redAccent,
-            ),
+            label,
+            style: TextStyle(color: item.accentColor ?? Colors.redAccent),
           ),
           onTap: () => _confirmSignOut(context, ref, strings),
         );
@@ -242,7 +228,7 @@ class AppDrawer extends ConsumerWidget {
           context,
           ref,
           icon: item.icon,
-          label: strings.drawerLabel(item.id),
+          label: label,
           selected: section == target,
           onTap: () => _go(context, ref, target),
           iconColor: item.accentColor,
@@ -260,10 +246,7 @@ class AppDrawer extends ConsumerWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-          ),
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
         Text(
           value,
@@ -340,6 +323,8 @@ class AppDrawer extends ConsumerWidget {
             ),
             SizedBox(height: 8),
             Text('• 10 members + onboarding reminders'),
+            Text('• Payments summary (27 completed members)'),
+            Text('• Paid + PDF completed total R 4,900.00'),
             Text('• Duplicate Manager (3 pairs)'),
             Text('• Cancellations (5 cancelled members)'),
             Text('• Info (8 Garden Town articles)'),
@@ -366,14 +351,14 @@ class AppDrawer extends ConsumerWidget {
     if (confirm != true || !context.mounted) return;
 
     try {
-      final result =
-          await ref.read(demoDataServiceProvider).generateDemoData();
+      final result = await ref.read(demoDataServiceProvider).generateDemoData();
       ref.invalidate(membersProvider);
       ref.invalidate(appUsersProvider);
       ref.invalidate(cancelledMembersProvider);
       ref.invalidate(activeOnboardingRemindersProvider);
       ref.invalidate(reminderStatsProvider);
       ref.invalidate(activeReminderCountProvider);
+      ref.invalidate(remunerationSettingsProvider);
       ref.invalidate(publishedArticlesProvider);
       ref.invalidate(activeVideosProvider);
       if (!context.mounted) return;
@@ -386,7 +371,8 @@ class AppDrawer extends ConsumerWidget {
             '${result.duplicateMembersCreated} duplicates, '
             '${result.cancelledMembersCreated} cancelled, '
             '${result.articlesCreated} articles, '
-            '${result.videosCreated} videos '
+            '${result.videosCreated} videos, '
+            'Payments summary R 4,900.00 / 27 completed members '
             '(existing IDs skipped).',
           ),
           backgroundColor: Colors.green,

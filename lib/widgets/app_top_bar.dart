@@ -4,16 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/app_strings.dart';
 import '../providers/providers.dart';
 import 'county_logo.dart';
+import 'standard_buttons.dart';
 
 /// Fixed top chrome: Logo 1 + county name | Settings · Videos · Info · Menu.
 ///
 /// // NEW ADDITION - Delete this file to revert top bar layout.
 class AppTopBar extends ConsumerWidget {
-  const AppTopBar({
-    super.key,
-    required this.onOpenMenu,
-    this.height = 72,
-  });
+  const AppTopBar({super.key, required this.onOpenMenu, this.height = 72});
 
   final VoidCallback onOpenMenu;
   final double height;
@@ -21,6 +18,7 @@ class AppTopBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(appSectionProvider);
+    final isAdmin = ref.watch(isAdminProvider);
     final strings = AppStrings(ref.watch(appLanguageProvider));
     final profile = ref.watch(countyProfileProvider).valueOrNull;
     final countyName = profile?.countyName.trim().isNotEmpty == true
@@ -34,9 +32,7 @@ class AppTopBar extends ConsumerWidget {
         height: height,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Colors.grey.shade700),
-          ),
+          border: Border(bottom: BorderSide(color: Colors.grey.shade700)),
         ),
         child: Row(
           children: [
@@ -54,7 +50,14 @@ class AppTopBar extends ConsumerWidget {
                 ),
               ),
             ),
-            // Order L→R: Settings → Videos → Info → Menu
+            // Order L→R: Demo Data → Settings → Videos → Info → Menu
+            if (isAdmin)
+              _TabChip(
+                icon: Icons.science,
+                label: strings.demoData,
+                selected: false,
+                onTap: () => _generateDemoData(context, ref),
+              ),
             _TabChip(
               icon: Icons.settings,
               label: strings.settings,
@@ -86,6 +89,87 @@ class AppTopBar extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _generateDemoData(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Generate Demo Data?'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will create demo data for:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• 10 members + onboarding reminders'),
+            Text('• Payments summary (27 completed members)'),
+            Text('• Paid + PDF completed total R 4,900.00'),
+            Text('• Duplicate Manager (3 pairs)'),
+            Text('• Cancellations (5 cancelled members)'),
+            Text('• Info (8 Garden Town articles)'),
+            Text('• Videos (6 member videos)'),
+            SizedBox(height: 12),
+            Text(
+              'Adds to existing data (skips IDs that already exist).',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          CancelButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            text: 'Cancel',
+          ),
+          ActionButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            text: 'Generate Demo Data',
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      final result = await ref.read(demoDataServiceProvider).generateDemoData();
+      ref.invalidate(membersProvider);
+      ref.invalidate(appUsersProvider);
+      ref.invalidate(cancelledMembersProvider);
+      ref.invalidate(activeOnboardingRemindersProvider);
+      ref.invalidate(reminderStatsProvider);
+      ref.invalidate(activeReminderCountProvider);
+      ref.invalidate(remunerationSettingsProvider);
+      ref.invalidate(publishedArticlesProvider);
+      ref.invalidate(activeVideosProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Demo data ready: ${result.membersCreated} members, '
+            '${result.remindersCreated} reminders, '
+            '${result.duplicateMembersCreated} duplicates, '
+            '${result.cancelledMembersCreated} cancelled, '
+            '${result.articlesCreated} articles, '
+            '${result.videosCreated} videos, '
+            'Payments summary R 4,900.00 / 27 completed members '
+            '(existing IDs skipped).',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating demo data: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
@@ -134,8 +218,7 @@ class _TabChip extends StatelessWidget {
                   style: TextStyle(
                     color: selected ? Colors.white : Colors.grey.shade400,
                     fontSize: 13,
-                    fontWeight:
-                        selected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ],

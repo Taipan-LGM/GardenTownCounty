@@ -8,6 +8,7 @@ import '../models/county_profile.dart';
 import '../models/lookup_item.dart';
 import '../models/member.dart';
 import '../models/reminder.dart';
+import '../models/remuneration_settings.dart';
 import '../models/role_definition.dart';
 import '../models/sos_preset.dart';
 import '../models/temporary_access_log.dart';
@@ -73,7 +74,10 @@ final isSecretaryProvider = Provider<bool>((ref) {
   return ref.watch(authUserProvider)?.isSecretary ?? false;
 });
 
-final hasPermissionProvider = Provider.family<bool, AppPermission>((ref, permission) {
+final hasPermissionProvider = Provider.family<bool, AppPermission>((
+  ref,
+  permission,
+) {
   final user = ref.watch(authUserProvider);
   if (user == null) return false;
   return user.hasPermission(permission);
@@ -96,8 +100,7 @@ final countyInfoServiceProvider = Provider<CountyInfoService>((ref) {
   );
 });
 
-final countyInfoProvider =
-    FutureProvider.autoDispose<CountyInfo>((ref) async {
+final countyInfoProvider = FutureProvider.autoDispose<CountyInfo>((ref) async {
   return ref.watch(countyInfoServiceProvider).getCountyInfo();
 });
 
@@ -113,10 +116,11 @@ final activeVideosProvider = FutureProvider((ref) {
   return ref.watch(countyMediaServiceProvider).getActiveVideos();
 });
 
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
 
-final appLanguageProvider =
-    StateProvider<AppLanguage>((ref) => AppLanguage.english);
+final appLanguageProvider = StateProvider<AppLanguage>(
+  (ref) => AppLanguage.english,
+);
 
 final appStringsProvider = Provider<AppStrings>((ref) {
   return AppStrings(ref.watch(appLanguageProvider));
@@ -128,8 +132,9 @@ Future<void> setAppLanguage(WidgetRef ref, AppLanguage lang) async {
   await ref.read(appPreferencesServiceProvider).saveLanguage(lang);
 }
 
-final countyProfileProvider =
-    FutureProvider.autoDispose<CountyProfile>((ref) async {
+final countyProfileProvider = FutureProvider.autoDispose<CountyProfile>((
+  ref,
+) async {
   return ref.watch(countySettingsServiceProvider).load();
 });
 
@@ -158,13 +163,13 @@ final autoBackupSchedulerProvider = Provider<AutoBackupScheduler>((ref) {
   );
 });
 
-final backupAuthProvider =
-    FutureProvider.autoDispose<BackupAuthInfo>((ref) async {
+final backupAuthProvider = FutureProvider.autoDispose<BackupAuthInfo>((
+  ref,
+) async {
   return ref.watch(backupAuthServiceProvider).checkAuthorization();
 });
 
-final lastBackupAtProvider =
-    FutureProvider.autoDispose<DateTime?>((ref) async {
+final lastBackupAtProvider = FutureProvider.autoDispose<DateTime?>((ref) async {
   return ref.watch(backupAuthServiceProvider).lastBackupAt();
 });
 
@@ -233,7 +238,9 @@ final temporaryAccessServiceProvider = Provider<TemporaryAccessService>((ref) {
   );
 });
 
-final tempAccessExpiryServiceProvider = Provider<TempAccessExpiryService>((ref) {
+final tempAccessExpiryServiceProvider = Provider<TempAccessExpiryService>((
+  ref,
+) {
   final service = TempAccessExpiryService(
     ref.watch(temporaryAccessServiceProvider),
   );
@@ -243,15 +250,17 @@ final tempAccessExpiryServiceProvider = Provider<TempAccessExpiryService>((ref) 
 
 final temporaryAccessLogsProvider =
     FutureProvider.autoDispose<List<TemporaryAccessLog>>((ref) async {
-  return ref.watch(databaseServiceProvider).getAllTemporaryAccessLogs();
-});
+      return ref.watch(databaseServiceProvider).getAllTemporaryAccessLogs();
+    });
 
 /// Session-verified temporary access member IDs (after code entry).
-final verifiedTempAccessIdsProvider =
-    StateProvider<Set<String>>((ref) => <String>{});
+final verifiedTempAccessIdsProvider = StateProvider<Set<String>>(
+  (ref) => <String>{},
+);
 
-final lockedMembersProvider =
-    FutureProvider.autoDispose<List<Member>>((ref) async {
+final lockedMembersProvider = FutureProvider.autoDispose<List<Member>>((
+  ref,
+) async {
   final user = ref.watch(authUserProvider);
   final locked = await ref.watch(databaseServiceProvider).getLockedMembers();
   if (user == null || user.isAdmin) return locked;
@@ -264,8 +273,9 @@ final lockedMembersProvider =
 
 /// Soft-cancelled members (Admin Cancellations screen).
 // NEW ADDITION - Delete provider to revert cancellations list
-final cancelledMembersProvider =
-    FutureProvider.autoDispose<List<Member>>((ref) async {
+final cancelledMembersProvider = FutureProvider.autoDispose<List<Member>>((
+  ref,
+) async {
   final user = ref.watch(authUserProvider);
   if (user == null || !user.isAdmin) return const [];
   return ref.watch(databaseServiceProvider).getCancelledMembers();
@@ -276,8 +286,7 @@ final dataAccessServiceProvider = Provider<DataAccessService>((ref) {
   return DataAccessService(ref.watch(databaseServiceProvider));
 });
 
-final membersProvider =
-    FutureProvider.autoDispose<List<Member>>((ref) async {
+final membersProvider = FutureProvider.autoDispose<List<Member>>((ref) async {
   final user = ref.watch(authUserProvider);
   return ref.watch(dataAccessServiceProvider).getVisibleMembers(user);
 });
@@ -293,50 +302,53 @@ final claimsServiceProvider = Provider<ClaimsService>((ref) {
 /// Paginated members: `(page, query)` → [MemberPage].
 final membersPageProvider = FutureProvider.autoDispose
     .family<MemberPage, ({int page, String query})>((ref, args) async {
-  final user = ref.watch(authUserProvider);
-  return ref.watch(memberListServiceProvider).loadPage(
-        user,
-        page: args.page,
-        query: args.query.isEmpty ? null : args.query,
-      );
-});
+      final user = ref.watch(authUserProvider);
+      return ref
+          .watch(memberListServiceProvider)
+          .loadPage(
+            user,
+            page: args.page,
+            query: args.query.isEmpty ? null : args.query,
+          );
+    });
 
-final lookupsProvider =
-    FutureProvider.autoDispose.family<List<LookupItem>, LookupType>(
-  (ref, type) async {
-    return ref.watch(memberRepositoryProvider).getLookups(type);
-  },
-);
+final lookupsProvider = FutureProvider.autoDispose
+    .family<List<LookupItem>, LookupType>((ref, type) async {
+      return ref.watch(memberRepositoryProvider).getLookups(type);
+    });
 
-final activitiesProvider =
-    FutureProvider.autoDispose<List<ActivityLog>>((ref) async {
+final activitiesProvider = FutureProvider.autoDispose<List<ActivityLog>>((
+  ref,
+) async {
   return ref.watch(activityServiceProvider).list();
 });
 
-final sosPresetsProvider =
-    FutureProvider.autoDispose<List<SosPreset>>((ref) async {
+final sosPresetsProvider = FutureProvider.autoDispose<List<SosPreset>>((
+  ref,
+) async {
   return ref.watch(databaseServiceProvider).getSosPresets();
 });
 
-final appUsersProvider =
-    FutureProvider.autoDispose<List<AppUser>>((ref) async {
+final appUsersProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
   return ref.watch(authServiceProvider).listOperators();
 });
 
-final rolesProvider =
-    FutureProvider.autoDispose<List<RoleDefinition>>((ref) async {
+final rolesProvider = FutureProvider.autoDispose<List<RoleDefinition>>((
+  ref,
+) async {
   return ref.watch(authServiceProvider).listRoles();
 });
 
-final remindersProvider =
-    FutureProvider.autoDispose<List<Reminder>>((ref) async {
+final remindersProvider = FutureProvider.autoDispose<List<Reminder>>((
+  ref,
+) async {
   return ref.watch(databaseServiceProvider).getReminders();
 });
 
 final reminderNotificationServiceProvider =
     Provider<ReminderNotificationService>((ref) {
-  return ReminderNotificationService(ref.watch(databaseServiceProvider));
-});
+      return ReminderNotificationService(ref.watch(databaseServiceProvider));
+    });
 
 final reminderServiceProvider = Provider<ReminderService>((ref) {
   return ReminderService(
@@ -363,6 +375,23 @@ final remunerationServiceProvider = Provider<RemunerationService>((ref) {
   );
 });
 
+final remunerationSettingsProvider =
+    AsyncNotifierProvider<RemunerationSettingsNotifier, RemunerationSettings>(
+      RemunerationSettingsNotifier.new,
+    );
+
+class RemunerationSettingsNotifier extends AsyncNotifier<RemunerationSettings> {
+  @override
+  Future<RemunerationSettings> build() {
+    return ref.watch(remunerationServiceProvider).getSettings();
+  }
+
+  Future<void> save(RemunerationSettings settings) async {
+    await ref.read(remunerationServiceProvider).saveSettings(settings);
+    state = AsyncData(settings);
+  }
+}
+
 final testDataServiceProvider = Provider<TestDataService>((ref) {
   return TestDataService(ref.watch(databaseServiceProvider));
 });
@@ -372,13 +401,14 @@ final demoDataServiceProvider = Provider<DemoDataService>((ref) {
   return DemoDataService(ref.watch(databaseServiceProvider));
 });
 
-final smartAutoAssignmentServiceProvider =
-    Provider<SmartAutoAssignmentService>((ref) {
-  return SmartAutoAssignmentService(
-    ref.watch(databaseServiceProvider),
-    notifications: ref.watch(reminderNotificationServiceProvider),
-  );
-});
+final smartAutoAssignmentServiceProvider = Provider<SmartAutoAssignmentService>(
+  (ref) {
+    return SmartAutoAssignmentService(
+      ref.watch(databaseServiceProvider),
+      notifications: ref.watch(reminderNotificationServiceProvider),
+    );
+  },
+);
 
 // NEW ADDITION - promotion service (Delete to revert)
 final promotionServiceProvider = Provider<PromotionService>((ref) {
@@ -403,18 +433,20 @@ final stepActivationServiceProvider = Provider<StepActivationService>((ref) {
 
 final activeOnboardingRemindersProvider =
     FutureProvider.autoDispose<List<Reminder>>((ref) async {
-  final user = ref.watch(authUserProvider);
-  return ref.watch(dataAccessServiceProvider).getVisibleReminders(user);
-});
+      final user = ref.watch(authUserProvider);
+      return ref.watch(dataAccessServiceProvider).getVisibleReminders(user);
+    });
 
-final reminderStatsProvider =
-    FutureProvider.autoDispose<ReminderStats>((ref) async {
+final reminderStatsProvider = FutureProvider.autoDispose<ReminderStats>((
+  ref,
+) async {
   final reminders = await ref.watch(activeOnboardingRemindersProvider.future);
   return ReminderStats.fromReminders(reminders);
 });
 
-final activeReminderCountProvider =
-    FutureProvider.autoDispose<int>((ref) async {
+final activeReminderCountProvider = FutureProvider.autoDispose<int>((
+  ref,
+) async {
   final reminders = await ref.watch(activeOnboardingRemindersProvider.future);
   return reminders.length;
 });
@@ -442,6 +474,7 @@ Future<void> refreshApp(WidgetRef ref) async {
   ref.invalidate(publishedArticlesProvider);
   ref.invalidate(activeVideosProvider);
   ref.invalidate(countyProfileProvider);
+  ref.invalidate(remunerationSettingsProvider);
   ref.invalidate(backupAuthProvider);
   ref.invalidate(lastBackupAtProvider);
   for (final type in LookupType.values) {

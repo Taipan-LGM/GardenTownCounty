@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/app_user.dart';
 import '../../models/member.dart';
+import '../../models/remuneration_settings.dart';
 import '../../models/user_role.dart';
 import '../../navigation/app_drawer_catalog.dart';
 import '../../providers/providers.dart';
@@ -58,12 +59,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         data: (users) {
           final members = membersAsync.valueOrNull ?? const <Member>[];
           final secretaries =
-              users.where((u) => !u.deleted && u.isSecretary).toList()
-                ..sort(
-                  (a, b) => a.displayName
-                      .toLowerCase()
-                      .compareTo(b.displayName.toLowerCase()),
-                );
+              users.where((u) => !u.deleted && u.isSecretary).toList()..sort(
+                (a, b) => a.displayName.toLowerCase().compareTo(
+                  b.displayName.toLowerCase(),
+                ),
+              );
 
           final q = _searchQuery.trim().toLowerCase();
           final filtered = q.isEmpty
@@ -84,8 +84,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           final selected = _resolveSelected(filtered);
 
           final admins = users.where((u) => !u.deleted && u.isAdmin).length;
-          final memberUsers =
-              users.where((u) => !u.deleted && u.isMemberRole).length;
+          final memberUsers = users
+              .where((u) => !u.deleted && u.isMemberRole)
+              .length;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -101,7 +102,11 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 900;
                     final rights = _buildRightsPanel(selected, members);
-                    final list = _buildSecretaryList(filtered, members, selected);
+                    final list = _buildSecretaryList(
+                      filtered,
+                      members,
+                      selected,
+                    );
                     if (wide) {
                       return Row(
                         children: [
@@ -157,8 +162,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_selectedSecretary != null) {
-        final stillVisible =
-            filtered.any((u) => u.id == _selectedSecretary!.id);
+        final stillVisible = filtered.any(
+          (u) => u.id == _selectedSecretary!.id,
+        );
         if (stillVisible) return;
         if (_dirty) {
           // Filtered out while dirty — keep draft, rebind to first without wipe.
@@ -322,8 +328,8 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                 text: _saving
                     ? 'Saving...'
                     : _dirty
-                        ? 'Save Permissions'
-                        : 'No Changes',
+                    ? 'Save Permissions'
+                    : 'No Changes',
                 isLoading: _saving,
                 icon: Icons.save,
               ),
@@ -363,6 +369,9 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
   }
 
   Widget _buildPermissionToggles() {
+    final settings =
+        ref.watch(remunerationSettingsProvider).valueOrNull ??
+        RemunerationSettings.defaults();
     return ListView(
       children: AppPermission.managementOrder.map((permission) {
         AppDrawerItemDef? catalog;
@@ -372,12 +381,18 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
             break;
           }
         }
-        final label = catalog?.label ?? permission.label;
+        final label = switch (permission) {
+          AppPermission.global528 => settings.stepName(1),
+          AppPermission.global528Step2 => settings.stepName(2),
+          AppPermission.global928 => settings.stepName(3),
+          AppPermission.lro => settings.stepName(4),
+          AppPermission.credentialCard => settings.stepName(5),
+          _ => catalog?.label ?? permission.label,
+        };
         final icon = catalog?.icon;
         final adminOnly = permission.isAdminOnly;
         final isDefault = permission.isDefaultForSecretary;
-        final checked =
-            !adminOnly && _draftPerms.contains(permission);
+        final checked = !adminOnly && _draftPerms.contains(permission);
         final enabled = !adminOnly;
 
         return Container(
@@ -398,9 +413,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                 Icon(
                   icon,
                   size: 20,
-                  color: checked
-                      ? Colors.white70
-                      : Colors.green.shade300,
+                  color: checked ? Colors.white70 : Colors.green.shade300,
                 ),
                 const SizedBox(width: 12),
               ],
@@ -409,8 +422,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
                   label,
                   style: TextStyle(
                     color: adminOnly ? Colors.grey.shade500 : Colors.white,
-                    fontWeight:
-                        isDefault ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isDefault ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -649,15 +661,15 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
         '${perms.map((p) => p.label).join(', ')}',
       );
 
-      final saved =
-          await ref.read(authServiceProvider).updateSecretaryPermissions(
-                userId: secretary.id,
-                permissions: perms,
-              );
+      final saved = await ref
+          .read(authServiceProvider)
+          .updateSecretaryPermissions(userId: secretary.id, permissions: perms);
 
       final admin = ref.read(authUserProvider);
       if (admin != null) {
-        await ref.read(activityServiceProvider).record(
+        await ref
+            .read(activityServiceProvider)
+            .record(
               userName: admin.displayName,
               action:
                   'update_permissions ${saved.displayName}: '
@@ -686,9 +698,7 @@ class _AddUserScreenState extends ConsumerState<AddUserScreen> {
           ..clearSnackBars()
           ..showSnackBar(
             SnackBar(
-              content: Text(
-                'Permissions updated for ${saved.displayName}',
-              ),
+              content: Text('Permissions updated for ${saved.displayName}'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),

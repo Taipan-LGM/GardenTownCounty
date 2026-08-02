@@ -90,11 +90,7 @@ abstract class _DatabaseServiceBase {
   Future<void> upsertReminder(Reminder reminder);
   Future<List<Reminder>> getActiveOnboardingReminders();
   Future<void> _onCreate(Database database, int version);
-  Future<void> _onUpgrade(
-    Database database,
-    int oldVersion,
-    int newVersion,
-  );
+  Future<void> _onUpgrade(Database database, int oldVersion, int newVersion);
 }
 
 /// Offline-first SQLite access layer for Garden Town County.
@@ -166,7 +162,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 20,
+      version: 22,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -187,9 +183,7 @@ class DatabaseService extends _DatabaseServiceBase
       await database.execute(
         'ALTER TABLE members ADD COLUMN photoLocalPath TEXT',
       );
-      await database.execute(
-        'ALTER TABLE members ADD COLUMN photoUrl TEXT',
-      );
+      await database.execute('ALTER TABLE members ADD COLUMN photoUrl TEXT');
     }
     if (oldVersion < 3) {
       await _createAppUsersTable(database);
@@ -374,14 +368,29 @@ class DatabaseService extends _DatabaseServiceBase
       );
     }
     if (oldVersion < 11) {
-      await _addColumnIfMissing(database, 'reminders', 'kind', "TEXT DEFAULT 'manual'");
+      await _addColumnIfMissing(
+        database,
+        'reminders',
+        'kind',
+        "TEXT DEFAULT 'manual'",
+      );
       await _addColumnIfMissing(database, 'reminders', 'stepNumber', 'INTEGER');
-      await _addColumnIfMissing(database, 'reminders', 'stepDescription', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'reminders',
+        'stepDescription',
+        'TEXT',
+      );
       await _addColumnIfMissing(database, 'reminders', 'memberName', 'TEXT');
       await _addColumnIfMissing(database, 'reminders', 'surname', 'TEXT');
       await _addColumnIfMissing(database, 'reminders', 'saId', 'TEXT');
       await _addColumnIfMissing(database, 'reminders', 'expiryDate', 'TEXT');
-      await _addColumnIfMissing(database, 'reminders', 'status', "TEXT DEFAULT 'active'");
+      await _addColumnIfMissing(
+        database,
+        'reminders',
+        'status',
+        "TEXT DEFAULT 'active'",
+      );
       await _addColumnIfMissing(database, 'reminders', 'completedDate', 'TEXT');
       await _addColumnIfMissing(database, 'reminders', 'completedBy', 'TEXT');
       await database.execute(
@@ -483,12 +492,37 @@ class DatabaseService extends _DatabaseServiceBase
       await _migrateMembersDropUniques(database);
     }
     if (oldVersion < 19) {
-      await _addColumnIfMissing(database, 'members', 'step5CredentialCardComplete', 'INTEGER');
-      await _addColumnIfMissing(database, 'members', 'step5CompletionDate', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step5CredentialCardComplete',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'step5CompletionDate',
+        'TEXT',
+      );
       await _addColumnIfMissing(database, 'members', 'step5ApprovedBy', 'TEXT');
-      await _addColumnIfMissing(database, 'remuneration_settings', 'step1Amount', 'REAL');
-      await _addColumnIfMissing(database, 'remuneration_settings', 'step5Amount', 'REAL');
-      await _addColumnIfMissing(database, 'remuneration_settings', 'bankDetails', 'TEXT');
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step1Amount',
+        'REAL',
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step5Amount',
+        'REAL',
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'bankDetails',
+        'TEXT',
+      );
     }
     if (oldVersion < 20) {
       await _addColumnIfMissing(
@@ -514,6 +548,52 @@ class DatabaseService extends _DatabaseServiceBase
         'remuneration_settings',
         'bankAccountCode',
         "TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (oldVersion < 21) {
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step1Name',
+        "TEXT NOT NULL DEFAULT 'Step 1_Global 528'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step2Name',
+        "TEXT NOT NULL DEFAULT 'Step 2_Global 528'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step3Name',
+        "TEXT NOT NULL DEFAULT 'Step 3_Global 928'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step4Name',
+        "TEXT NOT NULL DEFAULT 'Step 4_LRO'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'step5Name',
+        "TEXT NOT NULL DEFAULT 'Step 5_Credential Card'",
+      );
+    }
+    if (oldVersion < 22) {
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'stepsJson',
+        "TEXT NOT NULL DEFAULT '[]'",
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'memberStepsJson',
+        "TEXT NOT NULL DEFAULT '{}'",
       );
     }
   }
@@ -590,9 +670,7 @@ class DatabaseService extends _DatabaseServiceBase
         deleted INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await database.execute(
-      'INSERT INTO members SELECT * FROM members_v17',
-    );
+    await database.execute('INSERT INTO members SELECT * FROM members_v17');
     await database.execute('DROP TABLE members_v17');
     await database.execute(
       'CREATE INDEX IF NOT EXISTS idx_members_saId ON members(saId)',
@@ -613,11 +691,17 @@ class DatabaseService extends _DatabaseServiceBase
       CREATE TABLE IF NOT EXISTS remuneration_settings (
         id TEXT PRIMARY KEY,
         firestoreId TEXT,
+        step1Name TEXT NOT NULL DEFAULT 'Step 1_Global 528',
+        step2Name TEXT NOT NULL DEFAULT 'Step 2_Global 528',
+        step3Name TEXT NOT NULL DEFAULT 'Step 3_Global 928',
+        step4Name TEXT NOT NULL DEFAULT 'Step 4_LRO',
+        step5Name TEXT NOT NULL DEFAULT 'Step 5_Credential Card',
         step1Amount REAL NOT NULL DEFAULT 100,
         step2Amount REAL NOT NULL DEFAULT 200,
         step3Amount REAL NOT NULL DEFAULT 300,
         step4Amount REAL NOT NULL DEFAULT 250,
-        step5Amount REAL NOT NULL DEFAULT 150,
+        step5Amount REAL NOT NULL DEFAULT 250,
+        stepsJson TEXT NOT NULL DEFAULT '[]',
         bankDetails TEXT NOT NULL DEFAULT 'Bank: Standard Bank\nAccount: 00123456789\nBranch: 001\nReference: Membership',
         bankAccountName TEXT NOT NULL DEFAULT 'Garden Town County',
         bankName TEXT NOT NULL DEFAULT 'Capitec Bank',
@@ -914,6 +998,7 @@ class DatabaseService extends _DatabaseServiceBase
         step3ApprovedBy TEXT,
         step4ApprovedBy TEXT,
         step5ApprovedBy TEXT,
+        memberStepsJson TEXT NOT NULL DEFAULT '{}',
         isLocked INTEGER,
         lockedDate TEXT,
         lockedBy TEXT,
@@ -1094,8 +1179,7 @@ class DatabaseService extends _DatabaseServiceBase
   @override
   Future<void> ensureSeedAdmin() async {
     await ensureSeedRoles();
-    final existing =
-        await getAppUserByUsername(AppConstants.demoUsername);
+    final existing = await getAppUserByUsername(AppConstants.demoUsername);
     if (existing == null) {
       final admin = AppUser(
         id: 'demo-admin',
@@ -1171,11 +1255,7 @@ class DatabaseService extends _DatabaseServiceBase
 
       if (user.memberId != memberId) {
         await upsertAppUser(
-          user.copyWith(
-            memberId: memberId,
-            pendingSync: true,
-            updatedAt: now,
-          ),
+          user.copyWith(memberId: memberId, pendingSync: true, updatedAt: now),
         );
       }
     }

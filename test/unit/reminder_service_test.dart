@@ -14,11 +14,7 @@ void main() {
     db = DatabaseService.instance;
     await db.initForTests();
     final sync = SyncEngine(db);
-    service = ReminderService(
-      db,
-      sync,
-      ReminderNotificationService(db),
-    );
+    service = ReminderService(db, sync, ReminderNotificationService(db));
   });
 
   tearDown(() async {
@@ -31,6 +27,7 @@ void main() {
     bool step2 = false,
     bool step3 = false,
     bool step4 = false,
+    bool step5 = false,
   }) {
     return Member.create(
       saId: '9001014800089',
@@ -43,6 +40,7 @@ void main() {
       step2Global528Complete: step2,
       step3Global928Complete: step3,
       step4LROComplete: step4,
+      step5CredentialCardComplete: step5,
     );
   }
 
@@ -68,6 +66,19 @@ void main() {
       ReminderService.expectedStepForMember(
         member(id: 'a', step1: true, step2: true, step3: true, step4: true),
       ),
+      5,
+    );
+    expect(
+      ReminderService.expectedStepForMember(
+        member(
+          id: 'a',
+          step1: true,
+          step2: true,
+          step3: true,
+          step4: true,
+          step5: true,
+        ),
+      ),
       isNull,
     );
   });
@@ -80,11 +91,13 @@ void main() {
     expect(active.first.stepNumber, 1);
     expect(active.first.status, 'active');
     expect(active.first.expiryDate, isNotNull);
-    final remaining = active.first.expiryDate!.difference(DateTime.now().toUtc());
+    final remaining = active.first.expiryDate!.difference(
+      DateTime.now().toUtc(),
+    );
     expect(remaining.inHours, inInclusiveRange(23, 24));
   });
 
-  test('step completion advances 1→2→3→4 then removes', () async {
+  test('step completion advances 1→2→3→4→5 then removes', () async {
     final m = member(id: 'm1');
     await service.onMemberCreated(m);
 
@@ -102,21 +115,37 @@ void main() {
     await service.syncFromMember(
       member(id: 'm1', step1: true, step2: true, step3: true, step4: true),
     );
+    expect((await service.getActiveReminders()).single.stepNumber, 5);
+
+    await service.syncFromMember(
+      member(
+        id: 'm1',
+        step1: true,
+        step2: true,
+        step3: true,
+        step4: true,
+        step5: true,
+      ),
+    );
     expect(await service.getActiveReminders(), isEmpty);
   });
 
   test('autoExpireReminders marks expired active reminders', () async {
-    final r = Reminder.createOnboarding(
-      memberId: 'm1',
-      memberName: 'Jane',
-      surname: 'Smith',
-      saId: '9001014800089',
-      stepNumber: 2,
-    ).copyWith(
-      expiryDate: DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
-      reminderDateTime:
-          DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
-    );
+    final r =
+        Reminder.createOnboarding(
+          memberId: 'm1',
+          memberName: 'Jane',
+          surname: 'Smith',
+          saId: '9001014800089',
+          stepNumber: 2,
+        ).copyWith(
+          expiryDate: DateTime.now().toUtc().subtract(
+            const Duration(minutes: 1),
+          ),
+          reminderDateTime: DateTime.now().toUtc().subtract(
+            const Duration(minutes: 1),
+          ),
+        );
     await db.upsertReminder(r);
     await service.autoExpireReminders();
     expect(await service.getActiveReminders(), isEmpty);

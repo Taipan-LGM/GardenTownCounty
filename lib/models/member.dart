@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:uuid/uuid.dart';
 
 /// Member profile with registration, lock, and temporary-access fields.
@@ -5,6 +7,7 @@ class Member {
   final String id;
   final String saId;
   final String globalRecordNo;
+
   /// NEW ADDITION - LRO Record No. (max 14). Delete field + usages to revert.
   final String? lroRecordNo;
   final String memberName;
@@ -19,11 +22,13 @@ class Member {
   final String comment;
   final String? photoLocalPath;
   final String? photoUrl;
+
   /// Link to AppUser when Member has assigned access (User Management).
   final String? userId;
 
   // Registration & onboarding
-  final String registrationStatus; // pending | in_progress | complete | fully_fledged
+  final String
+  registrationStatus; // pending | in_progress | complete | fully_fledged
   final bool isEmailVerified;
   final DateTime? emailVerifiedDate;
   final DateTime? registrationDate;
@@ -44,6 +49,7 @@ class Member {
   final String? step3ApprovedBy;
   final String? step4ApprovedBy;
   final String? step5ApprovedBy;
+  final Map<int, MemberStepState> additionalStepStates;
 
   // View-only lock
   final bool isLocked;
@@ -121,6 +127,7 @@ class Member {
     this.step3ApprovedBy,
     this.step4ApprovedBy,
     this.step5ApprovedBy,
+    this.additionalStepStates = const {},
     this.isLocked = false,
     this.lockedDate,
     this.lockedBy,
@@ -152,15 +159,17 @@ class Member {
     this.deleted = false,
   });
 
-  int get totalStepCount => 5;
+  int get totalStepCount => 5 + additionalStepStates.length;
 
-  int get completedStepCount => [
+  int get completedStepCount =>
+      [
         step1MemberInfoComplete,
         step2Global528Complete,
         step3Global928Complete,
         step4LROComplete,
         step5CredentialCardComplete,
-      ].where((value) => value).length;
+      ].where((value) => value).length +
+      additionalStepStates.values.where((state) => state.complete).length;
 
   bool get allStepsComplete =>
       step1MemberInfoComplete &&
@@ -168,6 +177,60 @@ class Member {
       step3Global928Complete &&
       step4LROComplete &&
       step5CredentialCardComplete;
+
+  bool isStepCompleteAt(int step) => switch (step) {
+    1 => step1MemberInfoComplete,
+    2 => step2Global528Complete,
+    3 => step3Global928Complete,
+    4 => step4LROComplete,
+    5 => step5CredentialCardComplete,
+    _ => additionalStepStates[step]?.complete ?? false,
+  };
+
+  int completedStepCountFor(Iterable<int> stepNumbers) =>
+      stepNumbers.where(isStepCompleteAt).length;
+
+  bool allStepsCompleteFor(Iterable<int> stepNumbers) {
+    final numbers = stepNumbers.toList();
+    return numbers.isNotEmpty && numbers.every(isStepCompleteAt);
+  }
+
+  Member withStepState({
+    required int step,
+    required bool complete,
+    required DateTime changedAt,
+    required String approvedBy,
+  }) {
+    if (step <= 5) {
+      return copyWith(
+        step1MemberInfoComplete: step == 1 ? complete : null,
+        step2Global528Complete: step == 2 ? complete : null,
+        step3Global928Complete: step == 3 ? complete : null,
+        step4LROComplete: step == 4 ? complete : null,
+        step5CredentialCardComplete: step == 5 ? complete : null,
+        step1CompletionDate: step == 1 && complete ? changedAt : null,
+        step2CompletionDate: step == 2 && complete ? changedAt : null,
+        step3CompletionDate: step == 3 && complete ? changedAt : null,
+        step4CompletionDate: step == 4 && complete ? changedAt : null,
+        step5CompletionDate: step == 5 && complete ? changedAt : null,
+        step1ApprovedBy: step == 1 && complete ? approvedBy : null,
+        step2ApprovedBy: step == 2 && complete ? approvedBy : null,
+        step3ApprovedBy: step == 3 && complete ? approvedBy : null,
+        step4ApprovedBy: step == 4 && complete ? approvedBy : null,
+        step5ApprovedBy: step == 5 && complete ? approvedBy : null,
+      );
+    }
+    return copyWith(
+      additionalStepStates: {
+        ...additionalStepStates,
+        step: MemberStepState(
+          complete: complete,
+          completionDate: complete ? changedAt : null,
+          approvedBy: complete ? approvedBy : null,
+        ),
+      },
+    );
+  }
 
   bool get hasActiveTemporaryAccess {
     final code = temporaryAccessCode;
@@ -262,6 +325,7 @@ class Member {
     String? step3ApprovedBy,
     String? step4ApprovedBy,
     String? step5ApprovedBy,
+    Map<int, MemberStepState>? additionalStepStates,
     bool? isLocked,
     DateTime? lockedDate,
     String? lockedBy,
@@ -304,8 +368,7 @@ class Member {
       id: id ?? this.id,
       saId: saId ?? this.saId,
       globalRecordNo: globalRecordNo ?? this.globalRecordNo,
-      lroRecordNo:
-          clearLroRecordNo ? null : (lroRecordNo ?? this.lroRecordNo),
+      lroRecordNo: clearLroRecordNo ? null : (lroRecordNo ?? this.lroRecordNo),
       memberName: memberName ?? this.memberName,
       surname: surname ?? this.surname,
       address: address ?? this.address,
@@ -316,8 +379,9 @@ class Member {
       contactNo2: contactNo2 ?? this.contactNo2,
       emailAddress: emailAddress ?? this.emailAddress,
       comment: comment ?? this.comment,
-      photoLocalPath:
-          clearPhotoLocalPath ? null : (photoLocalPath ?? this.photoLocalPath),
+      photoLocalPath: clearPhotoLocalPath
+          ? null
+          : (photoLocalPath ?? this.photoLocalPath),
       photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       userId: clearUserId ? null : (userId ?? this.userId),
       registrationStatus: registrationStatus ?? this.registrationStatus,
@@ -343,6 +407,7 @@ class Member {
       step3ApprovedBy: step3ApprovedBy ?? this.step3ApprovedBy,
       step4ApprovedBy: step4ApprovedBy ?? this.step4ApprovedBy,
       step5ApprovedBy: step5ApprovedBy ?? this.step5ApprovedBy,
+      additionalStepStates: additionalStepStates ?? this.additionalStepStates,
       isLocked: clearLock ? false : (isLocked ?? this.isLocked),
       lockedDate: clearLock ? null : (lockedDate ?? this.lockedDate),
       lockedBy: clearLock ? null : (lockedBy ?? this.lockedBy),
@@ -370,8 +435,7 @@ class Member {
       cancellationDate: clearCancellation
           ? null
           : (cancellationDate ?? this.cancellationDate),
-      cancelledBy:
-          clearCancellation ? null : (cancelledBy ?? this.cancelledBy),
+      cancelledBy: clearCancellation ? null : (cancelledBy ?? this.cancelledBy),
       cancellationReason: clearCancellation
           ? null
           : (cancellationReason ?? this.cancellationReason),
@@ -387,8 +451,9 @@ class Member {
       assignedDate: clearSecretaryAssignment
           ? null
           : (assignedDate ?? this.assignedDate),
-      assignedBy:
-          clearSecretaryAssignment ? null : (assignedBy ?? this.assignedBy),
+      assignedBy: clearSecretaryAssignment
+          ? null
+          : (assignedBy ?? this.assignedBy),
       assignmentMethod: clearSecretaryAssignment
           ? null
           : (assignmentMethod ?? this.assignmentMethod),
@@ -441,6 +506,7 @@ class Member {
       'step3ApprovedBy': step3ApprovedBy,
       'step4ApprovedBy': step4ApprovedBy,
       'step5ApprovedBy': step5ApprovedBy,
+      'memberStepsJson': MemberStepState.encodeMap(additionalStepStates),
       'isLocked': isLocked ? 1 : 0,
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
@@ -513,6 +579,7 @@ class Member {
       'step3ApprovedBy': step3ApprovedBy,
       'step4ApprovedBy': step4ApprovedBy,
       'step5ApprovedBy': step5ApprovedBy,
+      'memberStepsJson': MemberStepState.encodeMap(additionalStepStates),
       'isLocked': isLocked,
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
@@ -563,8 +630,7 @@ class Member {
       photoLocalPath: map['photoLocalPath'] as String?,
       photoUrl: map['photoUrl'] as String?,
       userId: map['userId'] as String?,
-      registrationStatus:
-          map['registrationStatus'] as String? ?? 'pending',
+      registrationStatus: map['registrationStatus'] as String? ?? 'pending',
       isEmailVerified: _asBool(map['isEmailVerified']),
       emailVerifiedDate: _asDate(map['emailVerifiedDate']),
       registrationDate: _asDate(map['registrationDate']),
@@ -583,6 +649,9 @@ class Member {
       step3ApprovedBy: map['step3ApprovedBy'] as String?,
       step4ApprovedBy: map['step4ApprovedBy'] as String?,
       step5ApprovedBy: map['step5ApprovedBy'] as String?,
+      additionalStepStates: MemberStepState.decodeMap(
+        map['memberStepsJson'] as String? ?? '{}',
+      ),
       isLocked: _asBool(map['isLocked']),
       lockedDate: _asDate(map['lockedDate']),
       lockedBy: map['lockedBy'] as String?,
@@ -620,13 +689,13 @@ class Member {
       ...map,
       'pendingSync': 0,
       'isEmailVerified': map['isEmailVerified'] == true ? 1 : 0,
-      'step1MemberInfoComplete':
-          map['step1MemberInfoComplete'] == true ? 1 : 0,
+      'step1MemberInfoComplete': map['step1MemberInfoComplete'] == true ? 1 : 0,
       'step2Global528Complete': map['step2Global528Complete'] == true ? 1 : 0,
       'step3Global928Complete': map['step3Global928Complete'] == true ? 1 : 0,
       'step4LROComplete': map['step4LROComplete'] == true ? 1 : 0,
-      'step5CredentialCardComplete':
-          map['step5CredentialCardComplete'] == true ? 1 : 0,
+      'step5CredentialCardComplete': map['step5CredentialCardComplete'] == true
+          ? 1
+          : 0,
       'isLocked': map['isLocked'] == true ? 1 : 0,
       'isCancelled': map['isCancelled'] == true ? 1 : 0,
       'deleted': map['deleted'] == true ? 1 : 0,
@@ -647,5 +716,48 @@ class Member {
     if (v is DateTime) return v.toUtc();
     if (v is String && v.isNotEmpty) return DateTime.tryParse(v)?.toUtc();
     return null;
+  }
+}
+
+class MemberStepState {
+  const MemberStepState({
+    required this.complete,
+    this.completionDate,
+    this.approvedBy,
+  });
+
+  final bool complete;
+  final DateTime? completionDate;
+  final String? approvedBy;
+
+  Map<String, dynamic> toJson() => {
+    'complete': complete,
+    'completionDate': completionDate?.toIso8601String(),
+    'approvedBy': approvedBy,
+  };
+
+  static String encodeMap(Map<int, MemberStepState> states) => jsonEncode(
+    states.map((number, state) => MapEntry('$number', state.toJson())),
+  );
+
+  static Map<int, MemberStepState> decodeMap(String raw) {
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map((number, value) {
+        final json = value as Map<String, dynamic>;
+        return MapEntry(
+          int.parse(number),
+          MemberStepState(
+            complete: json['complete'] == true,
+            completionDate: DateTime.tryParse(
+              json['completionDate'] as String? ?? '',
+            )?.toUtc(),
+            approvedBy: json['approvedBy'] as String?,
+          ),
+        );
+      });
+    } catch (_) {
+      return const {};
+    }
   }
 }
