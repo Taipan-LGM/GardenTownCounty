@@ -110,11 +110,12 @@ class _SmartRecordFieldState extends State<SmartRecordField> {
   }
 
   Widget _buildSuffixIcon(bool isReadOnly, bool hasValue) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     if (!hasValue) {
-      return Icon(Icons.lock_outline, color: Colors.grey.shade400, size: 18);
+      return Icon(Icons.lock_outline, color: color, size: 18);
     }
     if (isReadOnly) {
-      return Icon(Icons.lock, color: Colors.grey.shade600, size: 18);
+      return Icon(Icons.lock, color: color, size: 18);
     }
     return const Icon(Icons.edit, color: Colors.blue, size: 18);
   }

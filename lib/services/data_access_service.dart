@@ -37,16 +37,14 @@ class DataAccessService {
     }
 
     if (user.isSecretary) {
-      if (offset != null || limit != null || (query != null && query.trim().isNotEmpty)) {
-        final page = await _db.getMembersPage(
-          offset: offset ?? 0,
-          limit: limit ?? AppConstants.membersPageSize,
-          secretaryId: user.id,
-          query: query,
-        );
-        return page.items;
-      }
-      return _db.getMembersAssignedToSecretary(user.id);
+      final visible = await _getSecretaryVisibleMembers(user, query: query);
+      if (offset == null && limit == null) return visible;
+      final start = (offset ?? 0).clamp(0, visible.length);
+      final end = (start + (limit ?? AppConstants.membersPageSize)).clamp(
+        start,
+        visible.length,
+      );
+      return visible.sublist(start, end);
     }
 
     if (user.isMemberRole) {
@@ -72,12 +70,10 @@ class DataAccessService {
     }
 
     if (user.isSecretary) {
-      return _db.getMembersPage(
-        offset: offset,
-        limit: limit,
-        secretaryId: user.id,
-        query: query,
-      );
+      final visible = await _getSecretaryVisibleMembers(user, query: query);
+      final start = offset.clamp(0, visible.length);
+      final end = (start + limit).clamp(start, visible.length);
+      return (items: visible.sublist(start, end), total: visible.length);
     }
 
     if (user.isMemberRole) {
@@ -129,6 +125,7 @@ class DataAccessService {
     if (user.isSecretary) {
       final assigned = await _db.getMembersAssignedToSecretary(user.id);
       final ids = assigned.map((m) => m.id).toSet();
+      if (user.memberId?.isNotEmpty == true) ids.add(user.memberId!);
       return all.where((c) => ids.contains(c.memberId)).toList();
     }
 
@@ -144,14 +141,57 @@ class DataAccessService {
   Future<bool> canAccessMember(AuthUser? user, String memberId) async {
     if (user == null) return false;
     if (user.isAdmin) return true;
+    if (user.memberId == memberId) return true;
     if (user.isMemberRole) return user.memberId == memberId;
     if (user.isSecretary) {
       final member = await _db.getMemberById(memberId);
       return member != null &&
           !member.deleted &&
+          !member.isCancelled &&
+          !member.step5CredentialCardComplete &&
           member.assignedSecretaryId == user.id;
     }
     return false;
+  }
+
+  Future<List<Member>> _getSecretaryVisibleMembers(
+    AuthUser user, {
+    String? query,
+  }) async {
+    final visible = await _db.getMembersAssignedToSecretary(user.id);
+    final ownMemberId = user.memberId;
+    if (ownMemberId != null &&
+        ownMemberId.isNotEmpty &&
+        !visible.any((member) => member.id == ownMemberId)) {
+      final own = await _db.getMemberById(ownMemberId);
+      if (own != null && !own.deleted && !own.isCancelled) visible.add(own);
+    }
+    final normalizedQuery = query?.trim().toLowerCase() ?? '';
+    final filtered = normalizedQuery.isEmpty
+        ? visible
+        : visible.where((member) {
+            final searchable = [
+              member.saId,
+              member.globalRecordNo,
+              member.lroRecordNo ?? '',
+              member.memberName,
+              member.surname,
+              member.emailAddress,
+              member.contactNo1,
+              member.contactNo2,
+              member.address,
+              member.suburb,
+              member.townCity,
+            ].join(' ').toLowerCase();
+            return searchable.contains(normalizedQuery);
+          }).toList();
+    filtered.sort((a, b) {
+      final surname = a.surname.toLowerCase().compareTo(b.surname.toLowerCase());
+      return surname != 0
+          ? surname
+          : a.memberName.toLowerCase().compareTo(b.memberName.toLowerCase());
+    });
+    return filtered;
   }
 
   /// Permission check for drawer / modules (Admin always true).

@@ -40,6 +40,7 @@ class OnboardingChecklistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = _doneCount / 4.0;
     final allDone = member.allStepsComplete;
+    final colors = Theme.of(context).colorScheme;
 
     return Card(
       color: AppTheme.forestGreen.withValues(alpha: 0.06),
@@ -48,12 +49,12 @@ class OnboardingChecklistCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               '✅ ONBOARDING PROGRESS',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: AppTheme.bodyText,
+                color: colors.onSurface,
               ),
             ),
             const Divider(),
@@ -98,7 +99,7 @@ class OnboardingChecklistCard extends StatelessWidget {
                 value: progress,
                 minHeight: 10,
                 backgroundColor: Colors.grey.shade300,
-                color: AppTheme.bodyText,
+                color: colors.primary,
               ),
             ),
             if (showCompleteButton) ...[
@@ -112,11 +113,14 @@ class OnboardingChecklistCard extends StatelessWidget {
                 ),
               ),
               if (!allDone)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     'Complete button enables when all 4 steps are checked.',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 ),
             ],

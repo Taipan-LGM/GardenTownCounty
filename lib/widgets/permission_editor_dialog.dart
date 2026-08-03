@@ -59,6 +59,8 @@ class _PermissionEditorDialogState
   @override
   Widget build(BuildContext context) {
     final name = widget.user.displayName;
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final settings =
         ref.watch(remunerationSettingsProvider).valueOrNull ??
         RemunerationSettings.defaults();
@@ -135,7 +137,7 @@ class _PermissionEditorDialogState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: isDark ? Colors.blue.shade900 : Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.blue.shade200),
                 ),
@@ -147,7 +149,7 @@ class _PermissionEditorDialogState
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
-                        color: Colors.blue.shade700,
+                        color: colors.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),

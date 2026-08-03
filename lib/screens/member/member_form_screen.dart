@@ -724,6 +724,20 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return;
     }
 
+    if (auth?.isSecretary == true) {
+      final linked = auth!.memberId;
+      if (linked != null && linked.isNotEmpty) {
+        final index = members.indexWhere((member) => member.id == linked);
+        if (index >= 0) {
+          _loadMember(members[index], index);
+          await ref
+              .read(memberNavigationProvider.notifier)
+              .openMember(members[index], all: members);
+          return;
+        }
+      }
+    }
+
     if (selectedId != null) {
       final index = members.indexWhere((m) => m.id == selectedId);
       if (index >= 0) {

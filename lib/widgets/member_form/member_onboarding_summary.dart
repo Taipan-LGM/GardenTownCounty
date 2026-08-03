@@ -26,10 +26,11 @@ class MemberOnboardingSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final configuredSteps = remunerationSettings.configuredSteps;
     final stepNumbers = configuredSteps.map((step) => step.number);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.blue.shade900 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.blue.shade200),
       ),

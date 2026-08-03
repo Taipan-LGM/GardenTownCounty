@@ -110,8 +110,35 @@ class AppTheme {
       ),
     );
 
+    final whiteTextTheme = base.textTheme.apply(
+      bodyColor: Colors.white,
+      displayColor: Colors.white,
+    );
+
     return base.copyWith(
       scaffoldBackgroundColor: const Color(0xFF102018),
+      textTheme: whiteTextTheme,
+      primaryTextTheme: whiteTextTheme,
+      iconTheme: const IconThemeData(color: Colors.white),
+      primaryIconTheme: const IconThemeData(color: Colors.white),
+      cardTheme: const CardThemeData(
+        color: Color(0xFF182B22),
+        surfaceTintColor: Colors.transparent,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: Color(0xFF182B22),
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+        ),
+        contentTextStyle: TextStyle(color: Colors.white),
+      ),
+      listTileTheme: const ListTileThemeData(
+        textColor: Colors.white,
+        iconColor: Colors.white,
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF0B1A14),
         foregroundColor: Colors.white,
@@ -133,6 +160,12 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFF1A2E24),
+        labelStyle: const TextStyle(color: Colors.white70),
+        floatingLabelStyle: const TextStyle(color: Colors.white),
+        hintStyle: const TextStyle(color: Colors.white60),
+        helperStyle: const TextStyle(color: Colors.white70),
+        prefixIconColor: Colors.white70,
+        suffixIconColor: Colors.white70,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),

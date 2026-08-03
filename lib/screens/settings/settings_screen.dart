@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/county_profile.dart';
 import '../../providers/providers.dart';
@@ -36,10 +35,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         Text(
           strings.settings,
-          style: const TextStyle(
-            fontSize: 22,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: AppTheme.bodyText,
           ),
         ),
         const SizedBox(height: 16),

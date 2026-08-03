@@ -6,6 +6,7 @@ import '../models/app_user.dart';
 import '../models/county_info.dart';
 import '../models/county_profile.dart';
 import '../models/lookup_item.dart';
+import '../models/live_view_data.dart';
 import '../models/member.dart';
 import '../models/reminder.dart';
 import '../models/remuneration_settings.dart';
@@ -321,6 +322,22 @@ final activitiesProvider = FutureProvider.autoDispose<List<ActivityLog>>((
   ref,
 ) async {
   return ref.watch(activityServiceProvider).list();
+});
+
+final liveViewDataProvider = FutureProvider.autoDispose<LiveViewData>((
+  ref,
+) async {
+  final database = ref.watch(databaseServiceProvider);
+  final activityService = ref.watch(activityServiceProvider);
+  final membersFuture = database.getAllMembers();
+  final recordsFuture = database.getAllRemunerationRecords();
+  final activitiesFuture = activityService.list();
+  return LiveViewData(
+    members: await membersFuture,
+    remunerationRecords: await recordsFuture,
+    activities: await activitiesFuture,
+    generatedAt: DateTime.now(),
+  );
 });
 
 final sosPresetsProvider = FutureProvider.autoDispose<List<SosPreset>>((

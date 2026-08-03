@@ -323,8 +323,8 @@ class AppDrawer extends ConsumerWidget {
             ),
             SizedBox(height: 8),
             Text('• 10 members + onboarding reminders'),
-            Text('• Payments summary (27 completed members)'),
-            Text('• Paid + PDF completed total R 4,900.00'),
+            Text('• Payments summary (35 completed members)'),
+            Text('• Paid + PDF completed total R 6,900.00'),
             Text('• Duplicate Manager (3 pairs)'),
             Text('• Cancellations (5 cancelled members)'),
             Text('• Info (8 Garden Town articles)'),
@@ -372,7 +372,7 @@ class AppDrawer extends ConsumerWidget {
             '${result.cancelledMembersCreated} cancelled, '
             '${result.articlesCreated} articles, '
             '${result.videosCreated} videos, '
-            'Payments summary R 4,900.00 / 27 completed members '
+            'Payments summary R 6,900.00 / 35 completed members '
             '(existing IDs skipped).',
           ),
           backgroundColor: Colors.green,

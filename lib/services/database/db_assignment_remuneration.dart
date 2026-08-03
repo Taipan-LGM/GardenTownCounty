@@ -50,6 +50,7 @@ mixin _DbAssignmentRemuneration on _DatabaseServiceBase {
             (m) =>
                 !m.deleted &&
                 !m.isCancelled &&
+              !m.step5CredentialCardComplete &&
                 m.assignedSecretaryId == secretaryId,
           )
           .toList()
@@ -61,7 +62,8 @@ mixin _DbAssignmentRemuneration on _DatabaseServiceBase {
       'members',
       where:
           'assignedSecretaryId = ? AND deleted = 0 AND '
-          '(isCancelled IS NULL OR isCancelled = 0)',
+          '(isCancelled IS NULL OR isCancelled = 0) AND '
+          '(step5CredentialCardComplete IS NULL OR step5CredentialCardComplete = 0)',
       whereArgs: [secretaryId],
       orderBy: 'surname COLLATE NOCASE ASC, memberName COLLATE NOCASE ASC',
     );

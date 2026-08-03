@@ -16,22 +16,21 @@ class AppStrings {
   String get home => isAf ? 'Tuis' : 'Home';
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
+  String get liveView => isAf ? 'Regstreekse Oorsig' : 'Live View';
   String get videos => isAf ? "Video's" : 'Videos';
   String get info => isAf ? 'Inligting' : 'Info';
   String get menu => isAf ? 'Kieslys' : 'Menu';
 
-  String get memberInfo =>
-      isAf ? 'Aansoekvorm' : 'Application Form';
+  String get memberInfo => isAf ? 'Aansoekvorm' : 'Application Form';
   String get memberInfoForm =>
       isAf ? 'Lid-aansoekvorm' : 'Member Application Form';
   String get sos => 'SOS';
-    String get global528 => isAf ? 'Betalings' : 'Payments';
+  String get global528 => isAf ? 'Betalings' : 'Payments';
   String get global528Step2 => 'Step 2_Global 528';
   String get global928 => 'Step 3_Global 928';
   String get lro => 'Step 4_LRO';
   String get credentialCard => 'Step 5_Credential Card';
-  String get backupRestore =>
-      isAf ? 'Rugsteun & Herstel' : 'Backup & Restore';
+  String get backupRestore => isAf ? 'Rugsteun & Herstel' : 'Backup & Restore';
   String get addUser => isAf ? 'Voeg Gebruiker By' : 'Add User';
   String get userManagement => isAf ? 'RS Regte' : 'RS Rights';
   String get userManagementForm =>
@@ -43,9 +42,8 @@ class AppStrings {
   String get duplicateManagement =>
       isAf ? 'Duplikaatbestuurder' : 'Duplicate Manager';
   String get demoData => isAf ? 'Demo-data' : 'Demo Data';
-  String get demoDataSubtitle => isAf
-      ? 'Skep 10 demo-lede'
-      : 'Generate 10 demo members';
+  String get demoDataSubtitle =>
+      isAf ? 'Skep 10 demo-lede' : 'Generate 10 demo members';
   String get countyVideos => isAf ? "County-video's" : 'County Videos';
   String get countyInfoShort => isAf ? 'County-inligting' : 'County Info';
 
@@ -55,17 +53,13 @@ class AppStrings {
   String get language => isAf ? 'Taal' : 'Language';
   String get english => 'English';
   String get afrikaans => 'Afrikaans';
-  String get languageApplied => isAf
-      ? 'Taal gestel na Afrikaans'
-      : 'Language set to English';
+  String get languageApplied =>
+      isAf ? 'Taal gestel na Afrikaans' : 'Language set to English';
 
-  String get countyInfo =>
-      isAf ? 'County-inligting' : 'County Information';
+  String get countyInfo => isAf ? 'County-inligting' : 'County Information';
   String get countyName => isAf ? 'County-naam' : 'County name';
-  String get countyAddress =>
-      isAf ? 'County-adres' : 'County Address';
-  String get countyRegNo =>
-      isAf ? 'County reg. nr.' : 'County reg. no.';
+  String get countyAddress => isAf ? 'County-adres' : 'County Address';
+  String get countyRegNo => isAf ? 'County reg. nr.' : 'County reg. no.';
   String get countyContactNo =>
       isAf ? 'County kontaknr.' : 'County Contact no.';
   String get uploadLogo =>
@@ -96,8 +90,7 @@ class AppStrings {
   // Settings extras
   String get countySettingsLogos =>
       isAf ? 'County-instellings (logos)' : 'County Settings (logos)';
-  String get rsRemuneration =>
-      isAf ? 'RS-vergoeding' : 'RS Remuneration';
+  String get rsRemuneration => isAf ? 'RS-vergoeding' : 'RS Remuneration';
   String get rsRemunerationSubtitle => isAf
       ? 'Stel Opnamesekretaris-betalingsbedrae'
       : 'Configure Recording Secretary payment amounts';
@@ -114,8 +107,7 @@ class AppStrings {
   String get adminOnlyCountySettings => isAf
       ? 'Teken in as Admin om County-instellings (logos) oop te maak.'
       : 'Sign in as Admin to open County Settings (logos).';
-  String get countySettings =>
-      isAf ? 'County-instellings' : 'County Settings';
+  String get countySettings => isAf ? 'County-instellings' : 'County Settings';
   String get logosAdmin => isAf ? 'Logos (Admin)' : 'Logos (Admin)';
   String get firstLogo => isAf ? 'Eerste logo' : 'First logo';
   String get secondLogo => isAf ? 'Tweede logo' : 'Second logo';
@@ -152,18 +144,15 @@ class AppStrings {
   String get viewBackups => isAf ? 'Bekyk rugsteun' : 'View Backups';
   String get deleteAll => isAf ? 'SKRAP ALLES' : 'DELETE ALL';
   String get createBackupShort => isAf ? 'Skep rugsteun' : 'Create Backup';
-  String get restoreBackupShort =>
-      isAf ? 'Herstel rugsteun' : 'Restore Backup';
+  String get restoreBackupShort => isAf ? 'Herstel rugsteun' : 'Restore Backup';
 
   String get backupCenter =>
       isAf ? 'Rugsteun & Herstel Sentrum' : 'Backup & Restore Center';
-  String get localBackup =>
-      isAf ? 'Plaaslike rugsteun' : 'Local Backup';
+  String get localBackup => isAf ? 'Plaaslike rugsteun' : 'Local Backup';
   String get externalBackup =>
       isAf ? 'Eksterne / Netwerk-skyf' : 'External / Network Drive';
   String get restore => isAf ? 'Herstel' : 'Restore';
-  String get createBackup =>
-      isAf ? 'Skep rugsteun nou' : 'Create Backup Now';
+  String get createBackup => isAf ? 'Skep rugsteun nou' : 'Create Backup Now';
   String get restoreFromBackup =>
       isAf ? 'Herstel vanaf rugsteun' : 'Restore from Backup';
   String get enableLocalBackup => isAf
@@ -200,8 +189,7 @@ class AppStrings {
   // Reminders
   String get remindersTitle => isAf ? 'Herinnerings' : 'Reminders';
   String get viewMember => isAf ? 'Bekyk lid' : 'View Member';
-  String get markAsCompleted =>
-      isAf ? 'Merk as voltooi' : 'Mark as Completed';
+  String get markAsCompleted => isAf ? 'Merk as voltooi' : 'Mark as Completed';
   String get dismissReminder =>
       isAf ? 'Verwerp herinnering' : 'Dismiss Reminder';
   String get dismissReminderConfirm =>
@@ -209,14 +197,12 @@ class AppStrings {
   String get dismiss => isAf ? 'Verwerp' : 'Dismiss';
   String get reminderDismissed =>
       isAf ? 'Herinnering verwerp' : 'Reminder dismissed';
-  String get reminderCompleted => isAf
-      ? 'Herinnering as voltooi gemerk'
-      : 'Reminder marked as completed';
+  String get reminderCompleted =>
+      isAf ? 'Herinnering as voltooi gemerk' : 'Reminder marked as completed';
   String get refresh => isAf ? 'Verfris' : 'Refresh';
   String get total => isAf ? 'Totaal' : 'Total';
   String get step => isAf ? 'Stap' : 'Step';
-  String get autoAssignAll =>
-      isAf ? 'Outo-ken almal toe' : 'Auto-Assign All';
+  String get autoAssignAll => isAf ? 'Outo-ken almal toe' : 'Auto-Assign All';
   String get assigning => isAf ? 'Ken tans toe...' : 'Assigning...';
   String get allRemindersHaveRs => isAf
       ? 'Alle herinnerings het ’n Opnamesekretaris'
@@ -233,13 +219,15 @@ class AppStrings {
   String get activitiesTitle => isAf ? 'Aktiwiteite' : 'Activities';
   String get activitiesSubtitle => isAf
       ? 'Aanteken en lid-aksies met GPS, datum, tyd en gebruikersnaam. '
-          'Tik GPS om die kaart te sien — druk, stoor of deel via WhatsApp.'
+            'Tik GPS om die kaart te sien — druk, stoor of deel via WhatsApp.'
       : 'Login and member actions with GPS, date, time, and user name. '
-          'Tap GPS to view map — print, save, or share via WhatsApp.';
-  String get noGpsYet =>
-      isAf ? 'Nog geen GPS-ligging aangeteken nie.' : 'No GPS location recorded yet.';
-  String get noActivitiesYet =>
-      isAf ? 'Nog geen aktiwiteite aangeteken nie.' : 'No activities recorded yet.';
+            'Tap GPS to view map — print, save, or share via WhatsApp.';
+  String get noGpsYet => isAf
+      ? 'Nog geen GPS-ligging aangeteken nie.'
+      : 'No GPS location recorded yet.';
+  String get noActivitiesYet => isAf
+      ? 'Nog geen aktiwiteite aangeteken nie.'
+      : 'No activities recorded yet.';
   String get dateTime => isAf ? 'Datum / Tyd' : 'Date / Time';
   String get user => isAf ? 'Gebruiker' : 'User';
   String get action => isAf ? 'Aksie' : 'Action';
@@ -261,14 +249,12 @@ class AppStrings {
   String get viewMembers => isAf ? 'Bekyk lede:' : 'View Members:';
   String get focusSearch =>
       isAf ? 'Fokus soektog (Ctrl+F)' : 'Focus Search (Ctrl+F)';
-  String get globalRecordNo =>
-      isAf ? 'Globale rekordnr.' : 'Global Record No.';
+  String get globalRecordNo => isAf ? 'Globale rekordnr.' : 'Global Record No.';
   String get contactNo1 =>
       isAf ? 'Kontaknr. 1 * (maks. 12)' : 'Contact No 1 * (max 12)';
   String get contactNo2 =>
       isAf ? 'Kontaknr. 2 (maks. 12)' : 'Contact No 2 (max 12)';
-  String get emailAddress =>
-      isAf ? 'E-posadres *' : 'Email Address *';
+  String get emailAddress => isAf ? 'E-posadres *' : 'Email Address *';
   String get enterValidEmail =>
       isAf ? 'Voer ’n geldige e-pos in' : 'Enter a valid email';
   String get recordVisibility =>
@@ -277,9 +263,8 @@ class AppStrings {
       isAf ? 'Voer LRO-rekordnr. in' : 'Enter LRO Record No.';
   String get activateRs =>
       isAf ? 'Aktiveer Opnamesekretaris?' : 'Activate Recording Secretary?';
-  String get deactivateRs => isAf
-      ? 'Deaktiveer Opnamesekretaris?'
-      : 'Deactivate Recording Secretary?';
+  String get deactivateRs =>
+      isAf ? 'Deaktiveer Opnamesekretaris?' : 'Deactivate Recording Secretary?';
   String get activateRsBtn => isAf ? 'Aktiveer OS' : 'Activate RS';
   String get deactivateRsBtn => isAf ? 'Deaktiveer OS' : 'Deactivate RS';
 
@@ -288,15 +273,11 @@ class AppStrings {
   String get dangerZone => isAf ? 'GEVAARSONE' : 'DANGER ZONE';
   String get backupAuthorized =>
       isAf ? 'Rugsteun gemagtig.' : 'Backup authorized.';
-  String get backupAuthRequired => isAf
-      ? 'Rugsteun-magtiging vereis.'
-      : 'Backup authorization required.';
-  String get backupComplete =>
-      isAf ? 'Rugsteun voltooi' : 'Backup complete';
-  String get restoreComplete =>
-      isAf ? 'Herstel voltooi' : 'Restore Complete';
-  String get allDataDeleted =>
-      isAf ? 'Alle data geskrap' : 'All Data Deleted';
+  String get backupAuthRequired =>
+      isAf ? 'Rugsteun-magtiging vereis.' : 'Backup authorization required.';
+  String get backupComplete => isAf ? 'Rugsteun voltooi' : 'Backup complete';
+  String get restoreComplete => isAf ? 'Herstel voltooi' : 'Restore Complete';
+  String get allDataDeleted => isAf ? 'Alle data geskrap' : 'All Data Deleted';
   String get errorLabel => isAf ? 'Fout' : 'Error';
 
   // Member list / filters / nav
@@ -305,8 +286,9 @@ class AppStrings {
   String get searchByNameSurnameSaId => isAf
       ? 'Soek volgens naam, van of SA-ID...'
       : 'Search by Name, Surname, or SA ID...';
-  String get noMembersMatchFilter =>
-      isAf ? 'Geen lede pas by hierdie filter nie.' : 'No members match this filter.';
+  String get noMembersMatchFilter => isAf
+      ? 'Geen lede pas by hierdie filter nie.'
+      : 'No members match this filter.';
   String get newLabel => isAf ? 'Nuut' : 'New';
   String get newMember => isAf ? 'Nuwe lid' : 'New Member';
   String get upload => isAf ? 'Laai op' : 'Upload';
@@ -328,26 +310,21 @@ class AppStrings {
   String get sortSurname => isAf ? 'Van' : 'Surname';
   String get sortSaId => 'SA ID';
   String get sortUpdated => isAf ? 'Opgedateer' : 'Updated';
-  String get backToList =>
-      isAf ? 'Terug na lys (Esc)' : 'Back to List (Esc)';
+  String get backToList => isAf ? 'Terug na lys (Esc)' : 'Back to List (Esc)';
   String get viewProfile => isAf ? 'Bekyk profiel' : 'View Profile';
   String get editMember => isAf ? 'Wysig lid' : 'Edit Member';
-  String get completeMember =>
-      isAf ? 'Voltooi lid' : 'Complete Member';
+  String get completeMember => isAf ? 'Voltooi lid' : 'Complete Member';
   String get grantTempAccess =>
       isAf ? 'Gee tydelike toegang' : 'Grant Temp Access';
-  String get addFavorite =>
-      isAf ? 'Voeg gunsteling by' : 'Add Favorite';
-  String get removeFavorite =>
-      isAf ? 'Verwyder gunsteling' : 'Remove Favorite';
+  String get addFavorite => isAf ? 'Voeg gunsteling by' : 'Add Favorite';
+  String get removeFavorite => isAf ? 'Verwyder gunsteling' : 'Remove Favorite';
   String get copySaId => isAf ? 'Kopieer SA-ID' : 'Copy SA ID';
   String get saIdCopied => isAf ? 'SA-ID gekopieer' : 'SA ID copied';
   String get sendEmail => isAf ? 'Stuur e-pos' : 'Send Email';
   String get callContact => isAf ? 'Bel kontak' : 'Call Contact';
   String get deleteMember => isAf ? 'Skrap lid' : 'Delete Member';
-  String showingRange(int start, int end, int total) => isAf
-      ? 'Wys $start–$end van $total'
-      : 'Showing $start–$end of $total';
+  String showingRange(int start, int end, int total) =>
+      isAf ? 'Wys $start–$end van $total' : 'Showing $start–$end of $total';
 
   // Unsaved / discard
   String get unsavedChangesTitle =>
@@ -363,8 +340,7 @@ class AppStrings {
   String get discardChanges =>
       isAf ? 'Verwerp veranderinge' : 'Discard Changes';
   String get stayHere => isAf ? 'Bly hier' : 'Stay Here';
-  String get saveChanges =>
-      isAf ? 'Stoor veranderinge' : 'Save Changes';
+  String get saveChanges => isAf ? 'Stoor veranderinge' : 'Save Changes';
   String get discardChangesConfirm =>
       isAf ? 'Verwerp veranderinge?' : 'Discard Changes?';
   String get discardChangesBody => isAf
@@ -373,23 +349,22 @@ class AppStrings {
   String get keepEditing => isAf ? 'Hou aan wysig' : 'Keep Editing';
 
   // Legal
-  String get confidentialityTitle => isAf
-      ? 'Vertroulikheidsooreenkoms'
-      : 'Confidentiality Agreement';
+  String get confidentialityTitle =>
+      isAf ? 'Vertroulikheidsooreenkoms' : 'Confidentiality Agreement';
   String get confidentialityBody => isAf
       ? 'Deur hierdie stelsel te gebruik, stem jy in tot die volgende:\n\n'
-          '1. Alle lidinligting is vertroulik.\n'
-          '2. Skermkiekies van geslote lidinligting is streng verbode.\n'
-          '3. Alle pogings om lidinligting vas te vang of te deel sal aangeteken word.\n'
-          '4. Ongemagtigde deling van lidinligting sal dissiplinêre optrede tot gevolg hê.\n\n'
-          'Aanvaar jy hierdie voorwaardes?'
+            '1. Alle lidinligting is vertroulik.\n'
+            '2. Skermkiekies van geslote lidinligting is streng verbode.\n'
+            '3. Alle pogings om lidinligting vas te vang of te deel sal aangeteken word.\n'
+            '4. Ongemagtigde deling van lidinligting sal dissiplinêre optrede tot gevolg hê.\n\n'
+            'Aanvaar jy hierdie voorwaardes?'
       : 'By accessing this system, you agree to the following:\n\n'
-          '1. All member information is confidential.\n'
-          '2. Screenshots of locked member information are strictly prohibited.\n'
-          '3. All attempts to capture or share member information will be logged.\n'
-          '4. Unauthorized sharing of member information will result in '
-          'disciplinary action.\n\n'
-          'Do you accept these terms?';
+            '1. All member information is confidential.\n'
+            '2. Screenshots of locked member information are strictly prohibited.\n'
+            '3. All attempts to capture or share member information will be logged.\n'
+            '4. Unauthorized sharing of member information will result in '
+            'disciplinary action.\n\n'
+            'Do you accept these terms?';
   String get reject => isAf ? 'Weier' : 'Reject';
   String get iAccept => isAf ? 'Ek aanvaar' : 'I Accept';
 
@@ -413,12 +388,10 @@ class AppStrings {
   String get step2Global528 => 'Step 2: Global 528';
   String get step3Global928 => 'Step 3: Global 928';
   String get step4Lro => 'Step 4: LRO';
-  String get completeMemberBtn =>
-      isAf ? 'Voltooi lid' : 'Complete Member';
+  String get completeMemberBtn => isAf ? 'Voltooi lid' : 'Complete Member';
 
   // Cancel membership dialog
-  String get keepMembership =>
-      isAf ? 'Hou lidmaatskap' : 'Keep Membership';
+  String get keepMembership => isAf ? 'Hou lidmaatskap' : 'Keep Membership';
   String get cancellationReasonHint => isAf
       ? 'Rede vir kansellasie (opsioneel)'
       : 'Reason for cancellation (optional)';
@@ -436,18 +409,15 @@ class AppStrings {
   // Lock / temp access (common)
   String get memberLocked =>
       isAf ? 'Hierdie lid is gesluit' : 'This member is locked';
-  String get enterTempAccessCode => isAf
-      ? 'Voer tydelike toegangskode in'
-      : 'Enter Temporary Access Code';
+  String get enterTempAccessCode =>
+      isAf ? 'Voer tydelike toegangskode in' : 'Enter Temporary Access Code';
   String get grantTemporaryAccess =>
       isAf ? 'Gee tydelike toegang' : 'Grant Temporary Access';
-  String get selectRecordingSecretary => isAf
-      ? 'Kies Opnamesekretaris'
-      : 'Select Recording Secretary';
+  String get selectRecordingSecretary =>
+      isAf ? 'Kies Opnamesekretaris' : 'Select Recording Secretary';
   String get reasonForAccess =>
       isAf ? 'Rede vir toegang *' : 'Reason for Access *';
-  String get lockedMembers =>
-      isAf ? 'Geslote lede' : 'Locked Members';
+  String get lockedMembers => isAf ? 'Geslote lede' : 'Locked Members';
   String get unlockMember => isAf ? 'Ontsluit lid' : 'Unlock Member';
   String get noLockedMembers =>
       isAf ? 'Nog geen geslote lede nie.' : 'No locked members yet.';
@@ -467,20 +437,15 @@ class AppStrings {
       isAf ? 'Module kom binnekort.' : 'Module coming soon.';
   String get starting => isAf ? 'Begin…' : 'Starting…';
   String get adminOnly => isAf ? 'Slegs Admin' : 'Admin Only';
-  String get savePermissions =>
-      isAf ? 'Stoor regte' : 'Save Permissions';
+  String get savePermissions => isAf ? 'Stoor regte' : 'Save Permissions';
   String get recordingSecretaryRights =>
       isAf ? 'OPNAMESEKRETARIS-REGTE' : 'RECORDING SECRETARY RIGHTS';
-  String get searchRecordingSecretaries => isAf
-      ? 'Soek Opnamesekretarisse…'
-      : 'Search Recording Secretaries…';
-  String get reinstateMember =>
-      isAf ? 'Herstel lid?' : 'Reinstate Member?';
-  String get yesReinstate =>
-      isAf ? 'Ja, herstel' : 'Yes, Reinstate';
-  String get searchCancelledMembers => isAf
-      ? 'Soek gekanselleerde lede…'
-      : 'Search Cancelled Members…';
+  String get searchRecordingSecretaries =>
+      isAf ? 'Soek Opnamesekretarisse…' : 'Search Recording Secretaries…';
+  String get reinstateMember => isAf ? 'Herstel lid?' : 'Reinstate Member?';
+  String get yesReinstate => isAf ? 'Ja, herstel' : 'Yes, Reinstate';
+  String get searchCancelledMembers =>
+      isAf ? 'Soek gekanselleerde lede…' : 'Search Cancelled Members…';
 
   String quickFilterLabel(MemberQuickFilter f) {
     switch (f) {
@@ -571,6 +536,8 @@ class AppStrings {
         return home;
       case AppSection.settings:
         return settings;
+      case AppSection.liveView:
+        return liveView;
       case AppSection.memberInfo:
         return memberInfoForm;
       case AppSection.sos:

@@ -91,10 +91,10 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
                       const SizedBox(height: 16),
                       Text(
                         strings.noDuplicatesFound,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.bodyText,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -109,30 +109,36 @@ class _DuplicateReportScreenState extends ConsumerState<DuplicateReportScreen> {
 
               return Column(
                 children: [
-                  Container(
+                  Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final warningColor = isDark ? Colors.white : Colors.red.shade700;
+                      return Container(
                     width: double.infinity,
                     margin: const EdgeInsets.all(12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: isDark ? Colors.red.shade900 : Colors.red.shade50,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.red.shade200),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.warning, color: Colors.red.shade700),
+                        Icon(Icons.warning, color: warningColor),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             '⚠️ ${groups.length} potential duplicate group(s) found. Please review.',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.red.shade700,
+                              color: warningColor,
                             ),
                           ),
                         ),
                       ],
                     ),
+                  );
+                    },
                   ),
                   Expanded(
                     child: ListView.builder(

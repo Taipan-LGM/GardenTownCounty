@@ -6,7 +6,7 @@ import '../providers/providers.dart';
 import 'county_logo.dart';
 import 'standard_buttons.dart';
 
-/// Fixed top chrome: Logo 1 + county name | Settings · Videos · Info · Menu.
+/// Fixed top chrome: Logo 1 + county name | Settings · Live View · Videos · Info · Menu.
 ///
 /// // NEW ADDITION - Delete this file to revert top bar layout.
 class AppTopBar extends ConsumerWidget {
@@ -24,6 +24,50 @@ class AppTopBar extends ConsumerWidget {
     final countyName = profile?.countyName.trim().isNotEmpty == true
         ? profile!.countyName
         : 'Garden Town County';
+    final tabs = <Widget>[
+      if (isAdmin)
+        _TabChip(
+          icon: Icons.science,
+          label: strings.demoData,
+          selected: false,
+          onTap: () => _generateDemoData(context, ref),
+        ),
+      _TabChip(
+        icon: Icons.settings,
+        label: strings.settings,
+        selected: section == AppSection.settings,
+        onTap: () =>
+            ref.read(appSectionProvider.notifier).state = AppSection.settings,
+      ),
+      if (isAdmin)
+        _TabChip(
+          icon: Icons.monitor_heart_outlined,
+          label: strings.liveView,
+          selected: section == AppSection.liveView,
+          onTap: () =>
+              ref.read(appSectionProvider.notifier).state = AppSection.liveView,
+        ),
+      _TabChip(
+        icon: Icons.video_library,
+        label: strings.videos,
+        selected: section == AppSection.countyVideos,
+        onTap: () => ref.read(appSectionProvider.notifier).state =
+            AppSection.countyVideos,
+      ),
+      _TabChip(
+        icon: Icons.info_outline,
+        label: strings.info,
+        selected: section == AppSection.countyInfo,
+        onTap: () =>
+            ref.read(appSectionProvider.notifier).state = AppSection.countyInfo,
+      ),
+      _TabChip(
+        icon: Icons.menu,
+        label: strings.menu,
+        selected: false,
+        onTap: onOpenMenu,
+      ),
+    ];
 
     return Material(
       color: Colors.grey.shade900,
@@ -34,58 +78,37 @@ class AppTopBar extends ConsumerWidget {
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: Colors.grey.shade700)),
         ),
-        child: Row(
-          children: [
-            const RoundCountyLogo(size: 48),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                countyName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            // Order L→R: Demo Data → Settings → Videos → Info → Menu
-            if (isAdmin)
-              _TabChip(
-                icon: Icons.science,
-                label: strings.demoData,
-                selected: false,
-                onTap: () => _generateDemoData(context, ref),
-              ),
-            _TabChip(
-              icon: Icons.settings,
-              label: strings.settings,
-              selected: section == AppSection.settings,
-              onTap: () => ref.read(appSectionProvider.notifier).state =
-                  AppSection.settings,
-            ),
-            _TabChip(
-              icon: Icons.video_library,
-              label: strings.videos,
-              selected: section == AppSection.countyVideos,
-              onTap: () => ref.read(appSectionProvider.notifier).state =
-                  AppSection.countyVideos,
-            ),
-            _TabChip(
-              icon: Icons.info_outline,
-              label: strings.info,
-              selected: section == AppSection.countyInfo,
-              onTap: () => ref.read(appSectionProvider.notifier).state =
-                  AppSection.countyInfo,
-            ),
-            _TabChip(
-              icon: Icons.menu,
-              label: strings.menu,
-              selected: false,
-              onTap: onOpenMenu,
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final showCountyName = constraints.maxWidth >= 760;
+            return Row(
+              children: [
+                const RoundCountyLogo(size: 48),
+                const SizedBox(width: 8),
+                if (showCountyName)
+                  Expanded(
+                    child: Text(
+                      countyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: tabs),
+                    ),
+                  ),
+                if (showCountyName) ...tabs,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -106,8 +129,8 @@ class AppTopBar extends ConsumerWidget {
             ),
             SizedBox(height: 8),
             Text('• 10 members + onboarding reminders'),
-            Text('• Payments summary (27 completed members)'),
-            Text('• Paid + PDF completed total R 4,900.00'),
+            Text('• Payments summary (35 completed members)'),
+            Text('• Paid + PDF completed total R 6,900.00'),
             Text('• Duplicate Manager (3 pairs)'),
             Text('• Cancellations (5 cancelled members)'),
             Text('• Info (8 Garden Town articles)'),
@@ -144,6 +167,7 @@ class AppTopBar extends ConsumerWidget {
       ref.invalidate(remunerationSettingsProvider);
       ref.invalidate(publishedArticlesProvider);
       ref.invalidate(activeVideosProvider);
+      ref.invalidate(liveViewDataProvider);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -154,7 +178,7 @@ class AppTopBar extends ConsumerWidget {
             '${result.cancelledMembersCreated} cancelled, '
             '${result.articlesCreated} articles, '
             '${result.videosCreated} videos, '
-            'Payments summary R 4,900.00 / 27 completed members '
+            'Payments summary R 6,900.00 / 35 completed members '
             '(existing IDs skipped).',
           ),
           backgroundColor: Colors.green,

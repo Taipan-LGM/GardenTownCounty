@@ -20,7 +20,7 @@ void main() {
       'creates payment summary data, reminders, duplicates, and media',
       () async {
         final result = await DemoDataService(db).generateDemoData();
-        expect(result.membersCreated, 37);
+        expect(result.membersCreated, 45);
         expect(result.remindersCreated, 10);
         expect(result.duplicateMembersCreated, 6);
         expect(result.cancelledMembersCreated, 5);
@@ -28,13 +28,13 @@ void main() {
         expect(result.videosCreated, 6);
 
         final members = await db.getAllMembers();
-        expect(members.length, 46);
+        expect(members.length, 54);
         expect(
           members.where((m) => RegExp(r'^demo_\d{3}$').hasMatch(m.id)).length,
           10,
         );
         expect(members.where((m) => m.id.startsWith('dup_')).length, 6);
-        expect(members.where((m) => m.id.startsWith('pay_demo_')).length, 27);
+        expect(members.where((m) => m.id.startsWith('pay_demo_')).length, 35);
 
         final records = await db.getAllRemunerationRecords();
         final memberById = {for (final member in members) member.id: member};
@@ -67,11 +67,25 @@ void main() {
               .length;
         }
 
-        expect(stepAmounts, {1: 1200, 2: 1600, 3: 2100, 4: 0, 5: 0});
-        expect(completedMemberCounts, {1: 12, 2: 8, 3: 7, 4: 0, 5: 0});
-        expect(stepAmounts.values.fold<double>(0, (a, b) => a + b), 4900);
-        expect(completedMemberCounts.values.fold<int>(0, (a, b) => a + b), 27);
-        expect(records.where((record) => record.status == 'paid').length, 27);
+        expect(stepAmounts, {1: 1200, 2: 1600, 3: 2100, 4: 1250, 5: 750});
+        expect(completedMemberCounts, {1: 12, 2: 8, 3: 7, 4: 5, 5: 3});
+        expect(stepAmounts.values.fold<double>(0, (a, b) => a + b), 6900);
+        expect(completedMemberCounts.values.fold<int>(0, (a, b) => a + b), 35);
+        expect(records.where((record) => record.status == 'paid').length, 35);
+
+        final users = await db.getAppUsers();
+        expect(
+          users.where((user) => user.id.startsWith('member_user_')).length,
+          5,
+        );
+        expect(
+          members.where((member) => member.assignedSecretaryId == 'sec_001').length,
+          5,
+        );
+        expect(
+          members.where((member) => member.assignedSecretaryId == 'sec_002').length,
+          3,
+        );
 
         final cancelled = await db.getCancelledMembers();
         expect(cancelled.where((m) => m.id.startsWith('can_')).length, 5);
@@ -92,8 +106,8 @@ void main() {
         expect(rem001?.assignedSecretaryId, isNull);
 
         await DemoDataService(db).generateDemoData();
-        expect((await db.getAllMembers()).length, 46);
-        expect((await db.getAllRemunerationRecords()).length, 27);
+        expect((await db.getAllMembers()).length, 54);
+        expect((await db.getAllRemunerationRecords()).length, 35);
       },
     );
   });

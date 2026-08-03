@@ -44,6 +44,7 @@ class MemberProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         MemberFormStatusChip(mode: formMode, member: member),
@@ -58,7 +59,11 @@ class MemberProfileHeader extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 12,
-              color: isEditing ? Colors.orange.shade800 : Colors.white,
+                color: isEditing && isDark
+                  ? Colors.white
+                  : isEditing
+                  ? Colors.orange.shade800
+                  : Colors.white,
             ),
           ),
         ),

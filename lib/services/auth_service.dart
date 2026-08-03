@@ -43,7 +43,8 @@ class AuthUser {
     if (isAdmin) return true;
     if (permission.isAdminOnly) return false;
     if (isMemberRole) {
-      return permission == AppPermission.memberInfo;
+      return permission == AppPermission.memberInfo ||
+          permission == AppPermission.global528;
     }
     return permissions.contains(permission);
   }

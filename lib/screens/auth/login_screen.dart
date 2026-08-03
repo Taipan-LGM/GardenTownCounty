@@ -99,6 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings(ref.watch(appLanguageProvider));
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -124,10 +125,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Text(
                         strings.appName,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.bodyText,
+                          color: textTheme.headlineSmall?.color,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -137,14 +138,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade700,
+                            color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.lightBlue.shade200
+                              : Colors.blue.shade700,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         strings.signInToContinue,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.black54),
+                        style: TextStyle(color: textTheme.bodyMedium?.color),
                       ),
                       const SizedBox(height: 24),
                       TextFormField(
@@ -199,9 +202,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Text(
                           'Debug: ${AppConstants.demoUsername} / ${AppConstants.demoPassword}',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors.black45,
+                            color: textTheme.bodySmall?.color,
                           ),
                         ),
                       ],

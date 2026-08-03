@@ -12,6 +12,7 @@ import 'screens/activities/activities_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/home/info_content_screen.dart';
 import 'screens/home/videos_content_screen.dart';
+import 'screens/live_view/live_view_screen.dart';
 import 'screens/landing/landing_screen.dart';
 import 'screens/member/cancellations_screen.dart';
 import 'screens/member/duplicate_report_screen.dart';
@@ -78,6 +79,7 @@ class _AppShellState extends ConsumerState<AppShell>
     _sectionBodies = {
       AppSection.home: LandingScreen(onFinished: _onLandingFinished),
       AppSection.settings: const SettingsScreen(),
+      AppSection.liveView: const LiveViewScreen(),
       AppSection.memberInfo: const MemberFormScreen(),
       AppSection.sos: const SosScreen(),
       AppSection.reminders: const RemindersScreen(),
@@ -163,6 +165,7 @@ class _AppShellState extends ConsumerState<AppShell>
     final isHomeHub =
         effectiveSection == AppSection.home ||
         effectiveSection == AppSection.settings ||
+        effectiveSection == AppSection.liveView ||
         effectiveSection == AppSection.countyInfo ||
         effectiveSection == AppSection.countyVideos;
     final showAppBar = !isHomeHub;
@@ -252,6 +255,8 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.home:
       case AppSection.settings:
         return true;
+      case AppSection.liveView:
+        return user.isAdmin;
       case AppSection.memberInfo:
         return user.hasPermission(AppPermission.memberInfo);
       case AppSection.sos:
@@ -287,36 +292,38 @@ class _AppShellState extends ConsumerState<AppShell>
         return 0;
       case AppSection.settings:
         return 1;
-      case AppSection.memberInfo:
+      case AppSection.liveView:
         return 2;
-      case AppSection.sos:
+      case AppSection.memberInfo:
         return 3;
-      case AppSection.reminders:
+      case AppSection.sos:
         return 4;
-      case AppSection.activities:
+      case AppSection.reminders:
         return 5;
-      case AppSection.addUser:
+      case AppSection.activities:
         return 6;
-      case AppSection.backupRestore:
+      case AppSection.addUser:
         return 7;
-      case AppSection.global528:
+      case AppSection.backupRestore:
         return 8;
-      case AppSection.global528Step2:
+      case AppSection.global528:
         return 9;
-      case AppSection.global928:
+      case AppSection.global528Step2:
         return 10;
-      case AppSection.lro:
+      case AppSection.global928:
         return 11;
-      case AppSection.credentialCard:
+      case AppSection.lro:
         return 12;
-      case AppSection.lockedMembers:
+      case AppSection.credentialCard:
         return 13;
-      case AppSection.duplicateReport:
+      case AppSection.lockedMembers:
         return 14;
-      case AppSection.countyInfo:
+      case AppSection.duplicateReport:
         return 15;
-      case AppSection.countyVideos:
+      case AppSection.countyInfo:
         return 16;
+      case AppSection.countyVideos:
+        return 17;
     }
   }
 

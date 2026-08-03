@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../models/app_user.dart';
 import '../../models/member.dart';
@@ -36,6 +41,12 @@ class _CardPaymentRequest {
   final int stepNumber;
 }
 
+typedef _PaymentScreenData = ({
+  List<SecretaryRemuneration> records,
+  Map<String, List<MemberFile>> filesByMember,
+  List<AppUser> secretaries,
+});
+
 class StepWorkflowScreen extends ConsumerStatefulWidget {
   const StepWorkflowScreen({super.key, required this.stepNumber});
 
@@ -47,7 +58,178 @@ class StepWorkflowScreen extends ConsumerStatefulWidget {
 
 class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
   final Set<String> _busyMemberIds = <String>{};
+  final TextEditingController _paymentSearchController =
+      TextEditingController();
   int _historyRefreshTick = 0;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _viewBySecretary = false;
+  String? _selectedSecretaryId;
+  String? _paymentDataSignature;
+  Future<_PaymentScreenData>? _paymentDataFuture;
+
+  @override
+  void dispose() {
+    _paymentSearchController.dispose();
+    super.dispose();
+  }
+
+  bool _matchesMemberSearch(Member member, String query) {
+    if (query.isEmpty) return true;
+    final searchable = [
+      member.fullName,
+      member.saId,
+      member.globalRecordNo,
+      member.lroRecordNo ?? '',
+      member.address,
+      member.suburb,
+      member.townCity,
+      member.postalCode,
+      member.contactNo1,
+      member.contactNo2,
+      member.emailAddress,
+      member.comment,
+      member.assignedSecretaryName ?? '',
+    ].join(' ').toLowerCase();
+    return searchable.contains(query);
+  }
+
+  bool _matchesPaymentSearch(
+    SecretaryRemuneration record,
+    Member? member,
+    String query,
+  ) {
+    if (query.isEmpty) return true;
+    if (member != null && _matchesMemberSearch(member, query)) return true;
+    final searchable = [
+      record.memberName,
+      record.memberId,
+      record.secretaryName,
+      record.secretaryId,
+      record.type,
+      record.description,
+      record.status,
+      record.notes ?? '',
+    ].join(' ').toLowerCase();
+    return searchable.contains(query);
+  }
+
+  bool _recordInDateRange(SecretaryRemuneration record) {
+    final timestamp = (record.datePaid ?? record.dateEarned).toLocal();
+    final date = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final start = _startDate;
+    final end = _endDate;
+    if (start != null &&
+        date.isBefore(DateTime(start.year, start.month, start.day))) {
+      return false;
+    }
+    if (end != null && date.isAfter(DateTime(end.year, end.month, end.day))) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<_PaymentScreenData> _loadPaymentData(
+    List<Member> members, {
+    required bool isAdmin,
+  }) async {
+    final database = ref.read(databaseServiceProvider);
+    final records = await database.getAllRemunerationRecords();
+    final secretaries = isAdmin
+        ? await database.getRecordingSecretaries(activeOnly: true)
+        : const <AppUser>[];
+    final memberFiles = await Future.wait(
+      members.map((member) async {
+        return MapEntry(
+          member.id,
+          await database.getFilesForMember(member.id),
+        );
+      }),
+    );
+    return (
+      records: records,
+      filesByMember: Map<String, List<MemberFile>>.fromEntries(memberFiles),
+      secretaries: secretaries,
+    );
+  }
+
+  Future<_PaymentScreenData> _paymentDataFor(
+    List<Member> members, {
+    required bool isAdmin,
+  }) {
+    final signature = [
+      isAdmin,
+      _historyRefreshTick,
+      ...members.map((member) => '${member.id}:${member.updatedAt}'),
+    ].join('|');
+    if (_paymentDataFuture == null || _paymentDataSignature != signature) {
+      _paymentDataSignature = signature;
+      _paymentDataFuture = _loadPaymentData(members, isAdmin: isAdmin);
+    }
+    return _paymentDataFuture!;
+  }
+
+  Future<void> _pickFilterDate({required bool start}) async {
+    final current = start ? _startDate : _endDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (start) {
+        _startDate = picked;
+        if (_endDate != null && _endDate!.isBefore(picked)) {
+          _endDate = picked;
+        }
+      } else {
+        _endDate = picked;
+        if (_startDate != null && _startDate!.isAfter(picked)) {
+          _startDate = picked;
+        }
+      }
+    });
+  }
+
+  String _csvCell(Object? value) =>
+      '"${(value ?? '').toString().replaceAll('"', '""')}"';
+
+  Future<void> _exportPaymentsCsv(
+    List<SecretaryRemuneration> records,
+  ) async {
+    final rows = <String>[
+      ['Member', 'Member ID', 'RS', 'Step', 'Amount', 'Status', 'Date']
+          .map(_csvCell)
+          .join(','),
+      ...records.map(
+        (record) => [
+          record.memberName,
+          record.memberId,
+          record.secretaryName,
+          record.type,
+          record.amount.toStringAsFixed(2),
+          record.status,
+          (record.datePaid ?? record.dateEarned).toIso8601String(),
+        ].map(_csvCell).join(','),
+      ),
+    ];
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile.fromData(
+            Uint8List.fromList(utf8.encode(rows.join('\r\n'))),
+            mimeType: 'text/csv',
+          ),
+        ],
+        fileNameOverrides: ['payments_report_$timestamp.csv'],
+        subject: 'Garden Town County Payments Report',
+        text: 'Filtered payments report (${records.length} records)',
+      ),
+    );
+  }
 
   String _stepLabel(int stepNumber) =>
       ref
@@ -58,10 +240,6 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
 
   bool _stepCompleteAt(Member member, int stepNumber) =>
       member.isStepCompleteAt(stepNumber);
-
-  bool _stepComplete(Member member) {
-    return _stepCompleteAt(member, widget.stepNumber);
-  }
 
   Future<void> _setStep(Member member, int stepNumber, bool complete) async {
     final actor = ref.read(authUserProvider);
@@ -107,10 +285,6 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
         setState(() => _busyMemberIds.remove(member.id));
       }
     }
-  }
-
-  Future<void> _toggleStep(Member member, bool complete) async {
-    await _setStep(member, widget.stepNumber, complete);
   }
 
   Future<bool> _confirmAssistantCredentials(AppUser assistant) async {
@@ -893,45 +1067,13 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
     );
   }
 
-  Widget _summaryStatusField(bool completed) {
-    final color = completed ? Colors.green : Colors.red;
-    return Semantics(
-      label: completed ? 'Completed' : 'Not completed',
-      child: SizedBox(
-        width: double.infinity,
-        height: 17,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                completed ? Icons.check_circle : Icons.cancel,
-                size: 14,
-                color: color,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                completed ? 'COMPLETED' : 'NOT COMPLETED',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _paymentsSummary({
     required List<Member> members,
     required List<SecretaryRemuneration> records,
     required Map<String, List<MemberFile>> filesByMember,
     required RemunerationSettings settings,
+    required bool isAdmin,
+    required List<AppUser> secretaries,
   }) {
     final steps = settings.configuredSteps.take(5).toList(growable: false);
     final stepTotals = <int, double>{};
@@ -989,15 +1131,50 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Payments',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                  const Text(
+                    'Payments',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
+                  if (isAdmin) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _paymentSearchController,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Search member information',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _pickFilterDate(start: true),
+                      icon: const Icon(Icons.calendar_today_outlined),
+                      label: Text(
+                        _startDate == null
+                            ? 'Start Date'
+                            : DateFormat('yyyy-MM-dd').format(_startDate!),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _pickFilterDate(start: false),
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(
+                        _endDate == null
+                            ? 'End Date'
+                            : DateFormat('yyyy-MM-dd').format(_endDate!),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ] else
+                    const Spacer(),
                   ActionButton(
                     onPressed: () {
                       ref.invalidate(membersProvider);
@@ -1009,6 +1186,92 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                   ),
                 ],
               ),
+              if (isAdmin) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: DropdownButtonFormField<bool>(
+                        key: ValueKey('payment-filter-$_viewBySecretary'),
+                        initialValue: _viewBySecretary,
+                        decoration: const InputDecoration(
+                          labelText: 'Filter',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: false,
+                            child: Text('View All'),
+                          ),
+                          DropdownMenuItem(
+                            value: true,
+                            child: Text('View RS'),
+                          ),
+                        ],
+                        onChanged: (value) => setState(() {
+                          _viewBySecretary = value ?? false;
+                          if (!_viewBySecretary) {
+                            _selectedSecretaryId = null;
+                          }
+                        }),
+                      ),
+                    ),
+                    if (_viewBySecretary)
+                      SizedBox(
+                        width: 240,
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'payment-secretary-${_selectedSecretaryId ?? 'none'}',
+                          ),
+                          initialValue: _selectedSecretaryId,
+                          decoration: const InputDecoration(
+                            labelText: 'Select RS',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: secretaries
+                              .map(
+                                (secretary) => DropdownMenuItem(
+                                  value: secretary.id,
+                                  child: Text(secretary.displayName),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => _selectedSecretaryId = value),
+                        ),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: _startDate == null &&
+                              _endDate == null &&
+                              _paymentSearchController.text.isEmpty &&
+                              !_viewBySecretary
+                          ? null
+                          : () => setState(() {
+                              _startDate = null;
+                              _endDate = null;
+                              _viewBySecretary = false;
+                              _selectedSecretaryId = null;
+                              _paymentSearchController.clear();
+                            }),
+                      icon: const Icon(Icons.filter_alt_off_outlined),
+                      label: const Text('Clear'),
+                    ),
+                    ActionButton(
+                      onPressed: records.isEmpty
+                          ? null
+                          : () => _exportPaymentsCsv(records),
+                      text: 'Export CSV',
+                      icon: Icons.download_outlined,
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -1016,7 +1279,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                     if (index > 0) const SizedBox(width: 4),
                     Expanded(
                       child: Container(
-                        height: 96,
+                        height: 72,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 5,
                           vertical: 5,
@@ -1036,23 +1299,6 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                               steps[index].name,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                            ),
-                            _summaryStatusField(
-                              (memberCounts[steps[index].number] ?? 0) > 0,
-                            ),
-                            _summaryField(
-                              (memberCounts[steps[index].number] ?? 0) > 0
-                                  ? (steps[index].number == 5
-                                        ? '(Paid + Printed)'
-                                        : '(Paid + PDF Uploaded)')
-                                  : (steps[index].number == 5
-                                        ? '(Not paid/printed)'
-                                        : '(Not paid/PDF)'),
-                              fontSize: 10,
-                              color:
-                                  (memberCounts[steps[index].number] ?? 0) > 0
-                                  ? Colors.green
-                                  : Colors.red,
                             ),
                             _summaryField(
                               'RS Amount: R ${(stepTotals[steps[index].number] ?? 0).toStringAsFixed(2)}',
@@ -1082,40 +1328,13 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
     );
   }
 
-  Widget _historyPanel() {
-    return FutureBuilder<List<SecretaryRemuneration>>(
-      key: ValueKey('history-${widget.stepNumber}-$_historyRefreshTick'),
-      future: ref.read(databaseServiceProvider).getAllRemunerationRecords(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Card(
-            margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: LinearProgressIndicator(),
-            ),
-          );
-        }
+  Widget _historyPanel(List<SecretaryRemuneration> sourceRecords) {
+    final records = sourceRecords.toList()
+      ..sort((a, b) => b.dateEarned.compareTo(a.dateEarned));
 
-        if (snapshot.hasError) {
-          return Card(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                'Payment history unavailable: ${snapshot.error}',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          );
-        }
+    final total = records.fold<double>(0, (sum, r) => sum + r.amount);
 
-        final records = (snapshot.data ?? <SecretaryRemuneration>[]).toList()
-          ..sort((a, b) => b.dateEarned.compareTo(a.dateEarned));
-
-        final total = records.fold<double>(0, (sum, r) => sum + r.amount);
-
-        return Card(
+    return Card(
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
           child: ExpansionTile(
             initiallyExpanded: true,
@@ -1186,13 +1405,13 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                 }),
             ],
           ),
-        );
-      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final actor = ref.watch(authUserProvider);
+    final isAdmin = actor?.isAdmin == true || actor?.isSystemAdministrator == true;
     final membersAsync = ref.watch(membersProvider);
     final remunerationSettings =
         ref.watch(remunerationSettingsProvider).valueOrNull ??
@@ -1207,41 +1426,29 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
         ),
       ),
       data: (members) {
-        return FutureBuilder<
-          ({
-            List<SecretaryRemuneration> records,
-            Map<String, List<MemberFile>> filesByMember,
-          })
-        >(
+        return FutureBuilder<_PaymentScreenData>(
           key: ValueKey('step-gates-${widget.stepNumber}-$_historyRefreshTick'),
-          future: () async {
-            final database = ref.read(databaseServiceProvider);
-            final records = await database.getAllRemunerationRecords();
-            final memberFiles = await Future.wait(
-              members.map((member) async {
-                return MapEntry(
-                  member.id,
-                  await database.getFilesForMember(member.id),
-                );
-              }),
-            );
-            return (
-              records: records,
-              filesByMember: Map<String, List<MemberFile>>.fromEntries(
-                memberFiles,
-              ),
-            );
-          }(),
+          future: _paymentDataFor(members, isAdmin: isAdmin),
           builder: (context, paySnapshot) {
             final allRecords =
                 paySnapshot.data?.records ?? const <SecretaryRemuneration>[];
             final filesByMember =
                 paySnapshot.data?.filesByMember ??
                 const <String, List<MemberFile>>{};
+            final secretaries =
+              paySnapshot.data?.secretaries ?? const <AppUser>[];
+            final memberById = {
+              for (final member in members) member.id: member,
+            };
+            final visibleMemberIds = memberById.keys.toSet();
+            final authorizedRecords = allRecords.where((record) {
+              if (record.isDeleted) return false;
+              return isAdmin || visibleMemberIds.contains(record.memberId);
+            }).toList(growable: false);
 
             bool hasPaidStep(Member member, int stepNumber) {
               final type = 'step$stepNumber';
-              return allRecords.any(
+              return authorizedRecords.any(
                 (r) =>
                     !r.isDeleted &&
                     r.memberId == member.id &&
@@ -1261,18 +1468,51 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                   hasPaidStep(member, previous);
             }
 
-            final filteredMembers = members.toList();
+            final query = _paymentSearchController.text.trim().toLowerCase();
+            var filteredMembers = members.where((member) {
+              if (isAdmin &&
+                  _viewBySecretary &&
+                  member.assignedSecretaryId != _selectedSecretaryId) {
+                return false;
+              }
+              return !isAdmin || _matchesMemberSearch(member, query);
+            }).toList(growable: false);
+            final filteredRecords = authorizedRecords
+                .where((record) {
+                  if (!isAdmin) return true;
+                  final member = memberById[record.memberId];
+                  if (_viewBySecretary) {
+                    final secretaryId = _selectedSecretaryId;
+                    if (secretaryId == null ||
+                        member?.assignedSecretaryId != secretaryId) {
+                      return false;
+                    }
+                  }
+                  return _matchesPaymentSearch(record, member, query) &&
+                      _recordInDateRange(record);
+                })
+                .toList(growable: false);
+            if (isAdmin && (_startDate != null || _endDate != null)) {
+              final membersWithPayments = filteredRecords
+                  .map((record) => record.memberId)
+                  .toSet();
+              filteredMembers = filteredMembers
+                  .where((member) => membersWithPayments.contains(member.id))
+                  .toList(growable: false);
+            }
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _paymentsSummary(
-                  members: members,
-                  records: allRecords,
+                  members: filteredMembers,
+                  records: filteredRecords,
                   filesByMember: filesByMember,
                   settings: remunerationSettings,
+                  isAdmin: isAdmin,
+                  secretaries: secretaries,
                 ),
-                _historyPanel(),
+                _historyPanel(filteredRecords),
                 Expanded(
                   child: filteredMembers.isEmpty
                       ? Center(
@@ -1288,13 +1528,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                           itemCount: filteredMembers.length,
                           itemBuilder: (context, index) {
                             final member = filteredMembers[index];
-                            final complete = _stepComplete(member);
                             final busy = _busyMemberIds.contains(member.id);
-                            final stepPaid = hasPaidStep(
-                              member,
-                              widget.stepNumber,
-                            );
-                            final canMarkComplete = complete || stepPaid;
                             return Card(
                               margin: const EdgeInsets.only(bottom: 10),
                               child: Padding(
@@ -1302,29 +1536,12 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            member.fullName,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                        ),
-                                        Chip(
-                                          label: Text(
-                                            complete ? 'Complete' : 'Pending',
-                                            style: const TextStyle(
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          backgroundColor: complete
-                                              ? Colors.green.shade100
-                                              : Colors.orange.shade100,
-                                        ),
-                                      ],
+                                    Text(
+                                      member.fullName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text('SA ID: ${member.saId}'),
@@ -1405,29 +1622,12 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                       spacing: 8,
                                       runSpacing: 8,
                                       children: [
-                                        SubmitButton(
-                                          onPressed: busy || !canMarkComplete
-                                              ? null
-                                              : () => _toggleStep(
-                                                  member,
-                                                  !complete,
-                                                ),
-                                          text: busy
-                                              ? 'Working...'
-                                              : (complete
-                                                    ? 'Mark Pending'
-                                                    : 'Mark Complete'),
-                                          icon: complete
-                                              ? Icons.remove_circle_outline
-                                              : Icons.check_circle_outline,
-                                          textColor: Colors.black,
-                                        ),
                                         ActionButton(
                                           onPressed: busy
                                               ? null
                                               : () => _recordManualPayment(
                                                   member: member,
-                                                  members: members,
+                                                  members: filteredMembers,
                                                 ),
                                           text: 'Manual Payment',
                                           icon: Icons.payments_outlined,
@@ -1442,7 +1642,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                               ? null
                                               : () => _recordCardPayment(
                                                   member: member,
-                                                  members: members,
+                                                  members: filteredMembers,
                                                 ),
                                           text: 'Card Payment',
                                           icon: Icons.credit_card,

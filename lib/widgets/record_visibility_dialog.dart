@@ -19,6 +19,8 @@ class RecordVisibilityDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
       title: const Text('Record Number Visibility'),
       content: Column(
@@ -30,18 +32,21 @@ class RecordVisibilityDialog extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          _ruleRow('Admin', 'Always visible & editable', Colors.blue),
+          _ruleRow(context, 'Admin', 'Always visible & editable', Colors.blue),
           _ruleRow(
+            context,
             'Recording Secretary',
             'Always visible (read-only after entry)',
             Colors.green,
           ),
           _ruleRow(
+            context,
             'Member (Self)',
             'Hidden until entered, then visible (read-only)',
             Colors.orange,
           ),
           _ruleRow(
+            context,
             'Other Members',
             'Hidden until entered, then visible (read-only)',
             Colors.grey,
@@ -50,13 +55,13 @@ class RecordVisibilityDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: isDark ? Colors.blue.shade900 : Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               'Fields become visible to the Member once entered by Admin '
               '(or Secretary on first entry).',
-              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+              style: TextStyle(fontSize: 12, color: colors.onSurface),
             ),
           ),
         ],
@@ -70,7 +75,13 @@ class RecordVisibilityDialog extends StatelessWidget {
     );
   }
 
-  Widget _ruleRow(String label, String description, Color color) {
+  Widget _ruleRow(
+    BuildContext context,
+    String label,
+    String description,
+    Color color,
+  ) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -86,7 +97,7 @@ class RecordVisibilityDialog extends StatelessWidget {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(color: Colors.black87, fontSize: 13),
+                style: TextStyle(color: colors.onSurface, fontSize: 13),
                 children: [
                   TextSpan(
                     text: label,
@@ -94,7 +105,10 @@ class RecordVisibilityDialog extends StatelessWidget {
                   ),
                   TextSpan(
                     text: ' — $description',
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

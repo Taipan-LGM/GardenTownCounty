@@ -16,6 +16,8 @@ Future<bool> showNewCountyWarningDialog(BuildContext context) async {
       return StatefulBuilder(
         builder: (context, setDialogState) {
           final canConfirm = confirmText.trim() == 'CONFIRM';
+          final colors = Theme.of(context).colorScheme;
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
             title: const Row(
               children: [
@@ -37,7 +39,7 @@ Future<bool> showNewCountyWarningDialog(BuildContext context) async {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: isDark ? Colors.red.shade900 : Colors.red.shade50,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.red.shade300),
                     ),
@@ -48,7 +50,7 @@ Future<bool> showNewCountyWarningDialog(BuildContext context) async {
                           'This will register a NEW COUNTY and will:',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.red.shade700,
+                            color: isDark ? Colors.white : Colors.red.shade700,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -84,7 +86,7 @@ Future<bool> showNewCountyWarningDialog(BuildContext context) async {
                     'Type "CONFIRM" to proceed:',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 4),

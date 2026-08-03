@@ -33,32 +33,36 @@ class LockedMemberBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.brown;
+    final secondaryTextColor = isDark ? Colors.white70 : Colors.grey.shade800;
     final lockedOn = member.lockedDate == null
         ? '—'
         : DateFormat('yyyy-MM-dd').format(member.lockedDate!.toLocal());
     return Card(
-      color: Colors.amber.shade50,
+      color: isDark ? Colors.brown.shade800 : Colors.amber.shade50,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '🔑 TEMPORARY ACCESS REQUIRED',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.brown,
+                color: textColor,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'This member is locked. To make changes, please enter the '
               '5-digit code provided by the Administrator.',
+              style: TextStyle(color: textColor),
             ),
             const SizedBox(height: 4),
             Text(
               'Locked on: $lockedOn by: ${lockedByName ?? member.lockedBy ?? '—'}',
-              style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+              style: TextStyle(color: secondaryTextColor, fontSize: 13),
             ),
             const SizedBox(height: 8),
             Wrap(

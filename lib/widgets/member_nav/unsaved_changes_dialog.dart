@@ -30,13 +30,17 @@ Future<UnsavedChangesAction?> showUnsavedChangesDialog(
           const SizedBox(height: 8),
           Text(
             'What would you like to do?',
-            style: TextStyle(color: Colors.grey.shade600),
+            style: TextStyle(
+              color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.shade50,
+                color: Theme.of(ctx).brightness == Brightness.dark
+                  ? Colors.deepOrange.shade900
+                  : Colors.orange.shade50,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.orange.shade200),
             ),

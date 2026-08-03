@@ -86,7 +86,7 @@ void main() {
   });
 
   group('DataAccessService', () {
-    test('secretary only sees assigned members', () async {
+    test('secretary sees own and assigned members', () async {
       final now = DateTime.now().toUtc();
       final member = Member(
         id: 'm_own',
@@ -122,8 +122,8 @@ void main() {
 
       final secAuth = AuthUser.fromAppUser(secUser);
       final secVisible = await access.getVisibleMembers(secAuth);
-      expect(secVisible.map((m) => m.id), [other.id]);
-      expect(secVisible.any((m) => m.id == member.id), isFalse);
+      expect(secVisible.map((m) => m.id), containsAll([member.id, other.id]));
+      expect(secVisible.any((m) => m.id == member.id), isTrue);
     });
   });
 

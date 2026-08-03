@@ -68,6 +68,8 @@ class _CancelMembershipDialogState
   @override
   Widget build(BuildContext context) {
     final m = widget.member;
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
       title: const Row(
         children: [
@@ -88,18 +90,18 @@ class _CancelMembershipDialogState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.shade50,
+              color: isDark ? Colors.deepOrange.shade900 : Colors.orange.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               'All member data and uploaded files will be preserved in the Cancellations form.',
-              style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+              style: TextStyle(color: colors.onSurface, fontSize: 12),
             ),
           ),
           const SizedBox(height: 12),
           Text(
             'Reason for cancellation (optional):',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
           TextField(

@@ -23,7 +23,7 @@ COPY --chown=flutter:flutter . .
 USER flutter
 
 # Opaque bust token only (app version lives in docker/app-version.json).
-ARG CACHEBUST=89
+ARG CACHEBUST=90
 RUN flutter pub get \
  && flutter build web --release --pwa-strategy=none \
  && cp docker/app-version.json /app/build/web/version.json

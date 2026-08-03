@@ -2,6 +2,7 @@
 enum AppSection {
   home,
   settings,
+  liveView,
   memberInfo,
   sos,
   reminders,

@@ -75,6 +75,7 @@ class DemoDataService {
     final duplicatesCreated = await _generateDuplicateMembers(now);
     final cancelledCreated = await _generateCancelledMembers(now);
     membersCreated += await _generatePaymentSummaryMembers(now);
+    await _ensurePaymentMemberUsers(now);
     await _generatePaymentSummaryFiles(now);
     await _generatePaymentSummaryRecords(now);
     final articlesCreated = await _generateInfoArticles(now);
@@ -151,6 +152,21 @@ class DemoDataService {
       3,
       3,
       3,
+      4,
+      4,
+      4,
+      4,
+      4,
+      5,
+      5,
+      5,
+    ];
+    const stepDurations = <Duration>[
+      Duration(hours: 60),
+      Duration(hours: 100, minutes: 48),
+      Duration(hours: 187, minutes: 12),
+      Duration(hours: 74, minutes: 24),
+      Duration(hours: 36),
     ];
     var created = 0;
 
@@ -164,14 +180,54 @@ class DemoDataService {
       if (existing != null && existing.createdBy != 'demo') continue;
 
       final completedStep = completedSteps[index];
+      final registrationDate = now.subtract(
+        Duration(days: 28 + (sequence % 14)),
+      );
+      final completionDates = <DateTime>[];
+      var completionDate = registrationDate;
+      for (final duration in stepDurations) {
+        completionDate = completionDate.add(duration);
+        completionDates.add(completionDate);
+      }
+      final secretaryId = switch (sequence) {
+        1 || 2 || 33 || 34 => 'sec_001',
+        13 || 35 => 'sec_002',
+        _ => null,
+      };
+      final secretaryName = switch (secretaryId) {
+        'sec_001' => 'Jane Smith',
+        'sec_002' => 'Bob Johnson',
+        _ => null,
+      };
+      final memberUserId = sequence <= 5 ? 'member_user_$sequence' : null;
       final member = existing != null
           ? existing.copyWith(
               registrationStatus: 'in_progress',
+              registrationDate: registrationDate,
+              userId: memberUserId,
               step1MemberInfoComplete: true,
               step2Global528Complete: completedStep >= 2,
               step3Global928Complete: completedStep >= 3,
-              step4LROComplete: false,
-              step5CredentialCardComplete: false,
+              step4LROComplete: completedStep >= 4,
+              step5CredentialCardComplete: completedStep >= 5,
+              step1CompletionDate: completionDates[0],
+              step2CompletionDate: completedStep >= 2
+                  ? completionDates[1]
+                  : null,
+              step3CompletionDate: completedStep >= 3
+                  ? completionDates[2]
+                  : null,
+              step4CompletionDate: completedStep >= 4
+                  ? completionDates[3]
+                  : null,
+              step5CompletionDate: completedStep >= 5
+                  ? completionDates[4]
+                  : null,
+              assignedSecretaryId: secretaryId,
+              assignedSecretaryName: secretaryName,
+              assignedDate: secretaryId == null ? null : now,
+              assignedBy: secretaryId == null ? null : 'demo',
+              assignmentMethod: secretaryId == null ? null : 'manual',
               updatedAt: now,
               pendingSync: true,
             )
@@ -187,15 +243,35 @@ class DemoDataService {
               postalCode: '0001',
               contactNo1: '080${sequence.toString().padLeft(7, '0')}',
               emailAddress: 'payment.demo.$sequence@gardentown.local',
+              userId: memberUserId,
               registrationStatus: 'in_progress',
+              registrationDate: registrationDate,
               isEmailVerified: true,
               step1MemberInfoComplete: true,
               step2Global528Complete: completedStep >= 2,
               step3Global928Complete: completedStep >= 3,
-              step4LROComplete: false,
-              step5CredentialCardComplete: false,
+              step4LROComplete: completedStep >= 4,
+              step5CredentialCardComplete: completedStep >= 5,
+              step1CompletionDate: completionDates[0],
+              step2CompletionDate: completedStep >= 2
+                  ? completionDates[1]
+                  : null,
+              step3CompletionDate: completedStep >= 3
+                  ? completionDates[2]
+                  : null,
+              step4CompletionDate: completedStep >= 4
+                  ? completionDates[3]
+                  : null,
+              step5CompletionDate: completedStep >= 5
+                  ? completionDates[4]
+                  : null,
+              assignedSecretaryId: secretaryId,
+              assignedSecretaryName: secretaryName,
+              assignedDate: secretaryId == null ? null : now,
+              assignedBy: secretaryId == null ? null : 'demo',
+              assignmentMethod: secretaryId == null ? null : 'manual',
               createdBy: 'demo',
-              createdAt: now.subtract(Duration(minutes: sequence)),
+              createdAt: registrationDate,
               updatedAt: now,
               pendingSync: true,
             );
@@ -203,7 +279,11 @@ class DemoDataService {
       if (existing == null) created++;
     }
 
-    for (var sequence = completedSteps.length + 1; sequence <= 22; sequence++) {
+    for (
+      var sequence = completedSteps.length + 1;
+      sequence <= 100;
+      sequence++
+    ) {
       final id = 'pay_demo_${sequence.toString().padLeft(3, '0')}';
       final obsolete = await _db.getMemberById(id);
       if (obsolete == null || obsolete.createdBy != 'demo') continue;
@@ -215,10 +295,10 @@ class DemoDataService {
   }
 
   Future<void> _generatePaymentSummaryFiles(DateTime now) async {
-    for (var sequence = 1; sequence <= 27; sequence++) {
+    for (var sequence = 1; sequence <= 35; sequence++) {
       final memberId = 'pay_demo_${sequence.toString().padLeft(3, '0')}';
       if (await _db.getMemberById(memberId) == null) continue;
-      final stepNumber = sequence <= 12 ? 1 : (sequence <= 20 ? 2 : 3);
+      final stepNumber = _paymentDemoStepForSequence(sequence);
       await _db.upsertMemberFile(
         MemberFile(
           id: 'pay_demo_pdf_step_${stepNumber}_$memberId',
@@ -237,30 +317,37 @@ class DemoDataService {
   }
 
   Future<void> _generatePaymentSummaryRecords(DateTime now) async {
-    const amountPerMember = <int, double>{1: 100, 2: 200, 3: 300};
+    const amountPerMember = <int, double>{
+      1: 100,
+      2: 200,
+      3: 300,
+      4: 250,
+      5: 250,
+    };
     final members = await _db.getAllMembers();
     final desiredIds = <String>{};
 
     for (final member in members) {
       if (!member.id.startsWith('pay_demo_')) continue;
       final sequence = int.tryParse(member.id.substring('pay_demo_'.length));
-      if (sequence == null || sequence < 1 || sequence > 27) continue;
-      final stepNumber = sequence <= 12 ? 1 : (sequence <= 20 ? 2 : 3);
+      if (sequence == null || sequence < 1 || sequence > 35) continue;
+      final stepNumber = _paymentDemoStepForSequence(sequence);
+      final paymentDate = now.subtract(Duration(days: sequence % 18));
       final id = 'pay_demo_summary_step_${stepNumber}_${member.id}';
       desiredIds.add(id);
       await _db.saveRemuneration(
         SecretaryRemuneration(
           id: id,
-          secretaryId: 'sec_001',
-          secretaryName: 'Jane Smith',
+          secretaryId: member.assignedSecretaryId ?? 'sec_003',
+          secretaryName: member.assignedSecretaryName ?? 'Alice Williams',
           memberId: member.id,
           memberName: member.fullName,
           type: 'step$stepNumber',
           description: 'Demo payment for Step $stepNumber',
           amount: amountPerMember[stepNumber]!,
           status: 'paid',
-          dateEarned: now,
-          datePaid: now,
+          dateEarned: paymentDate,
+          datePaid: paymentDate,
           paidBy: 'demo',
           syncStatus: 'pending',
         ),
@@ -276,6 +363,37 @@ class DemoDataService {
       await _db.updateRemuneration(
         record.copyWith(isDeleted: true, syncStatus: 'pending'),
       );
+    }
+  }
+
+  int _paymentDemoStepForSequence(int sequence) {
+    if (sequence <= 12) return 1;
+    if (sequence <= 20) return 2;
+    if (sequence <= 27) return 3;
+    if (sequence <= 32) return 4;
+    return 5;
+  }
+
+  Future<void> _ensurePaymentMemberUsers(DateTime now) async {
+    final hash = PasswordHasher.hash('garden2026');
+    for (var sequence = 1; sequence <= 5; sequence++) {
+      final id = 'member_user_$sequence';
+      final username = 'member$sequence';
+      final existing = await _db.getAppUserByUsername(username);
+      final user = AppUser(
+        id: existing?.id ?? id,
+        username: username,
+        displayName: 'Payment Demo ${sequence.toString().padLeft(3, '0')}',
+        passwordHash: existing?.passwordHash.isNotEmpty == true
+            ? existing!.passwordHash
+            : hash,
+        role: UserRole.member.storageName,
+        memberId: 'pay_demo_${sequence.toString().padLeft(3, '0')}',
+        updatedAt: now,
+        pendingSync: true,
+        active: true,
+      );
+      await _db.upsertAppUser(user);
     }
   }
 

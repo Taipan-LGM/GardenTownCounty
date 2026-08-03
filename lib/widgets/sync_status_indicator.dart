@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../core/theme/app_theme.dart';
 import '../providers/providers.dart';
 import '../services/sync_engine.dart';
 
@@ -11,6 +10,7 @@ class SyncStatusIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).colorScheme;
     final syncAsync = ref.watch(syncStatusProvider);
     final sync = syncAsync.valueOrNull ??
         const SyncState(status: SyncUiStatus.offline, message: 'Starting…');
@@ -29,7 +29,7 @@ class SyncStatusIndicator extends ConsumerWidget {
     return Tooltip(
       message: tip,
       child: Material(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surfaceContainerHigh,
         elevation: 2,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
@@ -54,9 +54,9 @@ class SyncStatusIndicator extends ConsumerWidget {
                     SyncUiStatus.offline => 'Offline',
                     SyncUiStatus.error => 'Sync error',
                   },
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppTheme.bodyText,
+                    color: colors.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

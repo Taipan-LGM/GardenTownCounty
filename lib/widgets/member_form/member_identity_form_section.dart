@@ -169,7 +169,11 @@ class MemberIdentityFormSection extends StatelessWidget {
                       ),
                     )
                   : globalRecordReadOnly
-                      ? Icon(Icons.lock, color: Colors.grey.shade600, size: 18)
+                      ? Icon(
+                          Icons.lock,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          size: 18,
+                        )
                       : globalRecordError == null &&
                               globalRecordNoController.text.isNotEmpty &&
                               isEditing
@@ -180,7 +184,9 @@ class MemberIdentityFormSection extends StatelessWidget {
                             )
                           : Icon(
                               Icons.lock_outline,
-                              color: Colors.grey.shade400,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                               size: 18,
                             ),
             ),
