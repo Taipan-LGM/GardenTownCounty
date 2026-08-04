@@ -51,11 +51,10 @@ Future<MemberFile?> pickAndUploadDesktop({
   required String description,
   required String sourcePath,
   required String fileName,
+  int stepNumber = 1,
 }) async {
   final appDocs = await getApplicationDocumentsDirectory();
-  final memberDir = Directory(
-    p.join(appDocs.path, 'member_files', memberId),
-  );
+  final memberDir = Directory(p.join(appDocs.path, 'member_files', memberId));
   if (!memberDir.existsSync()) {
     await memberDir.create(recursive: true);
   }
@@ -71,6 +70,7 @@ Future<MemberFile?> pickAndUploadDesktop({
     localPath: localCopy.path,
     contentType: _guessContentType(fileName),
     sizeBytes: await localCopy.length(),
+    stepNumber: stepNumber,
   );
 
   if (FirebaseBootstrap.ready) {

@@ -432,6 +432,18 @@ class DemoDataService {
   }
 
   Future<int> _generateVideos(DateTime now) async {
+    const legacyVideoIds = {
+      'vid_001',
+      'vid_002',
+      'vid_003',
+      'vid_004',
+      'vid_005',
+      'vid_006',
+    };
+    for (final id in legacyVideoIds) {
+      await _db.softDeleteVideo(id);
+    }
+
     var created = 0;
     final existing = await _db.getAllVideos();
     final ids = existing.map((v) => v.id).toSet();
@@ -903,85 +915,34 @@ The full plan is available for review at the County Office or on our website.
   }
 
   List<CountyVideo> _buildVideos(DateTime now) {
-    CountyVideo vid({
-      required String id,
-      required String title,
-      required String description,
-      required String file,
-      required String duration,
-      required String category,
-      required Duration age,
-    }) {
-      return CountyVideo(
-        id: id,
-        title: title,
-        description: description,
-        videoLocalPath: 'demo://videos/$file.mp4',
-        videoUrl: 'https://example.com/videos/$file.mp4',
-        thumbnailUrl: 'https://example.com/thumbnails/$file.jpg',
-        duration: duration,
-        category: category,
+    return [
+      CountyVideo(
+        id: 'vid_global_family_group',
+        title: 'Global family Group',
+        description:
+            'To understand what the Global Family Group is all about... please watch the following video.',
+        videoLocalPath: '',
+        videoUrl: 'assets/assets/videos/global_family_group.mp4',
+        duration: '14:89',
+        category: 'general',
         isActive: true,
-        uploadedAt: now.subtract(age),
+        uploadedAt: now.subtract(const Duration(days: 2)),
         uploadedBy: 'demo',
         syncStatus: 'pending',
-      );
-    }
-
-    return [
-      vid(
-        id: 'vid_001',
-        title: 'Welcome to Garden Town County',
-        description: 'A warm welcome to our beautiful county',
-        file: 'welcome',
-        duration: '2:30',
+      ),
+      CountyVideo(
+        id: 'vid_south_africa_corporation',
+        title: 'South Africa is a Corporation',
+        description:
+            'Did you know that South Africa is not a Republic, but a Corporation?',
+        videoLocalPath: '',
+        videoUrl: 'assets/assets/videos/south_africa_corporation.mp4',
+        duration: '6:22',
         category: 'general',
-        age: const Duration(days: 30),
-      ),
-      vid(
-        id: 'vid_002',
-        title: 'Sustainable Living Tips',
-        description: 'Learn how to live sustainably in our community',
-        file: 'sustainable_living',
-        duration: '5:15',
-        category: 'tutorial',
-        age: const Duration(days: 25),
-      ),
-      vid(
-        id: 'vid_003',
-        title: 'Community Garden Tour',
-        description: 'Take a tour of our beautiful community gardens',
-        file: 'garden_tour',
-        duration: '8:45',
-        category: 'event',
-        age: const Duration(days: 20),
-      ),
-      vid(
-        id: 'vid_004',
-        title: 'Water Conservation Workshop',
-        description: 'Workshop on water conservation techniques',
-        file: 'water_conservation',
-        duration: '12:20',
-        category: 'tutorial',
-        age: const Duration(days: 15),
-      ),
-      vid(
-        id: 'vid_005',
-        title: 'Garden Festival Highlights 2025',
-        description: 'Highlights from our annual garden festival',
-        file: 'festival',
-        duration: '10:30',
-        category: 'event',
-        age: const Duration(days: 45),
-      ),
-      vid(
-        id: 'vid_006',
-        title: 'How to Start a Home Garden',
-        description: 'Step-by-step guide to starting your own garden',
-        file: 'home_garden',
-        duration: '15:00',
-        category: 'tutorial',
-        age: const Duration(days: 10),
+        isActive: true,
+        uploadedAt: now.subtract(const Duration(days: 1)),
+        uploadedBy: 'demo',
+        syncStatus: 'pending',
       ),
     ];
   }

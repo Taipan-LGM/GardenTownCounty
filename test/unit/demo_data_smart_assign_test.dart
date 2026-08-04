@@ -25,7 +25,7 @@ void main() {
         expect(result.duplicateMembersCreated, 6);
         expect(result.cancelledMembersCreated, 5);
         expect(result.articlesCreated, 8);
-        expect(result.videosCreated, 6);
+        expect(result.videosCreated, 2);
 
         final members = await db.getAllMembers();
         expect(members.length, 54);
@@ -97,7 +97,7 @@ void main() {
         expect(articles.where((a) => a.id.startsWith('art_')).length, 8);
 
         final videos = await db.getAllVideos();
-        expect(videos.where((v) => v.id.startsWith('vid_')).length, 6);
+        expect(videos.where((v) => v.id.startsWith('vid_')).length, 2);
 
         final rem002 = await db.getReminderById('rem_demo_002');
         expect(rem002?.assignedSecretaryId, isNotNull);

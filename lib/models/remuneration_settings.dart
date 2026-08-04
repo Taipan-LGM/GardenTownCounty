@@ -25,6 +25,7 @@ class RemunerationSettings {
   final double step4Amount;
   final double step5Amount;
   final List<RemunerationStep> steps;
+  final Map<int, List<String>> descriptionTemplates;
   final String bankAccountName;
   final String bankName;
   final String bankAccountNumber;
@@ -47,6 +48,7 @@ class RemunerationSettings {
     this.step4Amount = 250,
     this.step5Amount = 250,
     this.steps = const [],
+    this.descriptionTemplates = const {},
     this.bankAccountName = 'Garden Town County',
     this.bankName = 'Capitec Bank',
     this.bankAccountNumber = '',
@@ -77,6 +79,7 @@ class RemunerationSettings {
     double? step4Amount,
     double? step5Amount,
     List<RemunerationStep>? steps,
+    Map<int, List<String>>? descriptionTemplates,
     String? bankAccountName,
     String? bankName,
     String? bankAccountNumber,
@@ -99,6 +102,7 @@ class RemunerationSettings {
       step4Amount: step4Amount ?? this.step4Amount,
       step5Amount: step5Amount ?? this.step5Amount,
       steps: steps ?? this.steps,
+      descriptionTemplates: descriptionTemplates ?? this.descriptionTemplates,
       bankAccountName: bankAccountName ?? this.bankAccountName,
       bankName: bankName ?? this.bankName,
       bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
@@ -123,6 +127,9 @@ class RemunerationSettings {
     'step4Amount': step4Amount,
     'step5Amount': step5Amount,
     'stepsJson': RemunerationStep.encodeList(allSteps),
+    'descriptionTemplatesJson': encodeDescriptionTemplates(
+      descriptionTemplates,
+    ),
     'bankAccountName': bankAccountName,
     'bankName': bankName,
     'bankAccountNumber': bankAccountNumber,
@@ -147,6 +154,9 @@ class RemunerationSettings {
       step4Amount: (map['step4Amount'] as num?)?.toDouble() ?? 250,
       step5Amount: (map['step5Amount'] as num?)?.toDouble() ?? 250,
       steps: RemunerationStep.decodeList(map['stepsJson'] as String? ?? '[]'),
+      descriptionTemplates: decodeDescriptionTemplates(
+        map['descriptionTemplatesJson'] as String? ?? '{}',
+      ),
       bankAccountName:
           map['bankAccountName'] as String? ?? 'Garden Town County',
       bankName: map['bankName'] as String? ?? 'Capitec Bank',
@@ -196,6 +206,33 @@ class RemunerationSettings {
         (highest, step) => step.number > highest ? step.number : highest,
       ) +
       1;
+
+  static String encodeDescriptionTemplates(Map<int, List<String>> templates) =>
+      jsonEncode({
+        for (final entry in templates.entries)
+          entry.key.toString(): entry.value
+              .map((description) => description.trim())
+              .where((description) => description.isNotEmpty)
+              .toList(),
+      });
+
+  static Map<int, List<String>> decodeDescriptionTemplates(String raw) {
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final templates = <int, List<String>>{};
+      for (final entry in decoded.entries) {
+        final stepNumber = int.tryParse(entry.key);
+        if (stepNumber == null) continue;
+        templates[stepNumber] = (entry.value as List<dynamic>)
+            .map((item) => item.toString().trim())
+            .where((description) => description.isNotEmpty)
+            .toList(growable: false);
+      }
+      return templates;
+    } catch (_) {
+      return const {};
+    }
+  }
 }
 
 class RemunerationStep {

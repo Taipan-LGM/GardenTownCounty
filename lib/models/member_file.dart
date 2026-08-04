@@ -11,6 +11,8 @@ class MemberFile {
   final String? localPath;
   final String contentType;
   final int sizeBytes;
+  final int stepNumber;
+  final bool uploadConfirmed;
   final bool pendingSync;
   final bool deleted;
 
@@ -25,6 +27,8 @@ class MemberFile {
     this.localPath,
     this.contentType = 'application/octet-stream',
     this.sizeBytes = 0,
+    this.stepNumber = 1,
+    this.uploadConfirmed = false,
     this.pendingSync = true,
     this.deleted = false,
   });
@@ -37,6 +41,7 @@ class MemberFile {
     String? localPath,
     String contentType = 'application/octet-stream',
     int sizeBytes = 0,
+    int stepNumber = 1,
   }) {
     return MemberFile(
       id: const Uuid().v4(),
@@ -48,6 +53,7 @@ class MemberFile {
       localPath: localPath,
       contentType: contentType,
       sizeBytes: sizeBytes,
+      stepNumber: stepNumber,
     );
   }
 
@@ -62,6 +68,8 @@ class MemberFile {
     String? localPath,
     String? contentType,
     int? sizeBytes,
+    int? stepNumber,
+    bool? uploadConfirmed,
     bool? pendingSync,
     bool? deleted,
   }) {
@@ -76,6 +84,8 @@ class MemberFile {
       localPath: localPath ?? this.localPath,
       contentType: contentType ?? this.contentType,
       sizeBytes: sizeBytes ?? this.sizeBytes,
+      stepNumber: stepNumber ?? this.stepNumber,
+      uploadConfirmed: uploadConfirmed ?? this.uploadConfirmed,
       pendingSync: pendingSync ?? this.pendingSync,
       deleted: deleted ?? this.deleted,
     );
@@ -93,6 +103,8 @@ class MemberFile {
       'localPath': localPath,
       'contentType': contentType,
       'sizeBytes': sizeBytes,
+      'stepNumber': stepNumber,
+      'uploadConfirmed': uploadConfirmed ? 1 : 0,
       'pendingSync': pendingSync ? 1 : 0,
       'deleted': deleted ? 1 : 0,
     };
@@ -109,6 +121,8 @@ class MemberFile {
       'storageUrl': storageUrl,
       'contentType': contentType,
       'sizeBytes': sizeBytes,
+      'stepNumber': stepNumber,
+      'uploadConfirmed': uploadConfirmed,
       'deleted': deleted,
     };
   }
@@ -120,12 +134,15 @@ class MemberFile {
       fileName: map['fileName'] as String? ?? '',
       description: map['description'] as String? ?? '',
       uploadedBy: map['uploadedBy'] as String? ?? '',
-      uploadedAt: DateTime.tryParse(map['uploadedAt'] as String? ?? '') ??
+      uploadedAt:
+          DateTime.tryParse(map['uploadedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       storageUrl: map['storageUrl'] as String?,
       localPath: map['localPath'] as String?,
       contentType: map['contentType'] as String? ?? 'application/octet-stream',
       sizeBytes: map['sizeBytes'] as int? ?? 0,
+      stepNumber: map['stepNumber'] as int? ?? 1,
+      uploadConfirmed: (map['uploadConfirmed'] as int? ?? 0) == 1,
       pendingSync: (map['pendingSync'] as int? ?? 0) == 1,
       deleted: (map['deleted'] as int? ?? 0) == 1,
     );
@@ -138,11 +155,14 @@ class MemberFile {
       fileName: map['fileName'] as String? ?? '',
       description: map['description'] as String? ?? '',
       uploadedBy: map['uploadedBy'] as String? ?? '',
-      uploadedAt: DateTime.tryParse(map['uploadedAt'] as String? ?? '') ??
+      uploadedAt:
+          DateTime.tryParse(map['uploadedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       storageUrl: map['storageUrl'] as String?,
       contentType: map['contentType'] as String? ?? 'application/octet-stream',
       sizeBytes: map['sizeBytes'] as int? ?? 0,
+      stepNumber: (map['stepNumber'] as num?)?.toInt() ?? 1,
+      uploadConfirmed: map['uploadConfirmed'] as bool? ?? false,
       pendingSync: false,
       deleted: map['deleted'] as bool? ?? false,
     );

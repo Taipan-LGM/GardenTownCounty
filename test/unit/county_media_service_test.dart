@@ -37,12 +37,15 @@ void main() {
   test('video active list', () async {
     final video = CountyVideo.create(
       title: 'Intro',
-      videoLocalPath: '/tmp/intro.mp4',
+      videoUrl: 'https://storage.example/intro.mp4',
       uploadedBy: 'admin',
       isActive: true,
     );
     await media.upsertVideo(video);
-    expect((await media.getActiveVideos()).length, 1);
+    final active = await media.getActiveVideos();
+    expect(active, hasLength(1));
+    expect(active.single.videoLocalPath, isEmpty);
+    expect(active.single.videoUrl, 'https://storage.example/intro.mp4');
 
     await media.upsertVideo(video.copyWith(isActive: false));
     expect(await media.getActiveVideos(), isEmpty);

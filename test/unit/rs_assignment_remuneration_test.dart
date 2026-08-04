@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_town_county/models/app_user.dart';
 import 'package:garden_town_county/models/member.dart';
+import 'package:garden_town_county/models/remuneration_settings.dart';
 import 'package:garden_town_county/models/user_role.dart';
 import 'package:garden_town_county/services/auto_assignment_service.dart';
 import 'package:garden_town_county/services/database_service.dart';
@@ -55,6 +56,33 @@ void main() {
   });
 
   group('RemunerationService', () {
+    test('persists shared upload description templates by step', () async {
+      final service = RemunerationService(db);
+      final settings = RemunerationSettings.defaults().copyWith(
+        descriptionTemplates: const {
+          1: ['ID Document', 'Proof of Address'],
+          3: ['Member Photo'],
+        },
+      );
+
+      await service.saveSettings(settings);
+      final loaded = await service.getSettings();
+
+      expect(loaded.descriptionTemplates[1], [
+        'ID Document',
+        'Proof of Address',
+      ]);
+      expect(loaded.descriptionTemplates[3], ['Member Photo']);
+      expect(
+        RemunerationSettings.decodeDescriptionTemplates(
+          RemunerationSettings.encodeDescriptionTemplates(
+            loaded.descriptionTemplates,
+          ),
+        ),
+        loaded.descriptionTemplates,
+      );
+    });
+
     test('creates pending step2 earning once', () async {
       final now = DateTime.now().toUtc();
       await db.upsertAppUser(

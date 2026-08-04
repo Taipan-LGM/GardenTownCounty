@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,11 +12,16 @@ import '../models/member.dart';
 import '../models/member_file.dart';
 import 'database_service.dart';
 import 'file_storage_io_stub.dart'
-    if (dart.library.io) 'file_storage_io.dart' as io;
+    if (dart.library.io) 'file_storage_io.dart'
+    as io;
 import 'firebase_bootstrap.dart';
 import 'sync_engine.dart';
+import 'web_media_pick_stub.dart'
+    if (dart.library.html) 'web_media_pick_web.dart'
+    as web_pick;
 import 'web_image_pick_stub.dart'
-    if (dart.library.html) 'web_image_pick_web.dart' as web_pick;
+    if (dart.library.html) 'web_image_pick_web.dart'
+    as web_pick;
 
 class MemberPhotoPickResult {
   const MemberPhotoPickResult({
@@ -39,6 +45,7 @@ class FileStorageService {
   static const _maxPhotoBytes = 12 * 1024 * 1024;
 
   final Map<String, Uint8List> _photoMemory = {};
+  final Map<String, Uint8List> _memberFileMemory = {};
 
   Future<List<MemberFile>> listForMember(String memberId) =>
       _db.getFilesForMember(memberId);
@@ -232,10 +239,7 @@ class FileStorageService {
     Uint8List bytes, {
     required int maxSide,
   }) async {
-    final codec = await ui.instantiateImageCodec(
-      bytes,
-      targetWidth: maxSide,
-    );
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: maxSide);
     final frame = await codec.getNextFrame();
     final image = frame.image;
     try {
@@ -279,22 +283,13 @@ class FileStorageService {
     required String memberId,
     required String uploadedBy,
     required String description,
+    int stepNumber = 1,
   }) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      withData: kIsWeb,
-      type: FileType.any,
-    );
-
-    if (result == null || result.files.isEmpty) return null;
-    final picked = result.files.single;
-    final fileName = picked.name;
-
     if (kIsWeb) {
+      final picked = await web_pick.pickMediaBytesWeb(accept: '*/*');
+      if (picked == null) return null;
+      final fileName = picked.name;
       final bytes = picked.bytes;
-      if (bytes == null) {
-        throw Exception('Could not read selected file.');
-      }
       var memberFile = MemberFile.create(
         memberId: memberId,
         fileName: fileName,
@@ -303,6 +298,7 @@ class FileStorageService {
         localPath: null,
         contentType: _guessContentType(fileName),
         sizeBytes: bytes.length,
+        stepNumber: stepNumber,
       );
       if (FirebaseBootstrap.ready) {
         try {
@@ -316,10 +312,21 @@ class FileStorageService {
           memberFile = memberFile.copyWith(storageUrl: url);
         } catch (_) {}
       }
+      _memberFileMemory[memberFile.id] = bytes;
       await _db.upsertMemberFile(memberFile);
       await _safePush();
       return memberFile;
     }
+
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      withData: false,
+      type: FileType.any,
+    );
+
+    if (result == null || result.files.isEmpty) return null;
+    final picked = result.files.single;
+    final fileName = picked.name;
 
     final path = picked.path;
     if (path == null) {
@@ -333,6 +340,7 @@ class FileStorageService {
       description: description,
       sourcePath: path,
       fileName: fileName,
+      stepNumber: stepNumber,
     );
   }
 
@@ -345,7 +353,48 @@ class FileStorageService {
     await _safePush();
   }
 
+  Future<void> updateTemplateDescriptions(
+    int stepNumber,
+    Map<String, String> replacements,
+  ) async {
+    await _db.updateMemberFileDescriptionsForStep(stepNumber, replacements);
+    await _safePush();
+  }
+
+  Future<Uint8List?> loadMemberFileBytes(MemberFile file) async {
+    final cached = _memberFileMemory[file.id];
+    if (cached != null) return cached;
+
+    final localPath = file.localPath;
+    if (!kIsWeb && localPath != null && localPath.isNotEmpty) {
+      final bytes = await io.readFileBytes(localPath);
+      _memberFileMemory[file.id] = bytes;
+      return bytes;
+    }
+
+    final storageUrl = file.storageUrl;
+    if (storageUrl != null && storageUrl.isNotEmpty) {
+      final response = await http.get(Uri.parse(storageUrl));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _memberFileMemory[file.id] = response.bodyBytes;
+        return response.bodyBytes;
+      }
+    }
+    return null;
+  }
+
+  Future<MemberFile> updateConfirmation(MemberFile file, bool confirmed) async {
+    final updated = file.copyWith(
+      uploadConfirmed: confirmed,
+      pendingSync: true,
+    );
+    await _db.upsertMemberFile(updated);
+    await _safePush();
+    return updated;
+  }
+
   Future<void> deleteFile(MemberFile file) async {
+    _memberFileMemory.remove(file.id);
     await _db.softDeleteMemberFile(file.id);
     await _safePush();
   }

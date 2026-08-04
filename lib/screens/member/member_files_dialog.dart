@@ -9,16 +9,27 @@ import '../../models/member_file.dart';
 import '../../providers/providers.dart';
 import '../../widgets/form_dialog_title.dart';
 import '../../widgets/standard_buttons.dart';
+import 'member_files_screen.dart';
 
 Future<void> showMemberFilesDialog(
   BuildContext context,
   WidgetRef ref,
   Member member,
-) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => MemberFilesDialog(member: member),
+) async {
+  final user = ref.read(authUserProvider);
+  if (user == null || (!user.isAdmin && !user.isSecretary)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Only Admin and Recording Secretary can upload files.'),
+      ),
+    );
+    return;
+  }
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (context) => MemberFilesScreen(member: member),
+    ),
   );
 }
 
@@ -68,7 +79,9 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
 
     setState(() => _uploading = true);
     try {
-      final file = await ref.read(fileStorageServiceProvider).pickAndUpload(
+      final file = await ref
+          .read(fileStorageServiceProvider)
+          .pickAndUpload(
             memberId: widget.member.id,
             uploadedBy: user.displayName,
             description: _descriptionController.text,
@@ -77,16 +90,16 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
         _descriptionController.clear();
         await _reload();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Uploaded ${file.fileName}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Uploaded ${file.fileName}')));
         }
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Upload failed: $error')));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -133,7 +146,8 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
             TextField(
               controller: _descriptionController,
               decoration: InputDecoration(
-                labelText: '${strings.briefFileDescription} '
+                labelText:
+                    '${strings.briefFileDescription} '
                     '(for next upload)',
                 prefixIcon: const Icon(Icons.notes),
               ),
@@ -158,33 +172,33 @@ class _MemberFilesDialogState extends ConsumerState<MemberFilesDialog> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _files.isEmpty
-                      ? const Center(child: Text('No files uploaded yet.'))
-                      : ListView.separated(
-                          itemCount: _files.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final file = _files[index];
-                            return _FileRow(
-                              file: file,
-                              dateLabel: _dateFormat.format(
-                                file.uploadedAt.toLocal(),
-                              ),
-                              icon: _iconFor(file.fileName),
-                              onOpen: () => _open(file),
-                              onDescriptionChanged: (value) async {
-                                await ref
-                                    .read(fileStorageServiceProvider)
-                                    .updateDescription(file, value);
-                              },
-                              onDelete: () async {
-                                await ref
-                                    .read(fileStorageServiceProvider)
-                                    .deleteFile(file);
-                                await _reload();
-                              },
-                            );
+                  ? const Center(child: Text('No files uploaded yet.'))
+                  : ListView.separated(
+                      itemCount: _files.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final file = _files[index];
+                        return _FileRow(
+                          file: file,
+                          dateLabel: _dateFormat.format(
+                            file.uploadedAt.toLocal(),
+                          ),
+                          icon: _iconFor(file.fileName),
+                          onOpen: () => _open(file),
+                          onDescriptionChanged: (value) async {
+                            await ref
+                                .read(fileStorageServiceProvider)
+                                .updateDescription(file, value);
                           },
-                        ),
+                          onDelete: () async {
+                            await ref
+                                .read(fileStorageServiceProvider)
+                                .deleteFile(file);
+                            await _reload();
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -245,7 +259,11 @@ class _FileRowState extends State<_FileRow> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(widget.icon, size: 32, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            widget.icon,
+            size: 32,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

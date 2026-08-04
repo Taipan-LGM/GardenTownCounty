@@ -1,10 +1,15 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_file/open_file.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/county_video.dart';
 import '../../providers/providers.dart';
+import '../../services/web_media_pick_stub.dart'
+    if (dart.library.html) '../../services/web_media_pick_web.dart'
+    as web_pick;
 import '../../widgets/standard_buttons.dart';
 
 /// Member-facing Videos tab.
@@ -24,8 +29,10 @@ class VideosContentScreen extends ConsumerWidget {
       child: videosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('${strings.errorLabel}: $e',
-              style: const TextStyle(color: Colors.red)),
+          child: Text(
+            '${strings.errorLabel}: $e',
+            style: const TextStyle(color: Colors.red),
+          ),
         ),
         data: (videos) {
           return Column(
@@ -72,18 +79,18 @@ class VideosContentScreen extends ConsumerWidget {
                           final cross = constraints.maxWidth > 900
                               ? 3
                               : constraints.maxWidth > 560
-                                  ? 2
-                                  : 1;
+                              ? 2
+                              : 1;
                           return GridView.builder(
                             padding: const EdgeInsets.all(16),
                             cacheExtent: 400,
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: cross,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 16 / 10,
-                            ),
+                                  crossAxisCount: cross,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 16 / 10,
+                                ),
                             itemCount: videos.length,
                             itemBuilder: (context, index) {
                               final video = videos[index];
@@ -126,11 +133,21 @@ class _VideoCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () async {
-        final path = video.videoLocalPath.isNotEmpty
-            ? video.videoLocalPath
-            : video.videoUrl;
+        final path = kIsWeb || video.videoLocalPath.isEmpty
+            ? video.videoUrl
+            : video.videoLocalPath;
         if (path == null || path.isEmpty) return;
-        await OpenFile.open(path);
+        final uri = Uri.tryParse(path);
+        if (kIsWeb) {
+          await launchUrl(
+            uri != null && uri.hasScheme ? uri : Uri.base.resolve(path),
+            mode: LaunchMode.externalApplication,
+          );
+        } else if (uri != null && uri.hasScheme) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          await OpenFile.open(path);
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -152,7 +169,11 @@ class _VideoCard extends ConsumerWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
             ),
             Positioned(
@@ -191,8 +212,10 @@ class _VideoCard extends ConsumerWidget {
                 top: 8,
                 right: 8,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(4),
@@ -209,28 +232,20 @@ class _VideoCard extends ConsumerWidget {
                 left: 4,
                 child: Row(
                   children: [
-                    _miniBtn(
-                      Icons.edit,
-                      Colors.blue,
-                      () async {
-                        final ok = await showVideoEditorDialog(
-                          context,
-                          ref,
-                          video,
-                        );
-                        if (ok == true) onChanged();
-                      },
-                    ),
-                    _miniBtn(
-                      Icons.delete_outline,
-                      Colors.red,
-                      () async {
-                        await ref
-                            .read(countyMediaServiceProvider)
-                            .softDeleteVideo(video.id);
-                        onChanged();
-                      },
-                    ),
+                    _miniBtn(Icons.edit, Colors.blue, () async {
+                      final ok = await showVideoEditorDialog(
+                        context,
+                        ref,
+                        video,
+                      );
+                      if (ok == true) onChanged();
+                    }),
+                    _miniBtn(Icons.delete_outline, Colors.red, () async {
+                      await ref
+                          .read(countyMediaServiceProvider)
+                          .softDeleteVideo(video.id);
+                      onChanged();
+                    }),
                   ],
                 ),
               ),
@@ -280,6 +295,8 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
   late final TextEditingController _duration;
   String? _videoPath;
   String? _thumbPath;
+  PlatformFile? _pickedVideo;
+  PlatformFile? _pickedThumb;
   bool _saving = false;
 
   @override
@@ -289,8 +306,10 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
     _title = TextEditingController(text: e?.title ?? '');
     _description = TextEditingController(text: e?.description ?? '');
     _duration = TextEditingController(text: e?.duration ?? '');
-    _videoPath = e?.videoLocalPath;
-    _thumbPath = e?.thumbnailLocalPath;
+    _videoPath = e == null
+        ? null
+        : (e.videoLocalPath.isNotEmpty ? e.videoLocalPath : e.videoUrl);
+    _thumbPath = e?.thumbnailLocalPath ?? e?.thumbnailUrl;
   }
 
   @override
@@ -302,48 +321,118 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
   }
 
   Future<void> _pickVideo() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      withData: false,
-    );
-    final path = result?.files.single.path;
-    if (path == null) return;
-    setState(() => _videoPath = path);
+    try {
+      if (kIsWeb) {
+        final picked = await web_pick.pickMediaBytesWeb(accept: 'video/*');
+        if (picked == null) return;
+        final file = PlatformFile(
+          name: picked.name,
+          size: picked.bytes.length,
+          bytes: picked.bytes,
+        );
+        setState(() {
+          _pickedVideo = file;
+          _videoPath = file.name;
+        });
+        return;
+      }
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        withData: false,
+      );
+      if (result == null) return;
+      final file = result.files.single;
+      setState(() {
+        _pickedVideo = file;
+        _videoPath = file.path;
+      });
+    } catch (error) {
+      _showError(error);
+    }
   }
 
   Future<void> _pickThumb() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: false,
-    );
-    final path = result?.files.single.path;
-    if (path == null) return;
-    setState(() => _thumbPath = path);
+    try {
+      if (kIsWeb) {
+        final picked = await web_pick.pickMediaBytesWeb(accept: 'image/*');
+        if (picked == null) return;
+        final file = PlatformFile(
+          name: picked.name,
+          size: picked.bytes.length,
+          bytes: picked.bytes,
+        );
+        setState(() {
+          _pickedThumb = file;
+          _thumbPath = file.name;
+        });
+        return;
+      }
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: false,
+      );
+      if (result == null) return;
+      final file = result.files.single;
+      setState(() {
+        _pickedThumb = file;
+        _thumbPath = file.path;
+      });
+    } catch (error) {
+      _showError(error);
+    }
   }
 
   Future<void> _save() async {
     final user = ref.read(authUserProvider);
-    if (user == null || !user.isAdmin) return;
+    if (user == null || !user.isAdmin) {
+      _showError('Only an administrator can publish videos.');
+      return;
+    }
     final title = _title.text.trim();
-    if (title.isEmpty || _videoPath == null || _videoPath!.isEmpty) return;
+    if (title.isEmpty) {
+      _showError('Enter a video title.');
+      return;
+    }
+    if (_videoPath == null || _videoPath!.isEmpty) {
+      _showError('Choose a video before publishing.');
+      return;
+    }
 
     setState(() => _saving = true);
     try {
       final media = ref.read(countyMediaServiceProvider);
-      var videoPath = _videoPath!;
-      if (videoPath != widget.existing?.videoLocalPath) {
-        videoPath = await media.persistPickedFile(
-          sourcePath: videoPath,
+      var videoPath = widget.existing?.videoLocalPath ?? '';
+      var videoUrl = widget.existing?.videoUrl;
+      if (kIsWeb && _pickedVideo != null) {
+        videoUrl = await media.uploadPickedBytes(
+          bytes: _pickedVideo!.bytes!,
           subfolder: 'county_videos',
-          fileName: videoPath.split(RegExp(r'[/\\]')).last,
+          fileName: _pickedVideo!.name,
+          contentType: _contentType(_pickedVideo!.extension, video: true),
+        );
+        videoPath = '';
+      } else if (_pickedVideo?.path != null) {
+        videoPath = await media.persistPickedFile(
+          sourcePath: _pickedVideo!.path!,
+          subfolder: 'county_videos',
+          fileName: _pickedVideo!.name,
         );
       }
-      String? thumb = _thumbPath;
-      if (thumb != null && thumb != widget.existing?.thumbnailLocalPath) {
-        thumb = await media.persistPickedFile(
-          sourcePath: thumb,
+      String? thumbPath = widget.existing?.thumbnailLocalPath;
+      var thumbUrl = widget.existing?.thumbnailUrl;
+      if (kIsWeb && _pickedThumb != null) {
+        thumbUrl = await media.uploadPickedBytes(
+          bytes: _pickedThumb!.bytes!,
           subfolder: 'county_videos/thumbs',
-          fileName: thumb.split(RegExp(r'[/\\]')).last,
+          fileName: _pickedThumb!.name,
+          contentType: _contentType(_pickedThumb!.extension),
+        );
+        thumbPath = null;
+      } else if (_pickedThumb?.path != null) {
+        thumbPath = await media.persistPickedFile(
+          sourcePath: _pickedThumb!.path!,
+          subfolder: 'county_videos/thumbs',
+          fileName: _pickedThumb!.name,
         );
       }
 
@@ -352,8 +441,10 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
               title: title,
               description: _description.text.trim(),
               videoLocalPath: videoPath,
+              videoUrl: videoUrl,
               uploadedBy: user.id,
-              thumbnailLocalPath: thumb,
+              thumbnailLocalPath: thumbPath,
+              thumbnailUrl: thumbUrl,
               duration: _duration.text.trim().isEmpty
                   ? null
                   : _duration.text.trim(),
@@ -362,19 +453,53 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
               title: title,
               description: _description.text.trim(),
               videoLocalPath: videoPath,
-              thumbnailLocalPath: thumb,
+              videoUrl: videoUrl,
+              thumbnailLocalPath: thumbPath,
+              thumbnailUrl: thumbUrl,
               duration: _duration.text.trim().isEmpty
                   ? null
                   : _duration.text.trim(),
               clearDuration: _duration.text.trim().isEmpty,
-              clearThumbnail: thumb == null,
+              clearThumbnail: thumbPath == null && thumbUrl == null,
             );
 
       await media.upsertVideo(video);
       if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      _showError(error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _contentType(String? extension, {bool video = false}) {
+    final ext = extension?.toLowerCase();
+    if (video) {
+      return switch (ext) {
+        'webm' => 'video/webm',
+        'mov' => 'video/quicktime',
+        'avi' => 'video/x-msvideo',
+        'mkv' => 'video/x-matroska',
+        _ => 'video/mp4',
+      };
+    }
+    return switch (ext) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      _ => 'image/jpeg',
+    };
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    final message = error.toString().replaceFirst(
+      RegExp(r'^(Exception|Bad state): '),
+      '',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
   }
 
   @override
@@ -425,10 +550,7 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
                       ),
                     ),
                   ),
-                  AddButton(
-                    onPressed: _pickVideo,
-                    text: 'Upload Video',
-                  ),
+                  AddButton(onPressed: _pickVideo, text: 'Upload Video'),
                 ],
               ),
               const SizedBox(height: 8),
@@ -447,10 +569,7 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
                       ),
                     ),
                   ),
-                  AddButton(
-                    onPressed: _pickThumb,
-                    text: 'Thumbnail',
-                  ),
+                  AddButton(onPressed: _pickThumb, text: 'Thumbnail'),
                 ],
               ),
             ],
@@ -472,13 +591,13 @@ class _VideoEditorDialogState extends ConsumerState<_VideoEditorDialog> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Colors.grey.shade400),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.grey.shade700),
-        ),
-        focusedBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.blue),
-        ),
-      );
+    labelText: label,
+    labelStyle: TextStyle(color: Colors.grey.shade400),
+    enabledBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.grey.shade700),
+    ),
+    focusedBorder: const OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.blue),
+    ),
+  );
 }

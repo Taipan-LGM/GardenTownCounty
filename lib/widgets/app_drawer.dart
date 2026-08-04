@@ -328,7 +328,7 @@ class AppDrawer extends ConsumerWidget {
             Text('• Duplicate Manager (3 pairs)'),
             Text('• Cancellations (5 cancelled members)'),
             Text('• Info (8 Garden Town articles)'),
-            Text('• Videos (6 member videos)'),
+            Text('• Videos (2 member videos)'),
             SizedBox(height: 12),
             Text(
               'Adds to existing data (skips IDs that already exist).',

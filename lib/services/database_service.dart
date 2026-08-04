@@ -162,7 +162,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 22,
+      version: 24,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -596,6 +596,28 @@ class DatabaseService extends _DatabaseServiceBase
         "TEXT NOT NULL DEFAULT '{}'",
       );
     }
+    if (oldVersion < 23) {
+      await _addColumnIfMissing(
+        database,
+        'member_files',
+        'stepNumber',
+        'INTEGER NOT NULL DEFAULT 1',
+      );
+      await _addColumnIfMissing(
+        database,
+        'member_files',
+        'uploadConfirmed',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 24) {
+      await _addColumnIfMissing(
+        database,
+        'remuneration_settings',
+        'descriptionTemplatesJson',
+        "TEXT NOT NULL DEFAULT '{}'",
+      );
+    }
   }
 
   /// Rebuild members without UNIQUE(saId) / UNIQUE(globalRecordNo).
@@ -702,6 +724,7 @@ class DatabaseService extends _DatabaseServiceBase
         step4Amount REAL NOT NULL DEFAULT 250,
         step5Amount REAL NOT NULL DEFAULT 250,
         stepsJson TEXT NOT NULL DEFAULT '[]',
+        descriptionTemplatesJson TEXT NOT NULL DEFAULT '{}',
         bankDetails TEXT NOT NULL DEFAULT 'Bank: Standard Bank\nAccount: 00123456789\nBranch: 001\nReference: Membership',
         bankAccountName TEXT NOT NULL DEFAULT 'Garden Town County',
         bankName TEXT NOT NULL DEFAULT 'Capitec Bank',
@@ -923,6 +946,8 @@ class DatabaseService extends _DatabaseServiceBase
         localPath TEXT,
         contentType TEXT NOT NULL DEFAULT 'application/octet-stream',
         sizeBytes INTEGER NOT NULL DEFAULT 0,
+        stepNumber INTEGER NOT NULL DEFAULT 1,
+        uploadConfirmed INTEGER NOT NULL DEFAULT 0,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0
       )

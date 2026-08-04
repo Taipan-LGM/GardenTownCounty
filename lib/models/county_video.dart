@@ -42,10 +42,12 @@ class CountyVideo {
 
   factory CountyVideo.create({
     required String title,
-    required String videoLocalPath,
     required String uploadedBy,
+    String videoLocalPath = '',
+    String? videoUrl,
     String description = '',
     String? thumbnailLocalPath,
+    String? thumbnailUrl,
     String? duration,
     String? category,
     bool isActive = true,
@@ -55,7 +57,9 @@ class CountyVideo {
       title: title.trim(),
       description: description.trim(),
       videoLocalPath: videoLocalPath,
+      videoUrl: videoUrl,
       thumbnailLocalPath: thumbnailLocalPath,
+      thumbnailUrl: thumbnailUrl,
       duration: duration,
       uploadedAt: DateTime.now().toUtc(),
       category: category,
@@ -95,8 +99,7 @@ class CountyVideo {
       thumbnailLocalPath: clearThumbnail
           ? null
           : (thumbnailLocalPath ?? this.thumbnailLocalPath),
-      thumbnailUrl:
-          clearThumbnail ? null : (thumbnailUrl ?? this.thumbnailUrl),
+      thumbnailUrl: clearThumbnail ? null : (thumbnailUrl ?? this.thumbnailUrl),
       duration: clearDuration ? null : (duration ?? this.duration),
       uploadedAt: uploadedAt ?? this.uploadedAt,
       category: clearCategory ? null : (category ?? this.category),
@@ -109,23 +112,23 @@ class CountyVideo {
   }
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'firestoreId': firestoreId,
-        'title': title,
-        'description': description,
-        'videoLocalPath': videoLocalPath,
-        'videoUrl': videoUrl,
-        'thumbnailLocalPath': thumbnailLocalPath,
-        'thumbnailUrl': thumbnailUrl,
-        'duration': duration,
-        'uploadedAt': uploadedAt.toIso8601String(),
-        'category': category,
-        'viewCount': viewCount,
-        'isActive': isActive ? 1 : 0,
-        'uploadedBy': uploadedBy,
-        'syncStatus': syncStatus,
-        'isDeleted': isDeleted ? 1 : 0,
-      };
+    'id': id,
+    'firestoreId': firestoreId,
+    'title': title,
+    'description': description,
+    'videoLocalPath': videoLocalPath,
+    'videoUrl': videoUrl,
+    'thumbnailLocalPath': thumbnailLocalPath,
+    'thumbnailUrl': thumbnailUrl,
+    'duration': duration,
+    'uploadedAt': uploadedAt.toIso8601String(),
+    'category': category,
+    'viewCount': viewCount,
+    'isActive': isActive ? 1 : 0,
+    'uploadedBy': uploadedBy,
+    'syncStatus': syncStatus,
+    'isDeleted': isDeleted ? 1 : 0,
+  };
 
   factory CountyVideo.fromMap(Map<String, dynamic> map) {
     return CountyVideo(
@@ -138,7 +141,8 @@ class CountyVideo {
       thumbnailLocalPath: map['thumbnailLocalPath'] as String?,
       thumbnailUrl: map['thumbnailUrl'] as String?,
       duration: map['duration'] as String?,
-      uploadedAt: DateTime.tryParse(map['uploadedAt'] as String? ?? '') ??
+      uploadedAt:
+          DateTime.tryParse(map['uploadedAt'] as String? ?? '') ??
           DateTime.now().toUtc(),
       category: map['category'] as String?,
       viewCount: map['viewCount'] as int? ?? 0,

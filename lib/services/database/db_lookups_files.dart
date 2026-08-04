@@ -6,12 +6,11 @@ mixin _DbLookupsFiles on _DatabaseServiceBase {
 
   Future<List<LookupItem>> getLookups(LookupType type) async {
     if (_memoryMode) {
-      final list = _lookups.values
-          .where((l) => !l.deleted && l.type == type)
-          .toList()
-        ..sort(
-          (a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()),
-        );
+      final list =
+          _lookups.values.where((l) => !l.deleted && l.type == type).toList()
+            ..sort(
+              (a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()),
+            );
       return list;
     }
     final rows = await db.query(
@@ -85,13 +84,14 @@ mixin _DbLookupsFiles on _DatabaseServiceBase {
 
   Future<List<MemberFile>> getFilesForMember(String memberId) async {
     if (_memoryMode) {
-      final list = _files.values
-          .where((f) => !f.deleted && f.memberId == memberId)
-          .toList()
-        ..sort(
-          (a, b) =>
-              a.fileName.toLowerCase().compareTo(b.fileName.toLowerCase()),
-        );
+      final list =
+          _files.values
+              .where((f) => !f.deleted && f.memberId == memberId)
+              .toList()
+            ..sort(
+              (a, b) =>
+                  a.fileName.toLowerCase().compareTo(b.fileName.toLowerCase()),
+            );
       return list;
     }
     final rows = await db.query(
@@ -125,20 +125,55 @@ mixin _DbLookupsFiles on _DatabaseServiceBase {
     }
     await db.update(
       'member_files',
-      {
-        'deleted': 1,
-        'pendingSync': 1,
-      },
+      {'deleted': 1, 'pendingSync': 1},
       where: 'id = ?',
       whereArgs: [id],
     );
   }
 
+  Future<void> updateMemberFileDescriptionsForStep(
+    int stepNumber,
+    Map<String, String> replacements,
+  ) async {
+    final changes = Map<String, String>.fromEntries(
+      replacements.entries.where(
+        (entry) =>
+            entry.key.trim().isNotEmpty && entry.key != entry.value.trim(),
+      ),
+    );
+    if (changes.isEmpty) return;
+
+    if (_memoryMode) {
+      for (final entry in _files.entries.toList()) {
+        final file = entry.value;
+        final replacement = changes[file.description];
+        if (!file.deleted &&
+            file.stepNumber == stepNumber &&
+            replacement != null) {
+          _files[entry.key] = file.copyWith(
+            description: replacement.trim(),
+            pendingSync: true,
+          );
+        }
+      }
+      return;
+    }
+
+    await db.transaction((transaction) async {
+      for (final entry in changes.entries) {
+        await transaction.update(
+          'member_files',
+          {'description': entry.value.trim(), 'pendingSync': 1},
+          where: 'stepNumber = ? AND description = ? AND deleted = 0',
+          whereArgs: [stepNumber, entry.key],
+        );
+      }
+    });
+  }
+
   Future<List<MemberFile>> getPendingMemberFiles() async {
     if (_memoryMode) {
-      return _files.values
-          .where((f) => f.pendingSync && !f.deleted)
-          .toList();
+      return _files.values.where((f) => f.pendingSync && !f.deleted).toList();
     }
     final rows = await db.query(
       'member_files',
@@ -151,10 +186,7 @@ mixin _DbLookupsFiles on _DatabaseServiceBase {
     if (_memoryMode) {
       final file = _files[id];
       if (file != null) {
-        _files[id] = file.copyWith(
-          pendingSync: false,
-          storageUrl: storageUrl,
-        );
+        _files[id] = file.copyWith(pendingSync: false, storageUrl: storageUrl);
       }
       return;
     }
@@ -162,11 +194,6 @@ mixin _DbLookupsFiles on _DatabaseServiceBase {
     if (storageUrl != null) {
       values['storageUrl'] = storageUrl;
     }
-    await db.update(
-      'member_files',
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update('member_files', values, where: 'id = ?', whereArgs: [id]);
   }
 }

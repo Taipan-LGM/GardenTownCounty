@@ -32,6 +32,7 @@ Future<MemberFile?> pickAndUploadDesktop({
   required String description,
   required String sourcePath,
   required String fileName,
+  int stepNumber = 1,
 }) async {
   throw UnsupportedError('Desktop file upload not available.');
 }
