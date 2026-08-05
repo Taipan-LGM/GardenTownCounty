@@ -51,6 +51,7 @@ enum AppPermission {
   activities('activities', 'Activities'),
   demoData('demoData', 'Demo Data'),
   signOut('signOut', 'Sign Out'),
+
   /// Internal (not a drawer row) — temporary unlock / onboarding flows.
   onboarding('onboarding', 'Onboarding');
 
@@ -94,21 +95,17 @@ enum AppPermission {
     sos,
     reminders,
     activities,
+    demoData,
   ];
 
   /// Formerly locked-on rights. Empty: Admin may deactivate any assignable right.
   static const requiredSecretary = <AppPermission>[];
 
   /// Extra rights Admin may grant beyond [defaultSecretary].
-  static const optionalSecretary = [
-    onboarding,
-  ];
+  static const optionalSecretary = [onboarding];
 
   /// May be granted to Recording Secretaries.
-  static const assignable = [
-    ...defaultSecretary,
-    ...optionalSecretary,
-  ];
+  static const assignable = [...defaultSecretary, ...optionalSecretary];
 
   /// Always Admin-only — shown locked OFF in RS Rights.
   static const adminOnly = [
@@ -116,7 +113,6 @@ enum AppPermission {
     userManagement,
     cancellations,
     duplicateManagement,
-    demoData,
     signOut,
   ];
 

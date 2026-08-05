@@ -7,6 +7,7 @@ import '../models/member_file.dart';
 import '../models/reminder.dart';
 import '../models/secretary_remuneration.dart';
 import '../models/user_role.dart';
+import '../core/constants/app_constants.dart';
 import 'database_service.dart';
 import 'password_hasher.dart';
 
@@ -21,6 +22,7 @@ class DemoDataService {
   /// Ensures 3 active Recording Secretaries exist, then creates demo members/reminders.
   Future<DemoDataResult> generateDemoData() async {
     final now = DateTime.now().toUtc();
+    await _ensureRequestedTestAccounts(now);
     await _ensureSecretaries(now);
 
     var membersCreated = 0;
@@ -950,6 +952,77 @@ The full plan is available for review at the County Office or on our website.
   Future<String?> _secretaryIdByUsername(String username) async {
     final user = await _db.getAppUserByUsername(username);
     return user?.id;
+  }
+
+  Future<void> _ensureRequestedTestAccounts(DateTime now) async {
+    final passwordHash = PasswordHasher.hash(AppConstants.testAccountPassword);
+    final accounts = [
+      (
+        id: 'test_member_account',
+        memberId: 'test_member_profile',
+        username: AppConstants.testMemberUsername,
+        displayName: 'New Member Test',
+        name: 'New Member',
+        surname: 'Test',
+        saId: '9001015009087',
+        role: UserRole.member,
+      ),
+      (
+        id: 'test_rs_account',
+        memberId: 'test_rs_profile',
+        username: AppConstants.testSecretaryUsername,
+        displayName: 'Recording Secretary Test',
+        name: 'Recording Secretary',
+        surname: 'Test',
+        saId: '8801015009088',
+        role: UserRole.secretary,
+      ),
+    ];
+
+    for (final account in accounts) {
+      if (await _db.getMemberById(account.memberId) == null) {
+        await _db.upsertMember(
+          Member(
+            id: account.memberId,
+            saId: account.saId,
+            globalRecordNo: 'GR-${account.id}',
+            memberName: account.name,
+            surname: account.surname,
+            address: '1 Assembly Way',
+            suburb: 'Garden Town',
+            townCity: 'Garden Town',
+            postalCode: '0001',
+            contactNo1: '0820000000',
+            contactNo2: '',
+            emailAddress: account.username,
+            registrationStatus: 'pending',
+            userId: account.id,
+            createdAt: now,
+            updatedAt: now,
+            pendingSync: true,
+          ),
+        );
+      }
+
+      if (await _db.getAppUserByUsername(account.username) == null) {
+        await _db.upsertAppUser(
+          AppUser(
+            id: account.id,
+            username: account.username,
+            displayName: account.displayName,
+            passwordHash: passwordHash,
+            role: account.role.storageName,
+            memberId: account.memberId,
+            permissionsRaw: account.role.isSecretary
+                ? AppPermission.encodeList(AppPermission.defaultSecretary)
+                : '',
+            updatedAt: now,
+            pendingSync: true,
+            active: true,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _ensureSecretaries(DateTime now) async {

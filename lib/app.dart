@@ -11,6 +11,7 @@ import 'providers/providers.dart';
 import 'screens/activities/activities_screen.dart';
 import 'screens/backup/backup_restore_screen.dart';
 import 'screens/home/info_content_screen.dart';
+import 'screens/home/lro_publications_screen.dart';
 import 'screens/home/videos_content_screen.dart';
 import 'screens/live_view/live_view_screen.dart';
 import 'screens/landing/landing_screen.dart';
@@ -94,6 +95,7 @@ class _AppShellState extends ConsumerState<AppShell>
       AppSection.lockedMembers: const CancellationsScreen(),
       AppSection.duplicateReport: const DuplicateReportScreen(),
       AppSection.countyInfo: const InfoContentScreen(),
+      AppSection.lroPublications: const LroPublicationsScreen(),
       AppSection.countyVideos: const VideosContentScreen(),
     };
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -167,6 +169,7 @@ class _AppShellState extends ConsumerState<AppShell>
         effectiveSection == AppSection.settings ||
         effectiveSection == AppSection.liveView ||
         effectiveSection == AppSection.countyInfo ||
+        effectiveSection == AppSection.lroPublications ||
         effectiveSection == AppSection.countyVideos;
     final showAppBar = !isHomeHub;
 
@@ -281,6 +284,7 @@ class _AppShellState extends ConsumerState<AppShell>
       case AppSection.credentialCard:
         return user.hasPermission(AppPermission.credentialCard);
       case AppSection.countyInfo:
+      case AppSection.lroPublications:
       case AppSection.countyVideos:
         return true;
     }
@@ -322,8 +326,10 @@ class _AppShellState extends ConsumerState<AppShell>
         return 15;
       case AppSection.countyInfo:
         return 16;
-      case AppSection.countyVideos:
+      case AppSection.lroPublications:
         return 17;
+      case AppSection.countyVideos:
+        return 18;
     }
   }
 

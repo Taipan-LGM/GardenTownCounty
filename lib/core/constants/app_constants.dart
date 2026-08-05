@@ -1,13 +1,15 @@
 class AppConstants {
   static const String appName = 'Garden Town County';
+
   /// Keep in sync with pubspec.yaml `version:` (name+build).
   /// Scheme: v1.18.12 … v1.18.99 → v1.19.00 → v1.19.01 …
   static const String appVersion = '1.18.24';
-  static const String buildNumber = '90';
+  static const String buildNumber = '92';
   static String get fullVersion => '$appVersion+$buildNumber';
   static String get versionLabel => 'v$fullVersion';
 
   static const String logoAsset = 'assets/images/county_logo.png';
+
   /// Default second / corner logo (blue Assembly seal).
   static const String logoAltAsset = 'assets/images/county_logo_alt.png';
 
@@ -36,6 +38,7 @@ class AppConstants {
 
   /// Local backup authorization marker (Documents/GardenTown/.gardentown_auth).
   static const String backupAuthKeyLine = 'AUTH_KEY=GT528-GLOBAL';
+
   /// Legacy GTB1 decrypt only — new backups use a user-chosen password (GTB2).
   static const String backupMasterPassword = 'GardenTownSecureBackup2026';
   static const String gardenTownFolderName = 'GardenTown';
@@ -47,6 +50,7 @@ class AppConstants {
 
   static const int saIdMaxLength = 13;
   static const int globalRecordNoMaxLength = 14;
+
   /// NEW ADDITION - LRO Record No. max length (Delete with field to revert)
   static const int lroRecordNoMaxLength = 14;
   static const int contactNoMaxLength = 12;
@@ -59,4 +63,7 @@ class AppConstants {
   static const String demoUsername = 'admin';
   static const String demoPassword = 'garden2026';
   static const String demoDisplayName = 'County Administrator';
+  static const String testMemberUsername = 'member@gardentown.co.za';
+  static const String testSecretaryUsername = 'rs@gardentown.co.za';
+  static const String testAccountPassword = 'garden2026';
 }

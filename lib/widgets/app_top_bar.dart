@@ -6,7 +6,7 @@ import '../providers/providers.dart';
 import 'county_logo.dart';
 import 'standard_buttons.dart';
 
-/// Fixed top chrome: Logo 1 + county name | Settings · Live View · Videos · Info · Menu.
+/// Fixed top chrome with a horizontally scrollable phone layout.
 ///
 /// // NEW ADDITION - Delete this file to revert top bar layout.
 class AppTopBar extends ConsumerWidget {
@@ -19,13 +19,14 @@ class AppTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(appSectionProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    final isSecretary = ref.watch(isSecretaryProvider);
     final strings = AppStrings(ref.watch(appLanguageProvider));
     final profile = ref.watch(countyProfileProvider).valueOrNull;
     final countyName = profile?.countyName.trim().isNotEmpty == true
         ? profile!.countyName
         : 'Garden Town County';
     final tabs = <Widget>[
-      if (isAdmin)
+      if (isAdmin || isSecretary)
         _TabChip(
           icon: Icons.science,
           label: strings.demoData,
@@ -47,6 +48,13 @@ class AppTopBar extends ConsumerWidget {
           onTap: () =>
               ref.read(appSectionProvider.notifier).state = AppSection.liveView,
         ),
+      _TabChip(
+        icon: Icons.menu_book_outlined,
+        label: strings.lroPublications,
+        selected: section == AppSection.lroPublications,
+        onTap: () => ref.read(appSectionProvider.notifier).state =
+            AppSection.lroPublications,
+      ),
       _TabChip(
         icon: Icons.video_library,
         label: strings.videos,
@@ -102,10 +110,15 @@ class AppTopBar extends ConsumerWidget {
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
                       child: Row(children: tabs),
                     ),
                   ),
-                if (showCountyName) ...tabs,
+                if (showCountyName)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: tabs),
+                  ),
               ],
             );
           },

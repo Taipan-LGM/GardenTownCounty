@@ -8,6 +8,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../providers/providers.dart';
+import '../home/lro_publications_screen.dart';
 import '../../widgets/legal_disclaimer_dialog.dart';
 import '../../widgets/standard_buttons.dart';
 
@@ -55,7 +56,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final user = await ref.read(authServiceProvider).signIn(
+      final user = await ref
+          .read(authServiceProvider)
+          .signIn(
             usernameOrEmail: _userController.text,
             password: _passwordController.text,
           );
@@ -71,8 +74,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!accepted) {
         if (mounted) {
           setState(
-            () => _error = AppStrings(ref.read(appLanguageProvider))
-                .mustAcceptAgreement,
+            () => _error = AppStrings(
+              ref.read(appLanguageProvider),
+            ).mustAcceptAgreement,
           );
         }
         return;
@@ -81,11 +85,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(authUserProvider.notifier).state = user;
 
       unawaited(
-        ref.read(activityServiceProvider).record(
+        ref
+            .read(activityServiceProvider)
+            .record(
               userName: user.displayName,
               action: 'Login',
               captureGps: true,
-            ).then((_) => ref.invalidate(activitiesProvider)),
+            )
+            .then((_) => ref.invalidate(activitiesProvider)),
       );
 
       if (!mounted) return;
@@ -138,7 +145,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                            color: Theme.of(context).brightness == Brightness.dark
+                          color: Theme.of(context).brightness == Brightness.dark
                               ? Colors.lightBlue.shade200
                               : Colors.blue.shade700,
                         ),
@@ -158,8 +165,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
-                                ? strings.requiredField
-                                : null,
+                            ? strings.requiredField
+                            : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -178,10 +185,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 setState(() => _obscure = !_obscure),
                           ),
                         ),
-                        validator: (value) =>
-                            (value == null || value.isEmpty)
-                                ? strings.requiredField
-                                : null,
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? strings.requiredField
+                            : null,
                         onFieldSubmitted: (_) => _submit(),
                       ),
                       if (_error != null) ...[
@@ -196,6 +202,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         onPressed: _loading ? null : _submit,
                         text: strings.signIn,
                         isLoading: _loading,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => Scaffold(
+                              appBar: AppBar(
+                                title: const Text('LRO Publications'),
+                              ),
+                              body: const LroPublicationsScreen(),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.menu_book_outlined),
+                        label: const Text('LRO Publications'),
                       ),
                       if (_showDemoHint) ...[
                         const SizedBox(height: 12),

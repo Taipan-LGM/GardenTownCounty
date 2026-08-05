@@ -20,11 +20,11 @@ class AppDrawer extends ConsumerWidget {
     final user = ref.watch(authUserProvider);
     final isAdmin = ref.watch(isAdminProvider);
     final strings = AppStrings(ref.watch(appLanguageProvider));
-    final profile = ref.watch(countyProfileProvider).valueOrNull;
-    final countyName = profile?.countyName ?? 'Garden Town County';
-    final countyAddress = profile?.countyAddress.trim() ?? '';
-    final countyContactNo = profile?.countyContactNo.trim() ?? '';
-    final countyRegNo = profile?.countyRegNo.trim() ?? '';
+    final countyInfo = ref.watch(countyInfoProvider).valueOrNull;
+    final countyName = countyInfo?.countyName ?? 'Garden Town County';
+    final countyAddress = countyInfo?.countyAddress.trim() ?? '';
+    final countyContactNo = countyInfo?.countyContactNo.trim() ?? '';
+    final countyRegNo = countyInfo?.countyRegistrationNo.trim() ?? '';
 
     bool can(AppPermission p) => user?.hasPermission(p) ?? false;
 

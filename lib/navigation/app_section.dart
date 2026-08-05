@@ -17,5 +17,6 @@ enum AppSection {
   lockedMembers,
   duplicateReport,
   countyInfo,
+  lroPublications,
   countyVideos,
 }

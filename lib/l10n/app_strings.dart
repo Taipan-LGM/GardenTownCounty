@@ -17,6 +17,7 @@ class AppStrings {
   String get search => isAf ? 'Soek' : 'Search';
   String get settings => isAf ? 'Instellings' : 'Settings';
   String get liveView => isAf ? 'Regstreekse Oorsig' : 'Live View';
+  String get lroPublications => 'LRO Publications';
   String get videos => isAf ? "Video's" : 'Videos';
   String get info => isAf ? 'Inligting' : 'Info';
   String get menu => isAf ? 'Kieslys' : 'Menu';
@@ -566,6 +567,8 @@ class AppStrings {
         return duplicateManagement;
       case AppSection.countyInfo:
         return countyInfoShort;
+      case AppSection.lroPublications:
+        return lroPublications;
       case AppSection.countyVideos:
         return countyVideos;
     }

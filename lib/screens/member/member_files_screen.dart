@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/member.dart';
@@ -1014,7 +1016,7 @@ class _DraftFileRow {
   void dispose() => description.dispose();
 }
 
-class _MemberFilePreviewScreen extends StatefulWidget {
+class _MemberFilePreviewScreen extends ConsumerStatefulWidget {
   const _MemberFilePreviewScreen({
     required this.file,
     required this.loadBytes,
@@ -1026,28 +1028,84 @@ class _MemberFilePreviewScreen extends StatefulWidget {
   final VoidCallback onOpenExternal;
 
   @override
-  State<_MemberFilePreviewScreen> createState() =>
+  ConsumerState<_MemberFilePreviewScreen> createState() =>
       _MemberFilePreviewScreenState();
 }
 
-class _MemberFilePreviewScreenState extends State<_MemberFilePreviewScreen> {
+class _MemberFilePreviewScreenState
+    extends ConsumerState<_MemberFilePreviewScreen> {
   late final Future<Uint8List?> _bytes = widget.loadBytes();
+
+  bool get _isPdf {
+    final extension = widget.file.fileName.split('.').last.toLowerCase();
+    return widget.file.contentType == 'application/pdf' || extension == 'pdf';
+  }
+
+  Future<void> _printFile() async {
+    final bytes = await _bytes;
+    if (!mounted) return;
+    if (bytes == null || bytes.isEmpty || !_isPdf) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This file type prints through its installed application.',
+          ),
+        ),
+      );
+      widget.onOpenExternal();
+      return;
+    }
+    await Printing.layoutPdf(
+      name: widget.file.fileName,
+      onLayout: (_) async => bytes,
+    );
+  }
+
+  Future<void> _shareFile() async {
+    final bytes = await _bytes;
+    if (!mounted) return;
+    final url = widget.file.storageUrl;
+    if (bytes == null || bytes.isEmpty) {
+      if (url != null && url.isNotEmpty) {
+        await SharePlus.instance.share(ShareParams(uri: Uri.parse(url)));
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This file is not available to share.')),
+      );
+      return;
+    }
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile.fromData(bytes, mimeType: widget.file.contentType)],
+        fileNameOverrides: [widget.file.fileName],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = ref.watch(isAdminProvider);
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back',
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(widget.file.fileName),
         actions: [
-          IconButton(
-            tooltip: 'Open externally',
-            onPressed: widget.onOpenExternal,
-            icon: const Icon(Icons.open_in_new),
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+            label: const Text('Close'),
+          ),
+          if (isAdmin)
+            TextButton.icon(
+              onPressed: _printFile,
+              icon: const Icon(Icons.print_outlined),
+              label: const Text('Print'),
+            ),
+          TextButton.icon(
+            onPressed: _shareFile,
+            icon: const Icon(Icons.share_outlined),
+            label: const Text('Share'),
           ),
           const SizedBox(width: 8),
         ],
