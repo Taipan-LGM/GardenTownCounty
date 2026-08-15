@@ -63,6 +63,10 @@ class AppStrings {
   String get countyRegNo => isAf ? 'County reg. nr.' : 'County reg. no.';
   String get countyContactNo =>
       isAf ? 'County kontaknr.' : 'County Contact no.';
+  String get lroSettings => isAf ? 'LRO-instellings' : 'LRO Settings';
+  String get lroSettingsSubtitle => isAf
+      ? 'Land Recovery Office-configurasie'
+      : 'Land Recovery Office configuration';
   String get uploadLogo =>
       isAf ? 'Laai eerste logo op' : 'Upload first (background) logo';
   String get uploadSecondaryLogo =>
@@ -137,9 +141,50 @@ class AppStrings {
   String get townCity => isAf ? 'Dorp / Stad' : 'Town / City';
   String get postalCode => isAf ? 'Poskode' : 'Postal Code';
   String get lroRecordNo => isAf ? 'LRO-rekordnr.' : 'LRO Record No.';
-  String get backupOverdue => isAf
-      ? 'Dit is 7 dae sedert jou laaste rugsteun. Maak asseblief \'n rugsteun.'
-      : "It's been 7 days since your last backup. Please backup your data.";
+  String get lroSettings => isAf ? 'LRO-instellings' : 'LRO Settings';
+  String get lroSettingsSubtitle => isAf
+      ? 'Land Recovery Office-configurasie'
+      : 'Land Recovery Office configuration';
+  String get countyFacebookPageUrl => isAf
+      ? 'County Facebook-blaaier URL'
+      : 'County Facebook Page URL';
+  String get countyNameAuto => isAf
+      ? 'County-naam (outo-geskryf)'
+      : 'County Name (auto-filled)';
+  String get countyUniqueNumber => isAf
+      ? 'County unieke nommer (3 syfers)'
+      : 'County Unique Number (3 digits)';
+  String get selectDisplayOrder => isAf
+      ? 'Kies die display-volgorde vir die 16-syfering Rekordnommer'
+      : 'Select the display order for the 16-digit Recording Number';
+  String get blueprintPublicNotice => isAf
+      ? 'Blaaie Public Notice ( Sjabloon)'
+      : 'Blueprint Public Notice (Template)';
+  String get blueprintDescription => isAf
+      ? 'Leë sjabloon — geen Lid-naam of Rekordnommer nie.'
+      : 'Blank template — no Member Name or Recording Number.';
+  String get samplePublicNotice => isAf
+      ? 'Voorbeeld Public Notice (met Lid-data)'
+      : 'Sample Public Notice (With Member Data)';
+  String get sampleDescription => isAf
+      ? 'Voorbeeld wat die finale gepubliseerde kennisgewing vertoon.'
+      : 'Example showing how the final published notice will look.';
+  String get uploadBlueprint = isAf ? 'Laai blaaie op' : 'Upload Blueprint';
+  String get uploadSample = isAf ? 'Laai voorbeeld op' : 'Upload Sample';
+  String get clearImages = isAf ? 'Verwyder beelde' : 'Clear Images';
+  String get imagePreview = isAf ? 'Voorbeeld' : 'Preview';
+  String get LroSettingsSaved => isAf
+      ? 'LRO-instellings gestoor'
+      : 'LRO settings saved';
+  String get lroIncomplete => isAf
+      ? 'LRO is onvolledig. Laai die Blaaie sjabloon op en stel die Facebook URL voor
+          lede kan Stap 4_LRO-betalings voltooi.'
+      : 'LRO is incomplete. Upload the Blueprint template and set the Facebook URL
+          before Members can complete Step 4_LRO payments.';
+  String get lroReady => isAf
+      ? 'LRO is gereed. Blaaie opgelaai, Facebook-keuring gestel, County-nommer
+          geconfigureer.'
+      : 'LRO is ready. Blueprint uploaded, Facebook link set, County number configured.';
   String get adminAccessRequired =>
       isAf ? 'Admin-toegang vereis.' : 'Admin access required.';
   String get viewBackups => isAf ? 'Bekyk rugsteun' : 'View Backups';
@@ -523,6 +568,8 @@ class AppStrings {
         return activities;
       case 'demo_data':
         return demoData;
+      case 'lro_settings':
+        return lroSettings;
       case 'sign_out':
         return signOut;
       default:

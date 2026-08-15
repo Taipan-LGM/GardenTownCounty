@@ -10,6 +10,7 @@ import '../../services/app_preferences_service.dart';
 import '../../widgets/standard_buttons.dart';
 import '../../widgets/county_logo.dart';
 import '../../widgets/new_county_warning_dialog.dart';
+import 'lro_settings_screen.dart';
 import 'remuneration_dashboard_screen.dart';
 import 'remuneration_settings_screen.dart';
 
@@ -116,6 +117,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         // Outside Theme card — far left, under Theme/Language form.
         if (isAdmin) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ActionButton(
+              onPressed: () => _openLroSettings(context),
+              text: strings.lroSettings,
+              icon: Icons.account_tree_outlined,
+            ),
+          ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
@@ -656,4 +666,12 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
       ),
     );
   }
+}
+
+void _openLroSettings(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => const LroSettingsScreen(),
+    ),
+  );
 }
