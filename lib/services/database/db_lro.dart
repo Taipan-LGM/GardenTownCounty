@@ -1,6 +1,6 @@
 part of '../database_service.dart';
 
-/// LRO case, notice, document and history persistence.
+/// LRO case, notice, document, history persistence + publications + image storage.
 mixin _DbLro on _DatabaseServiceBase {
   // ── LRO cases ──────────────────────────────────────────────────────────
 
@@ -220,6 +220,107 @@ mixin _DbLro on _DatabaseServiceBase {
     );
   }
 
+  // ── LRO publications (for the in-app Publications section) ──────────────
+
+  final Map<String, LroPublication> _lroPublications = {};
+
+  Future<void> upsertLroPublication(LroPublication pub) async {
+    if (_memoryMode) {
+      _lroPublications[pub.id] = pub;
+      return;
+    }
+    await db.insert(
+      'lro_publications',
+      pub.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<LroPublication>> getLroPublications({
+    int limit = 100,
+  }) async {
+    if (_memoryMode) {
+      final list = _lroPublications.values
+          .where((p) => !p.deleted)
+          .toList()
+        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt))
+        ..removeRange(limit, list.length > limit ? list.length : 0);
+      return list;
+    }
+    final rows = await db.query(
+      'lro_publications',
+      where: 'deleted = 0',
+      orderBy: 'publishedAt DESC',
+      limit: limit,
+    );
+    return rows.map(LroPublication.fromMap).toList();
+  }
+
+  Future<LroPublication?> getLroPublicationById(String id) async {
+    if (_memoryMode) {
+      final p = _lroPublications[id];
+      if (p == null || p.deleted) return null;
+      return p;
+    }
+    final rows = await db.query(
+      'lro_publications',
+      where: 'id = ? AND deleted = 0',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return LroPublication.fromMap(rows.first);
+  }
+
+  Future<void> softDeleteLroPublication(String id) async {
+    if (_memoryMode) {
+      final p = _lroPublications[id];
+      if (p != null) {
+        _lroPublications[id] = p.copyWith(
+          deleted: true,
+          pendingSync: true,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      return;
+    }
+    await db.update(
+      'lro_publications',
+      {
+        'deleted': 1,
+        'pendingSync': 1,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markLroPublicationSynced(String id) async {
+    if (_memoryMode) {
+      final p = _lroPublications[id];
+      if (p != null) _lroPublications[id] = p.copyWith(pendingSync: false);
+      return;
+    }
+    await db.update(
+      'lro_publications',
+      {'pendingSync': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<LroPublication>> getPendingLroPublications() async {
+    if (_memoryMode) {
+      return _lroPublications.values.where((p) => p.pendingSync).toList();
+    }
+    final rows = await db.query(
+      'lro_publications',
+      where: 'pendingSync = 1 AND deleted = 0',
+    );
+    return rows.map(LroPublication.fromMap).toList();
+  }
+
   // ── LRO documents ──────────────────────────────────────────────────────
 
   Future<void> upsertLroDocument(LroDocument document) async {
@@ -367,5 +468,66 @@ mixin _DbLro on _DatabaseServiceBase {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  // ── Recording Number uniqueness ─────────────────────────────────────────
+
+  /// Returns every distinct Recording Number stored against members.
+  Future<Set<String>> getAllLroRecordingNumbers() async {
+    if (_memoryMode) {
+      return _members.values
+          .where((m) => m.lroRecordNo != null && m.lroRecordNo!.isNotEmpty)
+          .map((m) => m.lroRecordNo!.trim())
+          .toSet();
+    }
+    final rows = await db.query(
+      'members',
+      columns: ['lroRecordNo'],
+      where: 'lroRecordNo IS NOT NULL AND lroRecordNo != \'\' AND deleted = 0',
+    );
+    return rows
+        .map((r) => (r['lroRecordNo'] as String).trim())
+        .toSet();
+  }
+
+  // ── Personalized notice image storage ───────────────────────────────────
+
+  /// Persists the personalized Public Notice image bytes for a member.
+  /// On disk: `<dbDir>/lro_notices/<memberId>.png`.
+  Future<void> saveLroNoticeImage({
+    required String memberId,
+    required String recordingNumber,
+    required Uint8List imageBytes,
+    required DateTime publishedAt,
+  }) async {
+    if (_memoryMode) return;
+    final dbDir = (await getApplicationDocumentsDirectory()).path;
+    final dir = p.join(dbDir, 'lro_notices');
+    await Directory(dir).create(recursive: true);
+    final file = File(p.join(dir, '${memberId}.png'));
+    await file.writeAsBytes(imageBytes);
+  }
+
+  /// Creates a publication row in the LRO Publications table.
+  Future<String> createLroPublication({
+    required String memberId,
+    required String memberName,
+    required String recordingNumber,
+    required DateTime publishedAt,
+    String? facebookPostId,
+  }) async {
+    final id = '${DateTime.now().millisecondsSinceEpoch}_${memberId.substring(0, 8)}';
+    final pub = LroPublication(
+      id: id,
+      memberId: memberId,
+      memberName: memberName,
+      recordingNumber: recordingNumber,
+      publishedAt: publishedAt,
+      facebookPostId: facebookPostId,
+      pendingSync: true,
+      deleted: false,
+    );
+    await upsertLroPublication(pub);
+    return id;
   }
 }

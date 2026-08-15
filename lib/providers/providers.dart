@@ -16,6 +16,7 @@ import '../models/temporary_access_log.dart';
 import '../models/user_role.dart';
 import '../navigation/app_section.dart';
 import '../l10n/app_strings.dart';
+import '../lro_settings.dart';
 
 export '../navigation/app_section.dart';
 
@@ -107,6 +108,11 @@ final countyInfoProvider = FutureProvider.autoDispose<CountyInfo>((ref) async {
 
 final countyMediaServiceProvider = Provider<CountyMediaService>((ref) {
   return CountyMediaService(ref.watch(databaseServiceProvider));
+});
+
+/// Land Recovery Office admin settings.
+final lroSettingsServiceProvider = Provider<LroSettingsService>((ref) {
+  return LroSettingsService();
 });
 
 final publishedArticlesProvider = FutureProvider((ref) {

@@ -103,6 +103,15 @@ class AppDrawerCatalog {
       adminOnly: true,
     ),
     AppDrawerItemDef(
+      id: 'lro_settings',
+      label: 'LRO Settings',
+      icon: Icons.account_tree,
+      action: AppDrawerAction.navigate,
+      section: AppSection.countyInfo,
+      adminOnly: true,
+      accentColor: Colors.green.shade700,
+    ),
+    AppDrawerItemDef(
       id: 'user_management',
       label: 'RS Rights',
       icon: Icons.admin_panel_settings,
