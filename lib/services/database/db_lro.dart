@@ -1,5 +1,15 @@
 part of '../database_service.dart';
 
+import 'dart:io' show File, Directory;
+import 'package:path/path.dart' as p;
+
+import '../models/lro_publication.dart';
+import '../models/lro_case.dart';
+import '../models/lro_notice.dart';
+import '../models/lro_document.dart';
+import '../models/lro_history.dart';
+import '../models/member.dart';
+
 /// LRO case, notice, document, history persistence + publications + image storage.
 mixin _DbLro on _DatabaseServiceBase {
   // ── LRO cases ──────────────────────────────────────────────────────────
@@ -240,12 +250,12 @@ mixin _DbLro on _DatabaseServiceBase {
     int limit = 100,
   }) async {
     if (_memoryMode) {
-      final list = _lroPublications.values
+      final all = _lroPublications.values
           .where((p) => !p.deleted)
           .toList()
-        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt))
-        ..removeRange(limit, list.length > limit ? list.length : 0);
-      return list;
+        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+      if (all.length > limit) all.removeRange(limit, all.length);
+      return all;
     }
     final rows = await db.query(
       'lro_publications',
@@ -513,8 +523,10 @@ mixin _DbLro on _DatabaseServiceBase {
     required String memberId,
     required String memberName,
     required String recordingNumber,
+    required Uint8List imageBytes,
     required DateTime publishedAt,
     String? facebookPostId,
+    String? actorId,
   }) async {
     final id = '${DateTime.now().millisecondsSinceEpoch}_${memberId.substring(0, 8)}';
     final pub = LroPublication(

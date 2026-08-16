@@ -13,6 +13,8 @@ import '../models/county_video.dart';
 import '../models/lookup_item.dart';
 import '../models/lro_case.dart';
 import '../models/lro_document.dart';
+import '../models/lro_notice.dart';
+import '../models/lro_publication.dart';
 import '../models/lro_history.dart';
 import '../models/lro_notice.dart';
 import '../models/member.dart';
@@ -129,6 +131,7 @@ class DatabaseService extends _DatabaseServiceBase
     _lroNotices.clear();
     _lroDocuments.clear();
     _lroHistory.clear();
+    _lroPublications.clear();
     _reminders.clear();
     _tempAccessLogs.clear();
     // NEW ADDITION - RS remuneration
@@ -980,6 +983,30 @@ class DatabaseService extends _DatabaseServiceBase
     );
     await database.execute(
       'CREATE INDEX IF NOT EXISTS idx_lro_history_entity ON lro_history(entityType, entityId)',
+    );
+
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS lro_publications (
+        id TEXT PRIMARY KEY,
+        firestoreId TEXT,
+        memberId TEXT NOT NULL,
+        memberName TEXT NOT NULL,
+        recordingNumber TEXT NOT NULL,
+        imageBytes BLOB,
+        publishedAt TEXT NOT NULL,
+        facebookPostId TEXT,
+        actorId TEXT,
+        pendingSync INTEGER NOT NULL DEFAULT 1,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lro_publications_member ON lro_publications(memberId)',
+    );
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lro_publications_pendingsync ON lro_publications(pendingSync)',
     );
   }
 

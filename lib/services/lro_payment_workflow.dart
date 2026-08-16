@@ -1,14 +1,9 @@
-import 'dart:io';
-import 'dart:typed_data';
-import 'package:cloudinary/cloudinary.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/lro_settings.dart';
 import '../models/member.dart';
 import '../services/database_service.dart';
 import '../services/lro_settings_service.dart';
 import '../services/recording_number_service.dart';
 import '../services/activity_service.dart';
-import '../providers/providers.dart';
 
 /// Handles the automated LRO workflow that runs after a Step 4_LRO payment.
 ///
@@ -80,7 +75,7 @@ class LroPaymentWorkflow {
     );
 
     // ── Step 3a: Save to in-app Publications ─────────────────────────────
-    final publication = await _db.createLroPublication(
+    await _db.createLroPublication(
       memberId: member.id,
       memberName: member.fullName,
       recordingNumber: recordingNumber,
