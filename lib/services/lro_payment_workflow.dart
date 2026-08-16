@@ -38,17 +38,17 @@ class LroPaymentWorkflow {
     final settings = await lroService.load();
 
     if (!settings.hasCountyUniqueNo) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'LRO not configured: County Unique Number (3 digits) is missing.',
       );
     }
     if (!settings.isValidFacebookUrl) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'LRO not configured: Facebook Page URL is missing or invalid.',
       );
     }
     if (!settings.hasBlueprint) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'LRO not configured: Blueprint Public Notice template has not been uploaded.',
       );
     }
@@ -65,7 +65,7 @@ class LroPaymentWorkflow {
     // ── Step 2: Personalize the Blueprint picture ────────────────────────
     final blueprintBytes = await lroService.loadBlueprintBytes();
     if (blueprintBytes == null || blueprintBytes.isEmpty) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'Blueprint image could not be loaded. Upload it in LRO Settings.',
       );
     }
