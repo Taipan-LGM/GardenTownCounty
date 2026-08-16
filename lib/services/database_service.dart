@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'dart:io' show File, Directory;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../core/constants/app_constants.dart';

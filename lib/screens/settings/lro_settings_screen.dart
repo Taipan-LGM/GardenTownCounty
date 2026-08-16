@@ -475,7 +475,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                   label: Text(strings.clearImages),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
-                    side: const BorderSide(color: Colors.red.shade400),
+                    side: BorderSide(color: Colors.red.shade400),
                   ),
                 ),
               ),

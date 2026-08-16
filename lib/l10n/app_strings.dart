@@ -177,13 +177,10 @@ class AppStrings {
       ? 'LRO-instellings gestoor'
       : 'LRO settings saved';
   String get lroIncomplete => isAf
-      ? 'LRO is onvolledig. Laai die Blaaie sjabloon op en stel die Facebook URL voor
-          lede kan Stap 4_LRO-betalings voltooi.'
-      : 'LRO is incomplete. Upload the Blueprint template and set the Facebook URL
-          before Members can complete Step 4_LRO payments.';
+      ? 'LRO is onvolledig. Laai die Blaaie sjabloon op en stel die Facebook URL voor lede kan Stap 4_LRO-betalings voltooi.'
+      : 'LRO is incomplete. Upload the Blueprint template and set the Facebook URL before Members can complete Step 4_LRO payments.';
   String get lroReady => isAf
-      ? 'LRO is gereed. Blaaie opgelaai, Facebook-keuring gestel, County-nommer
-          geconfigureer.'
+      ? 'LRO is gereed. Blaaie opgelaai, Facebook-keuring gestel, County-nommer geconfigureer.'
       : 'LRO is ready. Blueprint uploaded, Facebook link set, County number configured.';
   String get adminAccessRequired =>
       isAf ? 'Admin-toegang vereis.' : 'Admin access required.';
@@ -264,10 +261,8 @@ class AppStrings {
   // Activities
   String get activitiesTitle => isAf ? 'Aktiwiteite' : 'Activities';
   String get activitiesSubtitle => isAf
-      ? 'Aanteken en lid-aksies met GPS, datum, tyd en gebruikersnaam. '
-            'Tik GPS om die kaart te sien — druk, stoor of deel via WhatsApp.'
-      : 'Login and member actions with GPS, date, time, and user name. '
-            'Tap GPS to view map — print, save, or share via WhatsApp.';
+      ? 'Aanteken en lid-aksies met GPS, datum, tyd en gebruikersnaam. Tik GPS om die kaart te sien — druk, stoor of deel via WhatsApp.'
+      : 'Login and member actions with GPS, date, time, and user name. Tap GPS to view map — print, save, or share via WhatsApp.';
   String get noGpsYet => isAf
       ? 'Nog geen GPS-ligging aangeteken nie.'
       : 'No GPS location recorded yet.';
@@ -399,18 +394,17 @@ class AppStrings {
       isAf ? 'Vertroulikheidsooreenkoms' : 'Confidentiality Agreement';
   String get confidentialityBody => isAf
       ? 'Deur hierdie stelsel te gebruik, stem jy in tot die volgende:\n\n'
-            '1. Alle lidinligting is vertroulik.\n'
-            '2. Skermkiekies van geslote lidinligting is streng verbode.\n'
-            '3. Alle pogings om lidinligting vas te vang of te deel sal aangeteken word.\n'
-            '4. Ongemagtigde deling van lidinligting sal dissiplinêre optrede tot gevolg hê.\n\n'
-            'Aanvaar jy hierdie voorwaardes?'
+          '1. Alle lidinligting is vertroulik.\n'
+          '2. Skermkiekies van geslote lidinligting is streng verbode.\n'
+          '3. Alle pogings om lidinligting vas te vang of te deel sal aangeteken word.\n'
+          '4. Ongemagtigde deling van lidinligting sal dissiplinêre optrede tot gevolg hê.\n\n'
+          'Aanvaar jy hierdie voorwaardes?'
       : 'By accessing this system, you agree to the following:\n\n'
-            '1. All member information is confidential.\n'
-            '2. Screenshots of locked member information are strictly prohibited.\n'
-            '3. All attempts to capture or share member information will be logged.\n'
-            '4. Unauthorized sharing of member information will result in '
-            'disciplinary action.\n\n'
-            'Do you accept these terms?';
+          '1. All member information is confidential.\n'
+          '2. Screenshots of locked member information are strictly prohibited.\n'
+          '3. All attempts to capture or share member information will be logged.\n'
+          '4. Unauthorized sharing of member information will result in disciplinary action.\n\n'
+          'Do you accept these terms?';
   String get reject => isAf ? 'Weier' : 'Reject';
   String get iAccept => isAf ? 'Ek aanvaar' : 'I Accept';
 
