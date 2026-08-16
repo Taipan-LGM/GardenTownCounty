@@ -507,6 +507,19 @@ mixin _DbLro on _DatabaseServiceBase {
     await file.writeAsBytes(imageBytes);
   }
 
+  /// Loads the saved personalized Public Notice image bytes for a member,
+  /// or null if none exists.
+  Future<Uint8List?> getLroNoticeImage(String memberId) async {
+    if (_memoryMode) return null;
+    final dbDir = (await getApplicationDocumentsDirectory()).path;
+    final dir = p.join(dbDir, 'lro_notices');
+    final file = File(p.join(dir, '${memberId}.png'));
+    if (await file.exists()) {
+      return file.readAsBytes();
+    }
+    return null;
+  }
+
   /// Creates a publication row in the LRO Publications table.
   Future<String> createLroPublication({
     required String memberId,

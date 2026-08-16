@@ -34,6 +34,7 @@ import '../../widgets/member_form/member_lookup_section.dart';
 import '../../widgets/member_form/member_onboarding_summary.dart';
 import '../../widgets/member_form/member_profile_header.dart';
 import '../../widgets/member_form/member_photo_panel.dart';
+import '../../widgets/member_form/member_lro_notice_panel.dart';
 import '../../widgets/member_form/member_profile_nav_section.dart';
 import '../../widgets/member_lock_banners.dart';
 import '../../widgets/member_nav/keyboard_shortcut_handler.dart';
@@ -2129,6 +2130,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             onPick: _pickMemberPhoto,
                             onClear: _clearMemberPhoto,
                           ),
+                          if (_loadedMember?.lroNoticeImageBase64 != null &&
+                              _loadedMember!.lroNoticeImageBase64!.isNotEmpty)
+                            MemberLroNoticePanel(
+                              recordingNumber: _loadedMember!.lroRecordNo,
+                              noticeImageBase64:
+                                  _loadedMember!.lroNoticeImageBase64,
+                            ),
                           if (constraints.maxWidth > 720)
                             const Expanded(child: SizedBox()),
                         ],

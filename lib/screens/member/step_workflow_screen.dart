@@ -11,6 +11,7 @@ import '../../models/member.dart';
 import '../../models/member_file.dart';
 import '../../models/remuneration_settings.dart';
 import '../../models/secretary_remuneration.dart';
+import '../../services/lro_payment_workflow.dart';
 import '../../providers/providers.dart';
 import '../../widgets/standard_buttons.dart';
 
@@ -768,6 +769,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
           );
 
       await _setStep(selectedMember, request.stepNumber, true);
+      if (request.stepNumber == 4) {
+        await _runLroIfStep4(selectedMember, request.paymentDateTime);
+      }
       setState(() => _historyRefreshTick++);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -807,6 +811,56 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
       throw StateError(
         '${_stepLabel(previousStep)} must be completed and paid first.',
       );
+    }
+  }
+
+  /// Runs the automated Land Recording Office (LRO) workflow when a Step 4_LRO
+  /// payment is completed. Generates the Recording Number, personalizes the
+  /// Blueprint picture, publishes to Facebook + in-app + email, and writes the
+  /// number into the Member's application form.
+  ///
+  /// Failures here are surfaced as a non-blocking SnackBar so the payment
+  /// itself is never lost.
+  Future<void> _runLroIfStep4(Member member, DateTime paymentDate) async {
+    if (member.step4LROComplete) return; // already processed
+    try {
+      final db = ref.read(databaseServiceProvider);
+      final activity = ref.read(activityServiceProvider);
+      final workflow = LroPaymentWorkflow(db, activity);
+      final updated = await workflow.run(
+        member: member,
+        paymentDate: paymentDate,
+        actorId: (ref.read(authUserProvider)?.displayName ?? 'System'),
+      );
+      if (mounted) {
+        setState(() => _historyRefreshTick++);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Land Recording Office: Recording Number ${updated.lroRecordNo} generated.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } on LroWorkflowException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('LRO: ${e.message}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('LRO workflow error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -995,6 +1049,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
             actorName: actor.displayName,
           );
       await _setStep(selectedMember, request.stepNumber, true);
+      if (request.stepNumber == 4) {
+        await _runLroIfStep4(selectedMember, DateTime.now());
+      }
       ref.invalidate(activitiesProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

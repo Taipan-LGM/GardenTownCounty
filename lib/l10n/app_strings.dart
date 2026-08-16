@@ -18,6 +18,9 @@ class AppStrings {
   String get settings => isAf ? 'Instellings' : 'Settings';
   String get liveView => isAf ? 'Regstreekse Oorsig' : 'Live View';
   String get lroPublications => 'LRO Publications';
+  String get lroPublicationsEmpty => isAf
+      ? 'Geen LRO-openbare kennisgewings gepubliseer nie.'
+      : 'No Land Recording Office Public Notices have been published yet.';
   String get videos => isAf ? "Video's" : 'Videos';
   String get info => isAf ? 'Inligting' : 'Info';
   String get menu => isAf ? 'Kieslys' : 'Menu';
@@ -165,6 +168,12 @@ class AppStrings {
   String get sampleDescription => isAf
       ? 'Voorbeeld wat die finale gepubliseerde kennisgewing vertoon.'
       : 'Example showing how the final published notice will look.';
+  String get lroPublicNotice => isAf
+      ? 'LRO Public Notice'
+      : 'LRO Public Notice';
+  String get lroPublicNoticeNone => isAf
+      ? 'Geen gepubliseerde Public Notice nie.'
+      : 'No published Public Notice yet.';
   String get uploadBlueprint => isAf ? 'Laai blaaie op' : 'Upload Blueprint';
   String get uploadSample => isAf ? 'Laai voorbeeld op' : 'Upload Sample';
   String get clearImages => isAf ? 'Verwyder beelde' : 'Clear Images';

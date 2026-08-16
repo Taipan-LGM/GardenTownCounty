@@ -10,6 +10,9 @@ class Member {
 
   /// NEW ADDITION - LRO Record No. (max 14). Delete field + usages to revert.
   final String? lroRecordNo;
+  /// NEW ADDITION - Personalized LRO Public Notice image (data URI) saved
+  /// to the right of the Member's photo as a permanent record.
+  final String? lroNoticeImageBase64;
   final String memberName;
   final String surname;
   final String address;
@@ -95,6 +98,7 @@ class Member {
     required this.saId,
     required this.globalRecordNo,
     this.lroRecordNo,
+    this.lroNoticeImageBase64,
     required this.memberName,
     required this.surname,
     this.address = '',
@@ -259,6 +263,7 @@ class Member {
     String? photoUrl,
     String? createdBy,
     String? lroRecordNo,
+    String? lroNoticeImageBase64,
     String registrationStatus = 'pending',
   }) {
     final now = DateTime.now().toUtc();
@@ -267,6 +272,7 @@ class Member {
       saId: saId,
       globalRecordNo: globalRecordNo,
       lroRecordNo: lroRecordNo,
+      lroNoticeImageBase64: lroNoticeImageBase64,
       memberName: memberName,
       surname: surname,
       address: address,
@@ -293,6 +299,7 @@ class Member {
     String? saId,
     String? globalRecordNo,
     String? lroRecordNo,
+    String? lroNoticeImageBase64,
     String? memberName,
     String? surname,
     String? address,
@@ -362,6 +369,7 @@ class Member {
     bool clearLock = false,
     bool clearSecretaryAssignment = false,
     bool clearLroRecordNo = false,
+    bool clearLroNoticeImage = false,
     bool clearCancellation = false,
   }) {
     return Member(
@@ -369,6 +377,8 @@ class Member {
       saId: saId ?? this.saId,
       globalRecordNo: globalRecordNo ?? this.globalRecordNo,
       lroRecordNo: clearLroRecordNo ? null : (lroRecordNo ?? this.lroRecordNo),
+      lroNoticeImageBase64:
+          clearLroNoticeImage ? null : (lroNoticeImageBase64 ?? this.lroNoticeImageBase64),
       memberName: memberName ?? this.memberName,
       surname: surname ?? this.surname,
       address: address ?? this.address,
@@ -474,6 +484,7 @@ class Member {
       'saId': saId,
       'globalRecordNo': globalRecordNo,
       'lroRecordNo': lroRecordNo,
+      'lroNoticeImageBase64': lroNoticeImageBase64,
       'memberName': memberName,
       'surname': surname,
       'address': address,
@@ -548,6 +559,7 @@ class Member {
       'saId': saId,
       'globalRecordNo': globalRecordNo,
       'lroRecordNo': lroRecordNo,
+      'lroNoticeImageBase64': lroNoticeImageBase64,
       'memberName': memberName,
       'surname': surname,
       'address': address,
@@ -617,6 +629,7 @@ class Member {
       saId: map['saId'] as String? ?? '',
       globalRecordNo: map['globalRecordNo'] as String? ?? '',
       lroRecordNo: map['lroRecordNo'] as String?,
+      lroNoticeImageBase64: map['lroNoticeImageBase64'] as String?,
       memberName: map['memberName'] as String? ?? '',
       surname: map['surname'] as String? ?? '',
       address: map['address'] as String? ?? '',
