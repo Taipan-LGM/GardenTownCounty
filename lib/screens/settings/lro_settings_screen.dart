@@ -28,6 +28,8 @@ class LroSettingsScreen extends ConsumerStatefulWidget {
 class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   final _facebookCtrl = TextEditingController();
   final _countyUniqueCtrl = TextEditingController();
+  final _facebookFocusNode = FocusNode();
+  final _countyUniqueFocusNode = FocusNode();
   LroSettings _settings = const LroSettings();
   bool _facebookValid = false;
   String? _facebookError;
@@ -233,7 +235,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
         );
       }
-      _facebookCtrl.requestFocus();
+      _facebookFocusNode.requestFocus();
       return;
     }
 
@@ -250,7 +252,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
         );
       }
-      _countyUniqueCtrl.requestFocus();
+      _countyUniqueFocusNode.requestFocus();
       return;
     }
 
@@ -364,6 +366,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   @override
   void dispose() {
     _facebookCtrl.dispose();
+    _facebookFocusNode.dispose();
+    _countyUniqueFocusNode.dispose();
     _countyUniqueCtrl.dispose();
     super.dispose();
   }
