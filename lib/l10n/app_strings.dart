@@ -166,15 +166,11 @@ class AppStrings {
   String get sampleDescription => isAf
       ? 'Voorbeeld wat die finale gepubliseerde kennisgewing vertoon.'
       : 'Example showing how the final published notice will look.';
-  String get uploadBlueprint =>
-      isAf ? 'Laai blaaie op' : 'Upload Blueprint';
-  String get uploadSample =>
-      isAf ? 'Laai voorbeeld op' : 'Upload Sample';
-  String get clearImages =>
-      isAf ? 'Verwyder beelde' : 'Clear Images';
-  String get imagePreview =>
-      isAf ? 'Voorbeeld' : 'Preview';
-  String get LroSettingsSaved => isAf
+  String get uploadBlueprint => isAf ? 'Laai blaaie op' : 'Upload Blueprint';
+  String get uploadSample => isAf ? 'Laai voorbeeld op' : 'Upload Sample';
+  String get clearImages => isAf ? 'Verwyder beelde' : 'Clear Images';
+  String get imagePreview => isAf ? 'Voorbeeld' : 'Preview';
+  String get lroSettingsSaved => isAf
       ? 'LRO-instellings gestoor'
       : 'LRO settings saved';
   String get lroIncomplete => isAf
