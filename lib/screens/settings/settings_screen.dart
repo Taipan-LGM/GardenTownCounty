@@ -125,15 +125,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onPressed: () => _openLroSettings(context),
               text: strings.lroSettings,
               icon: Icons.account_tree_outlined,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ActionButton(
-              onPressed: () => _openSmtpSettings(context),
-              text: strings.smtpSettings,
-              icon: Icons.email_outlined,
+              backgroundColor: const Color(0xFFFFD700),
+              foregroundColor: const Color(0xFF1A237E),
             ),
           ),
           const SizedBox(height: 12),

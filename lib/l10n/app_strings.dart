@@ -156,6 +156,10 @@ class AppStrings {
   String get selectDisplayOrder => isAf
       ? 'Kies die display-volgorde vir die 16-syfering Rekordnommer'
       : 'Select the display order for the 16-digit Recording Number';
+  String get lroSelectDisplayOrder => isAf
+      ? 'LRO-instellings: Kies die display-volgorde vir die 16-syfering Rekordnommer'
+      : 'LRO Settings: Select the display order for the 16-digit Recording Number';
+  String get smtpSettingsShort => isAf ? 'SMTP' : 'SMTP';
   String get blueprintPublicNotice => isAf
       ? 'Blaaie Public Notice ( Sjabloon)'
       : 'Blueprint Public Notice (Template)';

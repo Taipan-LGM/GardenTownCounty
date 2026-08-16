@@ -9,8 +9,9 @@ import '../../l10n/app_strings.dart';
 import '../../models/county_profile.dart';
 import '../../models/lro_settings.dart';
 import '../../providers/providers.dart';
-import '../../services/lro_settings_service.dart';
 import '../../services/lro_email_service.dart' as email;
+import '../../services/lro_settings_service.dart';
+import '../../screens/settings/smtp_settings_screen.dart';
 import '../../widgets/standard_buttons.dart';
 
 /// Admin-only form for configuring Land Recording Office settings.
@@ -387,9 +388,21 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           children: [
             const Icon(Icons.account_tree, size: 24),
             const SizedBox(width: 8),
-            Text(strings.lroSettings),
+            Expanded(
+              child: Text(strings.lroSettings),
+            ),
           ],
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => _openSmtpSettings(context),
+            icon: const Icon(Icons.email_outlined, size: 18),
+            label: Text(strings.smtpSettingsShort),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -643,65 +656,84 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             const Divider(height: 1),
             const SizedBox(height: 16),
 
-            // ── Radio Buttons ─────────────────────────────────────────
-            Row(
-              children: [
-                const Icon(Icons.reorder, size: 20, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(
-                  strings.selectDisplayOrder,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+            // ── Radio Buttons (Dark Blue / White theme) ───────────────
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A237E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF0D47A1),
+                  width: 1.5,
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.reorder, size: 20, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          strings.lroSelectDisplayOrder,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
 
-            // Option 1
-            _radioOption(
-              strings,
-              value: LroNumberOrder.countyDateUnique,
-              groupValue: _settings.numberOrder,
-              label:
-                  '1: County No. + Payment Date + Unique No.',
-              example:
-                  '024 + 150125 + 1234567 = 0241501251234567',
-              onChanged: (order) =>
-                  setState(() => _settings = _settings.copyWith(numberOrder: order)),
-            ),
-            const SizedBox(height: 8),
+                  // Option 1
+                  _radioOption(
+                    strings,
+                    value: LroNumberOrder.countyDateUnique,
+                    groupValue: _settings.numberOrder,
+                    label: '1: County No. + Payment Date + Unique No.',
+                    example:
+                        '024 + 150125 + 1234567 = 0241501251234567',
+                    onChanged: (order) => setState(
+                        () => _settings = _settings.copyWith(numberOrder: order)),
+                  ),
+                  const SizedBox(height: 8),
 
-            // Option 2
-            _radioOption(
-              strings,
-              value: LroNumberOrder.uniqueDateCounty,
-              groupValue: _settings.numberOrder,
-              label: '2: Unique No. + Payment Date + County No.',
-              example:
-                  '1234567 + 150125 + 024 = 1234567150125024',
-              onChanged: (order) =>
-                  setState(() => _settings = _settings.copyWith(numberOrder: order)),
-            ),
-            const SizedBox(height: 8),
+                  // Option 2
+                  _radioOption(
+                    strings,
+                    value: LroNumberOrder.uniqueDateCounty,
+                    groupValue: _settings.numberOrder,
+                    label: '2: Unique No. + Payment Date + County No.',
+                    example:
+                        '1234567 + 150125 + 024 = 1234567150125024',
+                    onChanged: (order) => setState(
+                        () => _settings = _settings.copyWith(numberOrder: order)),
+                  ),
+                  const SizedBox(height: 8),
 
-            // Option 3
-            _radioOption(
-              strings,
-              value: LroNumberOrder.dateCountyUnique,
-              groupValue: _settings.numberOrder,
-              label: '3: Payment Date + County No. + Unique No.',
-              example:
-                  '150125 + 024 + 1234567 = 1501250241234567',
-              onChanged: (order) =>
-                  setState(() => _settings = _settings.copyWith(numberOrder: order)),
-            ),
+                  // Option 3
+                  _radioOption(
+                    strings,
+                    value: LroNumberOrder.dateCountyUnique,
+                    groupValue: _settings.numberOrder,
+                    label: '3: Payment Date + County No. + Unique No.',
+                    example:
+                        '150125 + 024 + 1234567 = 1501250241234567',
+                    onChanged: (order) => setState(
+                        () => _settings = _settings.copyWith(numberOrder: order)),
+                  ),
 
-            const SizedBox(height: 12),
-            Text(
-              'This selection applies globally to all Members. '
-              'Existing Recording Numbers are not reformatted.',
-              style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'This selection applies globally to all Members. '
+                    'Existing Recording Numbers are not reformatted.',
+                    style: TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             const Divider(height: 1),
@@ -753,16 +785,17 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     required ValueChanged<LroNumberOrder> onChanged,
   }) {
     final selected = value == groupValue;
+    const yellow = Color(0xFFFFD700);
     return InkWell(
       onTap: () => onChanged(value),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? Colors.green.shade50 : Colors.grey.shade50,
+          color: selected ? yellow.withOpacity(0.18) : Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? Colors.green.shade300 : Colors.grey.shade300,
+            color: selected ? yellow : Colors.white54,
             width: 1.5,
           ),
         ),
@@ -774,7 +807,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
               onChanged: (v) {
                 if (v != null) onChanged(v);
               },
-              activeColor: Colors.green.shade700,
+              activeColor: yellow,
+              fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) return yellow;
+                return Colors.white;
+              }),
             ),
             const SizedBox(width: 4),
             Expanded(
@@ -786,6 +823,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                     style: TextStyle(
                       fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                       fontSize: 14,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -794,14 +832,14 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontFamily: 'monospace',
-                      color: selected ? Colors.green.shade700 : Colors.grey.shade600,
+                      color: selected ? yellow : Colors.white70,
                     ),
                   ),
                 ],
               ),
             ),
             if (selected)
-              const Icon(Icons.check_circle, color: Colors.green, size: 20),
+              const Icon(Icons.check_circle, color: yellow, size: 20),
           ],
         ),
       ),
@@ -1116,4 +1154,12 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       ),
     );
   }
+}
+
+void _openSmtpSettings(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => const SmtpSettingsScreen(),
+    ),
+  );
 }
