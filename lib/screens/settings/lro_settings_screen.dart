@@ -10,9 +10,10 @@ import '../../models/county_profile.dart';
 import '../../models/lro_settings.dart';
 import '../../providers/providers.dart';
 import '../../services/lro_settings_service.dart';
+import '../../services/lro_email_service.dart' as email;
 import '../../widgets/standard_buttons.dart';
 
-/// Admin-only form for configuring Land Recovery Office settings.
+/// Admin-only form for configuring Land Recording Office settings.
 ///
 /// Layout (corrected per Part 2):
 ///   LEFT COLUMN  — Facebook link, County Name (auto), County Unique No (3 digits),
@@ -42,6 +43,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   Uint8List? _sampleBytes;
   bool _hasBlueprint = false;
   bool _hasSample = false;
+  bool _smtpConfigured = false;
 
   @override
   void initState() {
@@ -54,6 +56,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     final settings = await svc.load();
     final blueprint = await svc.loadBlueprintBytes();
     final sample = await svc.loadSampleBytes();
+    final smtpConfigured = await email.LroEmailService.isConfigured();
 
     if (!mounted) return;
     setState(() {
@@ -72,6 +75,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       _sampleBytes = sample;
       _hasBlueprint = settings.hasBlueprint;
       _hasSample = settings.hasSample;
+      _smtpConfigured = smtpConfigured;
       _blueprintLoading = false;
       _sampleLoading = false;
     });
@@ -705,6 +709,35 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
             // Status indicator
             _buildStatusIndicator(strings),
+
+            // SMTP warning (email leg of the workflow disabled)
+            if (!_smtpConfigured) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber,
+                        color: Colors.orange.shade800, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        strings.lroSmtpNotConfigured,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

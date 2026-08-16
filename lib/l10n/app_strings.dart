@@ -182,6 +182,30 @@ class AppStrings {
       ? 'LRO-instellings gestoor'
       : 'LRO settings saved';
   String get lroIncomplete => isAf ? 'LRO is onvolledig. Laai die Blaaie sjabloon op en stel die Facebook URL voor lede kan Stap 4_LRO-betalings voltooi.' : 'LRO is incomplete. Upload the Blueprint template and set the Facebook URL before Members can complete Step 4_LRO payments.';
+  String get lroSmtpNotConfigured => isAf
+      ? 'E-pospublikasie is gedeaktiveer – stel SMTP in Instellings op.'
+      : 'Email publishing is disabled – configure SMTP in Settings.';
+  String get smtpSettings => isAf ? 'SMTP-instellings' : 'SMTP Settings';
+  String get smtpSettingsSubtitle => isAf
+      ? 'Stel die e-posbediener op wat LRO Public Notices aan lede stuur.'
+      : 'Configure the mail server that delivers LRO Public Notices to Members.';
+  String get smtpEnableTls => isAf ? 'Aktiveer TLS/SSL' : 'Enable TLS/SSL';
+  String get smtpEnableTlsHint => isAf
+      ? 'Gebruik versleutelde verbinding (aanbeveel).'
+      : 'Use an encrypted connection (recommended).';
+  String get smtpTestSection => isAf ? 'Toets verbinding' : 'Test Connection';
+  String get smtpTestRecipient => isAf
+      ? 'Toets-ontvanger e-posadres'
+      : 'Test recipient email address';
+  String get testConnection => isAf ? 'Toets verbinding' : 'Test Connection';
+  String get testing => isAf ? 'Toets…' : 'Testing…';
+  String get smtpSaving => isAf ? 'Stoor…' : 'Saving…';
+  String get smtpSaved => isAf
+      ? 'SMTP-instellings gestoor'
+      : 'SMTP settings saved';
+  String get smtpMustTest => isAf
+      ? 'Voer \'n suksesvolle toets uit voordat u stoor.'
+      : 'Run a successful Test Connection before saving.';
   String get lroReady => isAf ? 'LRO is gereed. Blaaie opgelaai, Facebook-keuring gestel, County-nommer geconfigureer.' : 'LRO is ready. Blueprint uploaded, Facebook link set, County number configured.';
   String get backupOverdue => isAf ? 'Agterstallige rugsteun' : 'Backup overdue';
   String get adminAccessRequired =>

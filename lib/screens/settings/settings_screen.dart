@@ -11,6 +11,7 @@ import '../../widgets/standard_buttons.dart';
 import '../../widgets/county_logo.dart';
 import '../../widgets/new_county_warning_dialog.dart';
 import 'lro_settings_screen.dart';
+import 'smtp_settings_screen.dart';
 import 'remuneration_dashboard_screen.dart';
 import 'remuneration_settings_screen.dart';
 
@@ -124,6 +125,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onPressed: () => _openLroSettings(context),
               text: strings.lroSettings,
               icon: Icons.account_tree_outlined,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ActionButton(
+              onPressed: () => _openSmtpSettings(context),
+              text: strings.smtpSettings,
+              icon: Icons.email_outlined,
             ),
           ),
           const SizedBox(height: 12),
@@ -672,6 +682,14 @@ void _openLroSettings(BuildContext context) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => const LroSettingsScreen(),
+    ),
+  );
+}
+
+void _openSmtpSettings(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => const SmtpSettingsScreen(),
     ),
   );
 }
