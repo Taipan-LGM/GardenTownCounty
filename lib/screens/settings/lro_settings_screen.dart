@@ -78,7 +78,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   void _onFacebookChanged(String value) {
     final trimmed = value.trim();
     setState(() {
-      _facebookValid = LroSettings._isValidFacebookUrl(trimmed);
+      _facebookValid = LroSettings.checkFacebookUrl(trimmed);
       _facebookError = trimmed.isNotEmpty && !_facebookValid
           ? 'Enter a valid Facebook page address (for example, https://www.facebook.com/YourCountyPage).'
           : null;
@@ -174,7 +174,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           _blueprintBytes = loaded;
           _hasBlueprint = loaded != null;
           _blueprintLoading = false;
-          _settings = await svc.load();
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -191,7 +190,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           _sampleBytes = loaded;
           _hasSample = loaded != null;
           _sampleLoading = false;
-          _settings = await svc.load();
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -223,7 +221,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     final countyUnique = _countyUniqueCtrl.text.trim();
 
     // Validate Facebook URL.
-    if (facebook.isEmpty || !LroSettings._isValidFacebookUrl(facebook)) {
+    if (facebook.isEmpty || !LroSettings.checkFacebookUrl(facebook)) {
       setState(() {
         _facebookError = 'Enter a valid Facebook page address.';
       });
