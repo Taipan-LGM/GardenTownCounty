@@ -1,10 +1,11 @@
-import 'dart:ui' show kIsWeb;
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'lro_settings.dart';
+
+import '../models/lro_settings.dart';
+import 'lro_settings_io.dart' if (dart.library.html) 'lro_settings_stub.dart';
 
 /// Persists and loads Admin LRO settings using SharedPreferences.
 class LroSettingsService {
@@ -61,16 +62,9 @@ class LroSettingsService {
       final uri = Uri.parse(base64);
       return uri.data?.contentAsBytes();
     }
-    if (!kIsWeb) {
-      final path = prefs.getString('${_prefix}blueprintPath');
-      if (path != null && path.isNotEmpty && path.startsWith('file://')) {
-        try {
-          final file = File(Uri.parse(path).path);
-          if (await file.exists()) {
-            return await file.readAsBytes();
-          }
-        } catch (_) {}
-      }
+    final path = prefs.getString('${_prefix}blueprintPath');
+    if (path != null && path.isNotEmpty && path.startsWith('file://')) {
+      return readFileBytes(Uri.parse(path).path);
     }
     return null;
   }
@@ -83,16 +77,9 @@ class LroSettingsService {
       final uri = Uri.parse(base64);
       return uri.data?.contentAsBytes();
     }
-    if (!kIsWeb) {
-      final path = prefs.getString('${_prefix}samplePath');
-      if (path != null && path.isNotEmpty && path.startsWith('file://')) {
-        try {
-          final file = File(Uri.parse(path).path);
-          if (await file.exists()) {
-            return await file.readAsBytes();
-          }
-        } catch (_) {}
-      }
+    final path = prefs.getString('${_prefix}samplePath');
+    if (path != null && path.isNotEmpty && path.startsWith('file://')) {
+      return readFileBytes(Uri.parse(path).path);
     }
     return null;
   }
@@ -112,9 +99,9 @@ class LroSettingsService {
       final dir = await getApplicationDocumentsDirectory();
       final fileName =
           'lro_blueprint_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(bytes);
-      await prefs.setString('${_prefix}blueprintPath', file.path);
+      final filePath = '${dir.path}/$fileName';
+      await writeFileBytes(filePath, bytes);
+      await prefs.setString('${_prefix}blueprintPath', filePath);
       await prefs.remove('${_prefix}blueprintBase64');
     }
   }
@@ -133,9 +120,9 @@ class LroSettingsService {
       final dir = await getApplicationDocumentsDirectory();
       final fileName =
           'lro_sample_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(bytes);
-      await prefs.setString('${_prefix}samplePath', file.path);
+      final filePath = '${dir.path}/$fileName';
+      await writeFileBytes(filePath, bytes);
+      await prefs.setString('${_prefix}samplePath', filePath);
       await prefs.remove('${_prefix}sampleBase64');
     }
   }

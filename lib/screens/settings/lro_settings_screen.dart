@@ -28,6 +28,8 @@ class LroSettingsScreen extends ConsumerStatefulWidget {
 class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   final _facebookCtrl = TextEditingController();
   final _countyUniqueCtrl = TextEditingController();
+  final _facebookFocusNode = FocusNode();
+  final _countyUniqueFocusNode = FocusNode();
   LroSettings _settings = const LroSettings();
   bool _facebookValid = false;
   String? _facebookError;
@@ -78,7 +80,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   void _onFacebookChanged(String value) {
     final trimmed = value.trim();
     setState(() {
-      _facebookValid = LroSettings._isValidFacebookUrl(trimmed);
+      _facebookValid = LroSettings.checkFacebookUrl(trimmed);
       _facebookError = trimmed.isNotEmpty && !_facebookValid
           ? 'Enter a valid Facebook page address (for example, https://www.facebook.com/YourCountyPage).'
           : null;
@@ -174,7 +176,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           _blueprintBytes = loaded;
           _hasBlueprint = loaded != null;
           _blueprintLoading = false;
-          _settings = await svc.load();
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -191,7 +192,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           _sampleBytes = loaded;
           _hasSample = loaded != null;
           _sampleLoading = false;
-          _settings = await svc.load();
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -223,7 +223,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     final countyUnique = _countyUniqueCtrl.text.trim();
 
     // Validate Facebook URL.
-    if (facebook.isEmpty || !LroSettings._isValidFacebookUrl(facebook)) {
+    if (facebook.isEmpty || !LroSettings.checkFacebookUrl(facebook)) {
       setState(() {
         _facebookError = 'Enter a valid Facebook page address.';
       });
@@ -235,7 +235,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
         );
       }
-      _facebookCtrl.requestFocus();
+      _facebookFocusNode.requestFocus();
       return;
     }
 
@@ -252,7 +252,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
         );
       }
-      _countyUniqueCtrl.requestFocus();
+      _countyUniqueFocusNode.requestFocus();
       return;
     }
 
@@ -366,6 +366,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   @override
   void dispose() {
     _facebookCtrl.dispose();
+    _facebookFocusNode.dispose();
+    _countyUniqueFocusNode.dispose();
     _countyUniqueCtrl.dispose();
     super.dispose();
   }
@@ -475,7 +477,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                   label: Text(strings.clearImages),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
-                    side: const BorderSide(color: Colors.red.shade400),
+                    side: BorderSide(color: Colors.red.shade400),
                   ),
                 ),
               ),

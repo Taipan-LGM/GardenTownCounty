@@ -240,12 +240,12 @@ mixin _DbLro on _DatabaseServiceBase {
     int limit = 100,
   }) async {
     if (_memoryMode) {
-      final list = _lroPublications.values
+      final all = _lroPublications.values
           .where((p) => !p.deleted)
           .toList()
-        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt))
-        ..removeRange(limit, list.length > limit ? list.length : 0);
-      return list;
+        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+      if (all.length > limit) all.removeRange(limit, all.length);
+      return all;
     }
     final rows = await db.query(
       'lro_publications',
@@ -513,8 +513,10 @@ mixin _DbLro on _DatabaseServiceBase {
     required String memberId,
     required String memberName,
     required String recordingNumber,
+    required Uint8List imageBytes,
     required DateTime publishedAt,
     String? facebookPostId,
+    String? actorId,
   }) async {
     final id = '${DateTime.now().millisecondsSinceEpoch}_${memberId.substring(0, 8)}';
     final pub = LroPublication(

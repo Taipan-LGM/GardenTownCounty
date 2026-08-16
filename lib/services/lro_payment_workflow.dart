@@ -1,14 +1,11 @@
-import 'dart:io';
 import 'dart:typed_data';
-import 'package:cloudinary/cloudinary.dart';
-import 'package:path_provider/path_provider.dart';
+
 import '../models/lro_settings.dart';
 import '../models/member.dart';
 import '../services/database_service.dart';
 import '../services/lro_settings_service.dart';
 import '../services/recording_number_service.dart';
 import '../services/activity_service.dart';
-import '../providers/providers.dart';
 
 /// Handles the automated LRO workflow that runs after a Step 4_LRO payment.
 ///
@@ -41,17 +38,17 @@ class LroPaymentWorkflow {
     final settings = await lroService.load();
 
     if (!settings.hasCountyUniqueNo) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'LRO not configured: County Unique Number (3 digits) is missing.',
       );
     }
     if (!settings.isValidFacebookUrl) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'LRO not configured: Facebook Page URL is missing or invalid.',
       );
     }
     if (!settings.hasBlueprint) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'LRO not configured: Blueprint Public Notice template has not been uploaded.',
       );
     }
@@ -68,7 +65,7 @@ class LroPaymentWorkflow {
     // ── Step 2: Personalize the Blueprint picture ────────────────────────
     final blueprintBytes = await lroService.loadBlueprintBytes();
     if (blueprintBytes == null || blueprintBytes.isEmpty) {
-      throw const LroWorkflowException(
+      throw LroWorkflowException(
         'Blueprint image could not be loaded. Upload it in LRO Settings.',
       );
     }
@@ -80,7 +77,7 @@ class LroPaymentWorkflow {
     );
 
     // ── Step 3a: Save to in-app Publications ─────────────────────────────
-    final publication = await _db.createLroPublication(
+    await _db.createLroPublication(
       memberId: member.id,
       memberName: member.fullName,
       recordingNumber: recordingNumber,
