@@ -283,7 +283,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppStrings(ref.read(appLanguageProvider)).LroSettingsSaved),
+            content: Text(AppStrings(ref.read(appLanguageProvider)).lroSettingsSaved),
             backgroundColor: Colors.green,
           ),
         );
@@ -537,12 +537,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                     : null,
               ),
               onChanged: _onFacebookChanged,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'Facebook page URL is required.';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 4),
             Text(
@@ -576,7 +570,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                 border: Border.all(color: Colors.grey.shade600),
               ),
               child: FutureBuilder<CountyProfile>(
-                future: ref.watch(countyProfileProvider).future,
+                future: ref.watch(countyProfileProvider.future),
                 builder: (context, snapshot) {
                   final name = snapshot.data?.countyName ?? 'Garden Town County';
                   return Row(

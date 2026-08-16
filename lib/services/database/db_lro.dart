@@ -279,7 +279,6 @@ mixin _DbLro on _DatabaseServiceBase {
         _lroPublications[id] = p.copyWith(
           deleted: true,
           pendingSync: true,
-          updatedAt: DateTime.now().toUtc(),
         );
       }
       return;

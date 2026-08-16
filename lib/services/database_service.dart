@@ -34,6 +34,7 @@ part 'database/db_members.dart';
 part 'database/db_lookups_files.dart';
 part 'database/db_activities_sos.dart';
 part 'database/db_lro.dart';
+part 'database/db_lro_publications.dart';
 part 'database/db_snapshot.dart';
 part 'database/db_assignment_remuneration.dart';
 part 'database/db_county.dart';

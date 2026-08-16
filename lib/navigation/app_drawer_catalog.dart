@@ -109,7 +109,7 @@ class AppDrawerCatalog {
       action: AppDrawerAction.navigate,
       section: AppSection.countyInfo,
       adminOnly: true,
-      accentColor: Colors.green.shade700,
+      accentColor: Color(0xFF388E3C),
     ),
     AppDrawerItemDef(
       id: 'user_management',
