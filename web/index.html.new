@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garden Town County</title>
+  <style>
+    :root {
+      --green: #1f4d2d;
+      --green-2: #2f6a3d;
+      --bg: #f3f6ee;
+      --card: #ffffff;
+      --text: #29432c;
+      --muted: #61725e;
+      --line: #dfe8dc;
+      --accent: #d9c06d;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+    .sidebar { background: linear-gradient(180deg, var(--green) 0%, #163b22 100%); color: white; padding: 24px 18px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+    .brand-mark { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: var(--green); display: grid; place-items: center; font-weight: 900; }
+    .sidebar h2 { margin: 0; font-size: 20px; }
+    .sidebar p { margin: 3px 0 0; color: rgba(255,255,255,0.76); font-size: 12px; }
+    .nav-btn { display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 8px 0; border: 0; border-radius: 10px; background: rgba(255,255,255,0.10); color: white; cursor: pointer; font-weight: 700; }
+    .nav-btn.active { background: rgba(255,255,255,0.24); }
+    .main { padding: 20px; }
+    .topbar { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 24px rgba(0,0,0,0.04); }
+    .topbar strong { font-size: 22px; }
+    .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .card h3 { margin: 0 0 6px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 24px rgba(0,0,0,0.04); }
+    .panel h3 { margin-top: 0; }
+    form { display: grid; gap: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    input, select, button { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font: inherit; }
+    button { background: var(--green); color: white; cursor: pointer; border: 0; }
+    .list { display: grid; gap: 10px; }
+    .item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; background: #fcfdf9; gap: 12px; }
+    .muted { color: var(--muted); }
+    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #e8f2e2; color: var(--green-2); font-size: 12px; font-weight: bold; }
+    .progress { height: 8px; background: #edf3e9; border-radius: 999px; overflow: hidden; margin-top: 6px; }
+    .progress > div { height: 100%; background: var(--green); }
+    .logo-line { display: flex; gap: 6px; margin-top: 12px; }
+    .logo-line span { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.6); }
+    @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .cards { grid-template-columns: 1fr 1fr; } .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">G</div>
+        <div>
+          <h2>Garden Town County</h2>
+          <p>Membership &amp; operations</p>
+        </div>
+      </div>
+      <div class="logo-line"><span></span><span></span><span></span></div>
+      <button class="nav-btn active" data-section="dashboard">Home</button>
+      <button class="nav-btn" data-section="members">Member Info</button>
+      <button class="nav-btn" data-section="remuneration">Remuneration</button>
+      <button class="nav-btn" data-section="backup">Backup / Restore</button>
+      <button class="nav-btn" data-section="reports">Reports</button>
+      <button class="nav-btn" data-section="sos">SOS</button>
+      <button class="nav-btn" data-section="reminders">Reminders</button>
+      <button class="nav-btn" data-section="activities">Activities</button>
+      <button class="nav-btn" data-section="users">Add User</button>
+      <button class="nav-btn" data-section="global528">Global 528</button>
+      <button class="nav-btn" data-section="global528b">Global 528 Step 2</button>
+      <button class="nav-btn" data-section="global928">Global 928</button>
+      <button class="nav-btn" data-section="lro">LRO</button>
+      <button class="nav-btn" data-section="credential">Credential Card</button>
+      <button class="nav-btn" data-section="locked">Locked Members</button>
+      <button class="nav-btn" data-section="duplicates">Duplicate Report</button>
+      <button class="nav-btn" data-section="county">County Info</button>
+      <button class="nav-btn" data-section="videos">County Videos</button>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <strong id="pageTitle">Dashboard</strong>
+          <div class="muted">County membership, onboarding, and payment workspace</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span class="pill">Live preview</span>
+          <span class="pill">Main menu</span>
+        </div>
+      </div>
+
+      <section id="dashboard" class="view">
+        <div class="cards">
+          <div class="card"><h3 id="memberCount">0</h3><p>Active members</p></div>
+          <div class="card"><h3 id="stepCount">0</h3><p>Completed steps</p></div>
+          <div class="card"><h3 id="paymentCount">0</h3><p>Payment records</p></div>
+          <div class="card"><h3>Ready</h3><p>Local data is saved in this browser</p></div>
+        </div>
+        <div class="panel">
+          <h3>Quick actions</h3>
+          <p class="muted">Use the navigation to add members, record payments, and review sync status.</p>
+        </div>
+      </section>
+
+      <section id="members" class="view" style="display:none">
+        <div class="grid">
+          <div class="panel">
+            <h3>Add member</h3>
+            <form id="memberForm">
+              <input id="memberName" placeholder="Member name" required />
+              <select id="memberStatus">
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Completed">Completed</option>
+              </select>
+              <select id="memberStep">
+                <option value="1">Step 1</option>
+                <option value="2">Step 2</option>
+                <option value="3">Step 3</option>
+                <option value="4">Step 4</option>
+                <option value="5">Step 5</option>
+              </select>
+              <button type="submit">Save member</button>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Member progress</h3>
+            <div id="memberList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="remuneration" class="view" style="display:none">
+        <div class="grid">
+          <div class="panel">
+            <h3>Record payment</h3>
+            <form id="paymentForm">
+              <input id="paymentMember" placeholder="Member name" required />
+              <input id="paymentAmount" type="number" placeholder="Amount" required />
+              <select id="paymentStep">
+                <option value="1">Step 1</option>
+                <option value="2">Step 2</option>
+                <option value="3">Step 3</option>
+                <option value="4">Step 4</option>
+                <option value="5">Step 5</option>
+              </select>
+              <select id="paymentType">
+                <option value="Secretary">Secretary payment</option>
+                <option value="Admin">Admin payment</option>
+                <option value="Manual">Manual payment</option>
+              </select>
+              <button type="submit">Record payment</button>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Payments</h3>
+            <div id="paymentList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="backup" class="view" style="display:none">
+        <div class="panel">
+          <h3>Backup &amp; sync</h3>
+          <p class="muted">Local backup is enabled and the app is ready to sync when the cloud service is available.</p>
+          <div class="card"><strong>Last sync:</strong> 2 mins ago</div>
+          <div class="card"><strong>Backup status:</strong> Healthy</div>
+        </div>
+      </section>
+
+      <section id="reports" class="view" style="display:none">
+        <div class="panel">
+          <h3>Reports</h3>
+          <p class="muted">Member activity, duplicate review, and reminders are available from this working view.</p>
+          <div class="card">Pending review: 3 members</div>
+          <div class="card">Outstanding payments: 2</div>
+        </div>
+      </section>
+
+      <section id="sos" class="view" style="display:none"><div class="panel"><h3>SOS / urgent follow-up</h3><p class="muted">Escalation queue for urgent member actions.</p></div></section>
+      <section id="reminders" class="view" style="display:none"><div class="panel"><h3>Reminders</h3><p class="muted">Upcoming deadlines and follow-up reminders.</p></div></section>
+      <section id="activities" class="view" style="display:none"><div class="panel"><h3>Activities</h3><p class="muted">Recent member and admin actions.</p></div></section>
+      <section id="users" class="view" style="display:none"><div class="panel"><h3>Add user</h3><form id="userForm"><input id="userName" placeholder="User name" required /><input id="userEmail" placeholder="User email" required /><button type="submit">Create user</button></form></div></section>
+      <section id="global528" class="view" style="display:none"><div class="panel"><h3>Global 528</h3><p class="muted">Step 1 workflow for county operations.</p></div></section>
+      <section id="global528b" class="view" style="display:none"><div class="panel"><h3>Global 528 Step 2</h3><p class="muted">Continue the follow-up workflow.</p></div></section>
+      <section id="global928" class="view" style="display:none"><div class="panel"><h3>Global 928</h3><p class="muted">Review and manage the 928 workflow.</p></div></section>
+      <section id="lro" class="view" style="display:none"><div class="panel"><h3>LRO</h3><p class="muted">Local operations review and manage action items.</p></div></section>
+      <section id="credential" class="view" style="display:none"><div class="panel"><h3>Credential Card</h3><p class="muted">Credential state and card issuance.</p></div></section>
+      <section id="locked" class="view" style="display:none"><div class="panel"><h3>Locked Members</h3><p class="muted">Restricted and locked account review.</p></div></section>
+      <section id="duplicates" class="view" style="display:none"><div class="panel"><h3>Duplicate Report</h3><p class="muted">Find and review duplicate member records.</p></div></section>
+      <section id="county" class="view" style="display:none"><div class="panel"><h3>County Info</h3><p class="muted">County details and information center.</p></div></section>
+      <section id="videos" class="view" style="display:none"><div class="panel"><h3>County Videos</h3><p class="muted">Video resources and training content.</p></div></section>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'garden-town-county-data-v1';
+    const defaultState = { members: [{ id: 1, name: 'A. Mokoena', status: 'Approved', step: 4 }, { id: 2, name: 'D. Smith', status: 'Pending', step: 2 }], payments: [{ id: 1, member: 'A. Mokoena', amount: 250, step: 4, type: 'Secretary' }, { id: 2, member: 'D. Smith', amount: 120, step: 2, type: 'Manual' }], users: [] };
+    const state = loadState();
+    document.querySelectorAll('.nav-btn').forEach(btn => { btn.addEventListener('click', () => showSection(btn.dataset.section)); });
+    document.getElementById('memberForm').addEventListener('submit', (e) => { e.preventDefault(); const name = document.getElementById('memberName').value.trim(); const status = document.getElementById('memberStatus').value; const step = Number(document.getElementById('memberStep').value); if (!name) return; state.members.unshift({ id: Date.now(), name, status, step }); saveState(); render(); e.target.reset(); });
+    document.getElementById('paymentForm').addEventListener('submit', (e) => { e.preventDefault(); const member = document.getElementById('paymentMember').value.trim(); const amount = Number(document.getElementById('paymentAmount').value); const step = Number(document.getElementById('paymentStep').value); const type = document.getElementById('paymentType').value; if (!member || !amount) return; state.payments.unshift({ id: Date.now(), member, amount, step, type }); saveState(); render(); e.target.reset(); });
+    document.getElementById('userForm').addEventListener('submit', (e) => { e.preventDefault(); const name = document.getElementById('userName').value.trim(); const email = document.getElementById('userEmail').value.trim(); if (!name || !email) return; state.users.unshift({ id: Date.now(), name, email }); saveState(); render(); e.target.reset(); });
+    function showSection(section) { document.querySelectorAll('.view').forEach(view => view.style.display = 'none'); const target = document.getElementById(section); if (target) target.style.display = 'block'; document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.section === section)); document.getElementById('pageTitle').textContent = section === 'dashboard' ? 'Dashboard' : section.charAt(0).toUpperCase() + section.slice(1); }
+    function render() { const completedSteps = state.members.reduce((sum, member) => sum + member.step, 0); document.getElementById('memberCount').textContent = state.members.length; document.getElementById('stepCount').textContent = completedSteps; document.getElementById('paymentCount').textContent = state.payments.length; const memberList = document.getElementById('memberList'); if (memberList) { memberList.innerHTML = state.members.map(member => { const pct = Math.min(100, member.step * 20); return `<div class="item"><div><strong>${member.name}</strong><div class="muted">${member.status}</div><div class="progress"><div style="width:${pct}%"></div></div></div><div><button data-action="advance" data-id="${member.id}">Advance</button></div></div>`; }).join(''); document.querySelectorAll('[data-action="advance"]').forEach(btn => { btn.addEventListener('click', () => advanceMember(Number(btn.dataset.id))); }); } const paymentList = document.getElementById('paymentList'); if (paymentList) { paymentList.innerHTML = state.payments.map(payment => `<div class="item"><div><strong>${payment.member}</strong><div class="muted">Step ${payment.step} • ${payment.type}</div></div><div>R ${payment.amount}</div></div>`).join(''); } }
+    function advanceMember(id) { const member = state.members.find(item => item.id === id); if (!member) return; if (member.step < 5) member.step += 1; saveState(); render(); }
+    function loadState() { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : defaultState; } catch { return defaultState; } }
+    function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    render(); showSection('dashboard');
+  </script>
+</body>
+</html>

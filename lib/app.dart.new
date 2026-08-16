@@ -1,0 +1,60 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'core/constants/app_constants.dart';
+import 'core/theme/app_theme.dart';
+import 'providers/providers.dart';
+
+class GardenTownCountyApp extends ConsumerWidget {
+  const GardenTownCountyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final language = ref.watch(appLanguageProvider);
+    final locale =
+        language == AppLanguage.afrikaans ? const Locale('af') : const Locale('en');
+
+    return MaterialApp(
+      title: AppConstants.appName,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
+      locale: locale,
+      supportedLocales: const [Locale('en'), Locale('af')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const StableHomeScreen(),
+    );
+  }
+}
+
+class StableHomeScreen extends StatelessWidget {
+  const StableHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.apps, size: 72),
+            SizedBox(height: 16),
+            Text(
+              'Garden Town County',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('The app is now rendering.'),
+          ],
+        ),
+      ),
+    );
+  }
+}

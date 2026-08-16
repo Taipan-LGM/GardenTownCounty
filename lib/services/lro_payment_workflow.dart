@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/lro_settings.dart';
 import '../models/member.dart';
 import '../services/database_service.dart';

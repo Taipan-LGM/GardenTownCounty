@@ -141,10 +141,7 @@ class AppStrings {
   String get townCity => isAf ? 'Dorp / Stad' : 'Town / City';
   String get postalCode => isAf ? 'Poskode' : 'Postal Code';
   String get lroRecordNo => isAf ? 'LRO-rekordnr.' : 'LRO Record No.';
-  String get lroSettings => isAf ? 'LRO-instellings' : 'LRO Settings';
-  String get lroSettingsSubtitle => isAf
-      ? 'Land Recovery Office-configurasie'
-      : 'Land Recovery Office configuration';
+
   String get countyFacebookPageUrl => isAf
       ? 'County Facebook-blaaier URL'
       : 'County Facebook Page URL';
@@ -169,10 +166,14 @@ class AppStrings {
   String get sampleDescription => isAf
       ? 'Voorbeeld wat die finale gepubliseerde kennisgewing vertoon.'
       : 'Example showing how the final published notice will look.';
-  String get uploadBlueprint = isAf ? 'Laai blaaie op' : 'Upload Blueprint';
-  String get uploadSample = isAf ? 'Laai voorbeeld op' : 'Upload Sample';
-  String get clearImages = isAf ? 'Verwyder beelde' : 'Clear Images';
-  String get imagePreview = isAf ? 'Voorbeeld' : 'Preview';
+  String get uploadBlueprint =>
+      isAf ? 'Laai blaaie op' : 'Upload Blueprint';
+  String get uploadSample =>
+      isAf ? 'Laai voorbeeld op' : 'Upload Sample';
+  String get clearImages =>
+      isAf ? 'Verwyder beelde' : 'Clear Images';
+  String get imagePreview =>
+      isAf ? 'Voorbeeld' : 'Preview';
   String get LroSettingsSaved => isAf
       ? 'LRO-instellings gestoor'
       : 'LRO settings saved';
@@ -188,6 +189,8 @@ class AppStrings {
   String get deleteAll => isAf ? 'SKRAP ALLES' : 'DELETE ALL';
   String get createBackupShort => isAf ? 'Skep rugsteun' : 'Create Backup';
   String get restoreBackupShort => isAf ? 'Herstel rugsteun' : 'Restore Backup';
+  String get backupOverdue =>
+      isAf ? 'Rugsteun verstryk' : 'Backup Overdue';
 
   String get backupCenter =>
       isAf ? 'Rugsteun & Herstel Sentrum' : 'Backup & Restore Center';
