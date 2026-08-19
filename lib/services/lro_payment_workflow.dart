@@ -4,8 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
-import '../models/lro_settings.dart';
+import '../models/lro_status_correction.dart' as sc;
 import '../models/member.dart';
+import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/lro_settings_service.dart';
 import '../services/recording_number_service.dart';
@@ -17,19 +18,28 @@ import '../services/lro_email_service.dart';
 ///
 /// Sequence (per the Garden Town County LRO design plan):
 ///  1. Generate the unique 16-digit Recording Number.
-///  2. Personalize the Public Notice Template with the Member name (surname + (C)),
-///     the 16-digit Recording Number, and the four Publication Dates.
+///  2. Personalize the Public Notice Template with the County Name (auto-filled
+///     from County Settings), the Member name (surname + "(C)"), the 16-digit
+///     Recording Number, the Date of Registration, and the Admin-defined list of
+///     Status Corrections (each prefixed with a green check), then overlay the
+///     County Seal at the bottom of the notice.
 ///  3. Publish the personalized picture to three locations:
 ///       a. the in-app LRO Publications section,
 ///       b. the County Facebook page (best-effort),
 ///       c. the Member's email address (best-effort, skipped if no email/SMTP).
 ///  4. Update the Member's Application Form (Recording Number + saved notice).
 class LroPaymentWorkflow {
-  LroPaymentWorkflow(this._db, this._activity, this._lroService);
+  LroPaymentWorkflow(
+    this._db,
+    this._activity,
+    this._lroService,
+    this._countySvc,
+  );
 
   final DatabaseService _db;
   final ActivityService _activity;
   final LroSettingsService _lroService;
+  final CountySettingsService _countySvc;
 
   /// Runs the full LRO automation for a Member who just completed a Step 4_LRO
   /// payment.
@@ -81,11 +91,18 @@ class LroPaymentWorkflow {
       );
     }
 
+    final countyProfile = await _countySvc.load();
+    final countyName = countyProfile.countyName.trim().isNotEmpty
+        ? countyProfile.countyName.trim()
+        : 'Garden Town County';
+
     final personalizedBytes = await _personalizeImage(
       templateBytes,
-      member.fullName,
-      recordingNumber,
-      paymentDate,
+      countyName: countyName,
+      memberName: member.fullName,
+      recordingNumber: recordingNumber,
+      paymentDate: paymentDate,
+      statusCorrections: settings.statusCorrections,
     );
 
     // ── Step 3a: Save to in-app LRO Publications ─────────────────────────
@@ -177,17 +194,29 @@ class LroPaymentWorkflow {
   String _toDataUri(Uint8List bytes) =>
       Uri.dataFromBytes(bytes, mimeType: 'image/jpeg').toString();
 
-  /// Overlays the Member name (with (C)), the 16-digit Recording Number, and
-  /// the four Publication Dates onto the Public Notice Template image, returning the
-  /// personalized Public Notice as JPEG bytes.
+  /// Overlays the dynamic Public Notice content onto the uploaded Template image
+  /// and returns the personalized notice as JPEG bytes.
+  ///
+  /// Per the design plan, the notice shows:
+  ///  - the County Name (auto-filled from County Settings),
+  ///  - the Member name with a "(C)" suffix,
+  ///  - the 16-digit Recording Number,
+  ///  - the Date of Registration,
+  ///  - the Admin-defined Status Corrections (each prefixed with a green check,
+  ///    with NO date attached), and
+  ///  - the County Seal overlaid at the bottom of the notice (the only element
+  ///    at the bottom).
   Future<Uint8List> _personalizeImage(
-    Uint8List templateBytes,
-    String memberName,
-    String recordingNumber,
-    DateTime paymentDate,
-  ) async {
+    Uint8List templateBytes, {
+    required String countyName,
+    required String memberName,
+    required String recordingNumber,
+    required DateTime paymentDate,
+    required List<sc.LroStatusCorrection> statusCorrections,
+  }) async {
     final nameWithC = '$memberName (C)';
     final dateStr = DateFormat('dd/MM/yyyy').format(paymentDate);
+    final checked = statusCorrections.where((c) => c.isChecked).toList();
 
     final image = img.decodeImage(templateBytes);
     if (image == null) {
@@ -199,39 +228,93 @@ class LroPaymentWorkflow {
     final font = img.arial24;
     final textColor = img.ColorRgb8(20, 20, 20);
     final shadow = img.ColorRgb8(255, 255, 255);
+    final checkColor = img.ColorRgb8(33, 150, 83); // green
 
-    var y = (image.height * 0.10).round();
+    // Reserve the bottom ~24% of the image for the County Seal (the only
+    // element allowed at the bottom per the design plan).
+    final sealReserve = (image.height * 0.24).round();
+    final textBottomLimit = image.height - sealReserve;
+
+    var y = (image.height * 0.07).round();
+
     void drawLine(String text) {
+      if (y > textBottomLimit - 30) return; // never collide with the seal
       // White shadow offset, then dark text on top for legibility.
-      img.drawString(image, '  $text',
-          x: 24, y: y, font: font, color: shadow);
-      img.drawString(image, '  $text',
-          x: 22, y: y - 2, font: font, color: textColor);
+      img.drawString(image, '  $text', x: 24, y: y, font: font, color: shadow);
+      img.drawString(image, '  $text', x: 22, y: y - 2, font: font, color: textColor);
       y += 34;
     }
 
-    drawLine(nameWithC);
-    drawLine('Recording No: $recordingNumber');
-    y += 10;
-    drawLine('Publication Date: $dateStr');
-    drawLine('Voter deregistration: $dateStr');
-    drawLine('BIO Pages: $dateStr');
-    drawLine('2 x Witness Testimony: $dateStr');
-    drawLine('Universal Declaration: $dateStr');
+    void drawCheck(int cx, int cy, int size) {
+      final t = (size / 7).round().clamp(2, 5);
+      // Two segments forming a check (✓) in green.
+      img.drawLine(
+        image,
+        x1: cx - size ~/ 2,
+        y1: cy,
+        x2: cx - size ~/ 6,
+        y2: cy + size ~/ 3,
+        color: checkColor,
+        thickness: t,
+      );
+      img.drawLine(
+        image,
+        x1: cx - size ~/ 6,
+        y1: cy + size ~/ 3,
+        x2: cx + size ~/ 2,
+        y2: cy - size ~/ 3,
+        color: checkColor,
+        thickness: t,
+      );
+    }
 
-    // ── Overlay the County Seal ─────────────────────────────────────────────
+    // ── Header: County Name (auto-filled) ────────────────────────────────
+    drawLine(countyName);
+    drawLine('Land Recording Office');
+    y += 12;
+
+    // ── Member details ───────────────────────────────────────────────────
+    drawLine('This is to confirm that:');
+    y += 8;
+    drawLine('Member: $nameWithC');
+    drawLine('Recording Number: $recordingNumber');
+    drawLine('Date of Registration: $dateStr');
+    y += 14;
+
+    // ── Status Corrections (descriptions only, no dates) ─────────────────
+    drawLine('Is Status Corrected - 528:');
+    if (checked.isEmpty) {
+      y += 6;
+      drawLine('  (none)');
+    } else {
+      for (final c in checked) {
+        final desc = c.description.trim();
+        if (desc.isEmpty) continue;
+        // Draw the green check to the left of the description.
+        drawCheck(40, y + 16, 22);
+        drawLine('  $desc');
+      }
+    }
+
+    // ── Overlay the County Seal at the bottom-center ─────────────────────
     final sealBytes = await this._lroService.loadCountySealBytes();
     if (sealBytes != null && sealBytes.isNotEmpty) {
       final seal = img.decodeImage(sealBytes);
       if (seal != null) {
-        final sealW = seal.width;
-        final sealH = seal.height;
-        // Composite the seal centered onto the image (modifies image in place).
+        // Scale the seal to ~20% of the image width, preserving aspect ratio.
+        final maxW = (image.width * 0.20).round().clamp(40, 400);
+        final scale = maxW / seal.width;
+        final sealW = maxW;
+        final sealH = (seal.height * scale).round();
+        final resized = img.copyResize(seal, width: sealW, height: sealH);
+        final dstX = ((image.width - sealW) ~/ 2).clamp(0, image.width - 1);
+        final dstY = (image.height - sealH - (image.height * 0.03).round())
+            .clamp(0, image.height - 1);
         img.compositeImage(
           image,
-          seal,
-          dstX: (image.width - sealW) ~/ 2,
-          dstY: (image.height - sealH) ~/ 2,
+          resized,
+          dstX: dstX,
+          dstY: dstY,
           blend: img.BlendMode.alpha,
         );
       }

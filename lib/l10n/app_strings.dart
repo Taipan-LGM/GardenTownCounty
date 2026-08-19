@@ -178,11 +178,9 @@ class AppStrings {
       : 'Admin-configured status correction descriptions shown on the Public Notice.';
   String get addStatus => isAf ? 'Status Korreksie Byvoeg' : 'Add Status Correction';
   String get uploadCountySeal =>
-      isAf ? 'Laai County-se 신 op' : 'Upload County Seal';
-  String get uploadBlueprint => isAf ? 'Laai Public-notice sjabloon op' : 'Upload Public Notice Template';
+      isAf ? 'Laai County-seël op' : 'Upload County Seal';
   String get uploadPublicNoticeTemplate =>
       isAf ? 'Laai Public-notice sjabloon op' : 'Upload Public Notice Template';
-  String get uploadSample => isAf ? 'Laai voorbeeld op' : 'Upload Sample';
   String get clearImages => isAf ? 'Verwyder beelde' : 'Clear Images';
   String get imagePreview => isAf ? 'Voorbeeld' : 'Preview';
   String get lroSettingsSaved => isAf
