@@ -89,7 +89,8 @@ class LroNoticeRenderer {
         {bool placeholder = false,
         bool checked = false,
         bool forceBold = false,
-        double sizeScale = 1.0}) {
+        double sizeScale = 1.0,
+        LroNoticeAlignment? align}) {
       if (!_room()) return;
       final h = (style.fontSize * ptToPx * sizeScale).round().clamp(8, 400);
       if (checked) {
@@ -98,7 +99,7 @@ class LroNoticeRenderer {
       _drawText(image, text,
           color: placeholder ? placeholderColor : textColor,
           heightPx: h,
-          align: style.alignment,
+          align: align ?? style.alignment,
           bold: style.bold || forceBold,
           underline: style.underline,
           italic: style.italic,
@@ -108,11 +109,18 @@ class LroNoticeRenderer {
       y += lineH;
     }
 
+    // Header (PUBLIC NOTICE, County Name, Land Recording Office) stays
+    // centered per the design standard; the body block below "Land Recording
+    // Office" is left-aligned regardless of the Admin's alignment setting.
+    final headerAlign = style.alignment;
+    final bodyAlign = LroNoticeAlignment.left;
+
     // ── Header ───────────────────────────────────────────────────────
     drawTitle('PUBLIC NOTICE'); // +2 sizes, permanently bold
     y += (lineH * 0.3).round();
-    drawLine(countyName, forceBold: true, sizeScale: 1 + 2 / 12); // +2 sizes, bold
-    drawLine('Land Recording Office');
+    drawLine(countyName, forceBold: true, sizeScale: 1 + 2 / 12,
+        align: headerAlign); // +2 sizes, bold
+    drawLine('Land Recording Office', align: headerAlign);
     y += (lineH * 0.4).round();
 
     // Label + value on one line: the LABEL is permanently bold, the VALUE
@@ -130,7 +138,7 @@ class LroNoticeRenderer {
       final gap = (h * 0.3).round();
       final totalW = labelW + gap + valueW;
       int x0;
-      switch (style.alignment) {
+      switch (bodyAlign) {
         case LroNoticeAlignment.left:
           x0 = margin;
           break;
@@ -161,7 +169,7 @@ class LroNoticeRenderer {
     }
 
     // ── Member details ──────────────────────────────────────────────
-    drawLine('This is to confirm that:', forceBold: true);
+    drawLine('This is to confirm that:', forceBold: true, align: bodyAlign);
     y += (lineH * 0.2).round();
     drawLabeledLine('Member:', '$memberName (C)');
     drawLabeledLine('Recording Number:', recordingNumber);
@@ -170,15 +178,15 @@ class LroNoticeRenderer {
     y += (lineH * 0.5).round();
 
     // ── Status Corrections (descriptions only, no dates) ─────────────
-    drawLine('Is Status Corrected - 528:', forceBold: true);
+    drawLine('Is Status Corrected - 528:', forceBold: true, align: bodyAlign);
     final checked = statusCorrections.where((c) => c.isChecked).toList();
     if (checked.isEmpty) {
-      drawLine('  (none)');
+      drawLine('  (none)', align: bodyAlign);
     } else {
       for (final c in checked) {
         final desc = c.description.trim();
         if (desc.isEmpty) continue;
-        drawLine('  $desc', checked: true);
+        drawLine('  $desc', checked: true, align: bodyAlign);
       }
     }
 
