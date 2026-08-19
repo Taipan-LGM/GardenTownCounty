@@ -42,15 +42,22 @@ class LroNoticeRenderer {
     final placeholderColor = _parseColor(style.placeholderColor);
     final lineH = (style.fontSize * ptToPx * style.lineSpacing).round().clamp(8, 400);
 
-    // Reserve a vertical band for the seal so body text never overlaps it.
+    // Reserve a band for the seal so body text never overlaps it.
+    // Top-row positions reserve a top band; bottom-row reserve a bottom band.
     int topBand = 0;
     int bottomBand = 0;
     int sealH = 0;
     if (sealBytes != null && sealBytes.isNotEmpty) {
       sealH = (canvasW * 0.20).round().clamp(40, 400);
-      if (style.sealPosition == LroNoticeSealPosition.top) {
+      final isTopRow = style.sealPosition == LroNoticeSealPosition.topLeft ||
+          style.sealPosition == LroNoticeSealPosition.topCenter ||
+          style.sealPosition == LroNoticeSealPosition.topRight;
+      final isBottomRow = style.sealPosition == LroNoticeSealPosition.bottomLeft ||
+          style.sealPosition == LroNoticeSealPosition.bottomCenter ||
+          style.sealPosition == LroNoticeSealPosition.bottomRight;
+      if (isTopRow) {
         topBand = margin + sealH + 16;
-      } else if (style.sealPosition == LroNoticeSealPosition.bottom) {
+      } else if (isBottomRow) {
         bottomBand = margin + sealH + 16;
       }
     }
@@ -65,7 +72,9 @@ class LroNoticeRenderer {
     var y = contentTop + (style.fontSize * ptToPx * 0.8).round();
 
     void drawTitle(String text) {
-      final h = (style.fontSize * ptToPx * 1.7).round().clamp(12, 500);
+      // +2 font sizes (one "size" = 1/12 of the base, so +2/12 ≈ +16.7%).
+      final scale = 1.7 * (1 + 2 / 12);
+      final h = (style.fontSize * ptToPx * scale).round().clamp(12, 500);
       _drawText(image, text,
           color: textColor, heightPx: h, align: LroNoticeAlignment.center,
           bold: true, x: margin, maxW: canvasW - margin * 2, y: y);
@@ -75,9 +84,12 @@ class LroNoticeRenderer {
     bool _room() => y + lineH <= contentBottom;
 
     void drawLine(String text,
-        {bool placeholder = false, bool checked = false}) {
+        {bool placeholder = false,
+        bool checked = false,
+        bool forceBold = false,
+        double sizeScale = 1.0}) {
       if (!_room()) return;
-      final h = (style.fontSize * ptToPx).round().clamp(8, 400);
+      final h = (style.fontSize * ptToPx * sizeScale).round().clamp(8, 400);
       if (checked) {
         _drawCheck(image, margin + 4, y + h ~/ 2, (h * 0.7).round());
       }
@@ -85,7 +97,7 @@ class LroNoticeRenderer {
           color: placeholder ? placeholderColor : textColor,
           heightPx: h,
           align: style.alignment,
-          bold: style.bold,
+          bold: style.bold || forceBold,
           underline: style.underline,
           italic: style.italic,
           x: checked ? margin + h : margin,
@@ -95,22 +107,23 @@ class LroNoticeRenderer {
     }
 
     // ── Header ───────────────────────────────────────────────────────
-    drawTitle('PUBLIC NOTICE');
+    drawTitle('PUBLIC NOTICE'); // +2 sizes, permanently bold
     y += (lineH * 0.3).round();
-    drawLine(countyName);
+    drawLine(countyName, forceBold: true, sizeScale: 1 + 2 / 12); // +2 sizes, bold
     drawLine('Land Recording Office');
     y += (lineH * 0.4).round();
 
     // ── Member details ──────────────────────────────────────────────
-    drawLine('This is to confirm that:');
+    drawLine('This is to confirm that:', forceBold: true);
     y += (lineH * 0.2).round();
-    drawLine('Member: $memberName (C)');
-    drawLine('Recording Number: $recordingNumber');
-    drawLine('Date of Registration: ${DateFormat('dd/MM/yyyy').format(paymentDate)}');
+    drawLine('Member: $memberName (C)', forceBold: true);
+    drawLine('Recording Number: $recordingNumber', forceBold: true);
+    drawLine('Date of Registration: ${DateFormat('dd/MM/yyyy').format(paymentDate)}',
+        forceBold: true);
     y += (lineH * 0.5).round();
 
     // ── Status Corrections (descriptions only, no dates) ─────────────
-    drawLine('Is Status Corrected - 528:');
+    drawLine('Is Status Corrected - 528:', forceBold: true);
     final checked = statusCorrections.where((c) => c.isChecked).toList();
     if (checked.isEmpty) {
       drawLine('  (none)');
@@ -198,7 +211,14 @@ class LroNoticeRenderer {
     final shear = italic ? (fh ~/ 8) : 0;
     img.drawString(canvas, text, font: font, x: bx + shear, y: by, color: color);
     if (bold) {
-      img.drawString(canvas, text, font: font, x: bx + shear + 1, y: by, color: color);
+      // 3x3 stamp for a clearly heavier weight at any font size.
+      for (var dx = -1; dx <= 1; dx++) {
+        for (var dy = -1; dy <= 1; dy++) {
+          if (dx == 0 && dy == 0) continue;
+          img.drawString(canvas, text, font: font,
+              x: bx + shear + dx, y: by + dy, color: color);
+        }
+      }
     }
     if (underline) {
       img.drawLine(canvas,
@@ -270,21 +290,29 @@ class LroNoticeRenderer {
     int dstX;
     int dstY;
     switch (style.sealPosition) {
-      case LroNoticeSealPosition.top:
+      case LroNoticeSealPosition.topLeft:
+        dstX = margin;
+        dstY = margin;
+        break;
+      case LroNoticeSealPosition.topCenter:
         dstX = ((canvasW - sealW) ~/ 2).clamp(0, canvasW - 1);
         dstY = margin;
         break;
-      case LroNoticeSealPosition.bottom:
+      case LroNoticeSealPosition.topRight:
+        dstX = (canvasW - sealW - margin).clamp(0, canvasW - 1);
+        dstY = margin;
+        break;
+      case LroNoticeSealPosition.bottomLeft:
+        dstX = margin;
+        dstY = (canvasH - sealH - margin).clamp(0, canvasH - 1);
+        break;
+      case LroNoticeSealPosition.bottomCenter:
         dstX = ((canvasW - sealW) ~/ 2).clamp(0, canvasW - 1);
         dstY = (canvasH - sealH - margin).clamp(0, canvasH - 1);
         break;
-      case LroNoticeSealPosition.left:
-        dstX = margin;
-        dstY = ((canvasH - sealH) ~/ 2).clamp(0, canvasH - 1);
-        break;
-      case LroNoticeSealPosition.right:
+      case LroNoticeSealPosition.bottomRight:
         dstX = (canvasW - sealW - margin).clamp(0, canvasW - 1);
-        dstY = ((canvasH - sealH) ~/ 2).clamp(0, canvasH - 1);
+        dstY = (canvasH - sealH - margin).clamp(0, canvasH - 1);
         break;
     }
     img.compositeImage(canvas, resized, dstX: dstX, dstY: dstY, blend: img.BlendMode.alpha);

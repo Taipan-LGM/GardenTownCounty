@@ -1305,32 +1305,49 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             ),
           ],
         ),
-        _labeled(strings.sealPosition,
-            DropdownButton<LroNoticeSealPosition>(
-              value: style.sealPosition,
-              isExpanded: true,
-              items: [
-                DropdownMenuItem(
-                    value: LroNoticeSealPosition.top,
-                    child: Text(strings.sealTop)),
-                DropdownMenuItem(
-                    value: LroNoticeSealPosition.bottom,
-                    child: Text(strings.sealBottom)),
-                DropdownMenuItem(
-                    value: LroNoticeSealPosition.left,
-                    child: Text(strings.sealLeft)),
-                DropdownMenuItem(
-                    value: LroNoticeSealPosition.right,
-                    child: Text(strings.sealRight)),
-              ],
-              onChanged: (v) =>
-                  _updateDraft((s) => s.copyWith(sealPosition: v!)),
-            )),
+        _labeled(
+          strings.sealPosition,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _sealPosButton(context, style, LroNoticeSealPosition.topLeft,
+                  strings.sealTopLeft),
+              _sealPosButton(context, style, LroNoticeSealPosition.topCenter,
+                  strings.sealTopCenter),
+              _sealPosButton(context, style, LroNoticeSealPosition.topRight,
+                  strings.sealTopRight),
+              _sealPosButton(context, style, LroNoticeSealPosition.bottomLeft,
+                  strings.sealBottomLeft),
+              _sealPosButton(context, style, LroNoticeSealPosition.bottomCenter,
+                  strings.sealBottomCenter),
+              _sealPosButton(context, style, LroNoticeSealPosition.bottomRight,
+                  strings.sealBottomRight),
+            ],
+          ),
+        ),
         _labeled(strings.placeholderColor, _colorDropdown(style.placeholderColor,
             (v) => _updateDraft((s) => s.copyWith(placeholderColor: v!)))),
         _toggleChip(strings.showPlaceholders, style.showPlaceholders,
             (v) => _updateDraft((s) => s.copyWith(showPlaceholders: v))),
       ],
+    );
+  }
+
+  Widget _sealPosButton(BuildContext context, LroNoticeTemplateStyle style,
+      LroNoticeSealPosition pos, String label) {
+    final active = style.sealPosition == pos;
+    final primary = Theme.of(context).colorScheme.primary;
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: active ? primary : null,
+        foregroundColor: active ? Colors.white : null,
+        textStyle: TextStyle(
+            fontWeight: active ? FontWeight.bold : FontWeight.normal),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+      onPressed: () => _updateDraft((s) => s.copyWith(sealPosition: pos)),
+      child: Text(label),
     );
   }
 

@@ -213,10 +213,12 @@ class AppStrings {
   String get borderSolid => isAf ? 'Solied' : 'Solid';
   String get borderDashed => isAf ? 'Gebreek' : 'Dashed';
   String get borderDotted => isAf ? 'Gestippel' : 'Dotted';
-  String get sealTop => isAf ? 'Bo' : 'Top';
-  String get sealBottom => isAf ? 'Onder' : 'Bottom';
-  String get sealLeft => isAf ? 'Links' : 'Left';
-  String get sealRight => isAf ? 'Regs' : 'Right';
+  String get sealTopLeft => isAf ? 'Bo-Links' : 'Top-Left';
+  String get sealTopCenter => isAf ? 'Bo-Middel' : 'Top-Centre';
+  String get sealTopRight => isAf ? 'Bo-Regs' : 'Top-Right';
+  String get sealBottomLeft => isAf ? 'Onder-Links' : 'Bottom-Left';
+  String get sealBottomCenter => isAf ? 'Onder-Middel' : 'Bottom-Centre';
+  String get sealBottomRight => isAf ? 'Onder-Regs' : 'Bottom-Right';
   String get clearImages => isAf ? 'Verwyder beelde' : 'Clear Images';
   String get imagePreview => isAf ? 'Voorbeeld' : 'Preview';
   String get lroSettingsSaved => isAf

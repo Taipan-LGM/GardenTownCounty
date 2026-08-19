@@ -39,7 +39,7 @@ class LroNoticeTemplateStyle {
     this.lineSpacing = 1.2,
     this.showPlaceholders = true,
     this.placeholderColor = '#6B7280',
-    this.sealPosition = LroNoticeSealPosition.bottom,
+    this.sealPosition = LroNoticeSealPosition.bottomCenter,
   });
 
   LroNoticeTemplateStyle copyWith({
@@ -120,9 +120,34 @@ class LroNoticeTemplateStyle {
       lineSpacing: (json['lineSpacing'] as num? ?? 1.2).toDouble(),
       showPlaceholders: json['showPlaceholders'] as bool? ?? true,
       placeholderColor: json['placeholderColor'] as String? ?? '#6B7280',
-      sealPosition: _enum(LroNoticeSealPosition.values, json['sealPosition'] as String?,
-          LroNoticeSealPosition.bottom),
+      sealPosition: _sealPositionFromJson(json['sealPosition'] as String?),
     );
+  }
+
+  /// Maps stored seal position to the 6-position enum, with backward
+  /// compatibility for the older 4-value names (top/bottom/left/right).
+  static LroNoticeSealPosition _sealPositionFromJson(String? name) {
+    switch (name) {
+      case 'topLeft':
+        return LroNoticeSealPosition.topLeft;
+      case 'topCenter':
+        return LroNoticeSealPosition.topCenter;
+      case 'topRight':
+        return LroNoticeSealPosition.topRight;
+      case 'bottomLeft':
+        return LroNoticeSealPosition.bottomLeft;
+      case 'bottomCenter':
+      case 'bottom':
+        return LroNoticeSealPosition.bottomCenter;
+      case 'bottomRight':
+        return LroNoticeSealPosition.bottomRight;
+      case 'top':
+      case 'left':
+      case 'right':
+      default:
+        // Old single-axis values / unknown → default Bottom-Centre.
+        return LroNoticeSealPosition.bottomCenter;
+    }
   }
 
   /// The default template matches the Part 3 design-plan layout.
@@ -137,7 +162,14 @@ enum LroNoticeAlignment { left, center, right }
 
 enum LroNoticeBorderStyle { none, solid, dashed, dotted }
 
-enum LroNoticeSealPosition { top, bottom, left, right }
+enum LroNoticeSealPosition {
+  topLeft,
+  topCenter,
+  topRight,
+  bottomLeft,
+  bottomCenter,
+  bottomRight,
+}
 
 /// Encodes a nullable [LroNoticeTemplateStyle] to a JSON string (or '').
 String? encodeNoticeTemplate(LroNoticeTemplateStyle? style) =>
