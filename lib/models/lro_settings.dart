@@ -2,6 +2,7 @@ import 'dart:convert' show jsonDecode, jsonEncode;
 import 'package:flutter/foundation.dart';
 import 'lro_settings_options.dart';
 import 'lro_status_correction.dart' as sc;
+import 'lro_notice_template.dart';
 export 'lro_settings_options.dart';
 
 /// Admin-configured Land Recording Office settings.
@@ -14,6 +15,7 @@ class LroSettings {
   final String? countySealPath; // local path or web marker for the seal image
   final String? countySealBase64; // web base64 fallback for the seal
   final List<sc.LroStatusCorrection> statusCorrections; // dynamic 528 descriptions
+  final LroNoticeTemplateStyle? noticeTemplate; // parametric Public Notice style
 
   const LroSettings({
     this.countyUniqueNo = '',
@@ -24,11 +26,15 @@ class LroSettings {
     this.countySealPath,
     this.countySealBase64,
     this.statusCorrections = const [],
+    this.noticeTemplate,
   });
 
   bool get hasPublicNoticeTemplate =>
-      (publicNoticeTemplatePath != null && publicNoticeTemplatePath!.isNotEmpty) ||
-      (publicNoticeTemplateBase64 != null && publicNoticeTemplateBase64!.isNotEmpty);
+      ((publicNoticeTemplatePath != null &&
+                  publicNoticeTemplatePath!.isNotEmpty) ||
+              (publicNoticeTemplateBase64 != null &&
+                  publicNoticeTemplateBase64!.isNotEmpty)) ||
+      noticeTemplate != null;
 
   bool get hasCountySeal =>
       (countySealPath != null && countySealPath!.isNotEmpty) ||
@@ -59,6 +65,7 @@ class LroSettings {
     String? countySealPath,
     String? countySealBase64,
     List<sc.LroStatusCorrection>? statusCorrections,
+    LroNoticeTemplateStyle? noticeTemplate,
     bool clearPublicNoticeTemplatePath = false,
     bool clearPublicNoticeTemplateBase64 = false,
     bool clearCountySealPath = false,
@@ -81,6 +88,7 @@ class LroSettings {
           ? null
           : (countySealBase64 ?? this.countySealBase64),
       statusCorrections: statusCorrections ?? this.statusCorrections,
+      noticeTemplate: noticeTemplate ?? this.noticeTemplate,
     );
   }
 
@@ -127,6 +135,7 @@ class LroSettings {
         'countySealBase64': countySealBase64 ?? '',
         'statusCorrectionsJson': jsonEncode(
             statusCorrections.map((c) => c.toJson()).toList()),
+        'noticeTemplateJson': encodeNoticeTemplate(noticeTemplate) ?? '',
       };
 
   factory LroSettings.fromPrefs(Map<String, String> map) {
@@ -169,6 +178,7 @@ class LroSettings {
       countySealBase64: (map['countySealBase64'] ?? '').isEmpty
           ? null
           : map['countySealBase64'],
+      noticeTemplate: decodeNoticeTemplate(map['noticeTemplateJson']),
       statusCorrections: corrections,
     );
   }

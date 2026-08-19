@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 
 import '../models/lro_status_correction.dart' as sc;
 import '../models/member.dart';
+import '../models/lro_notice_template.dart';
+import '../services/lro_notice_renderer.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
 import '../services/lro_settings_service.dart';
@@ -70,7 +72,8 @@ class LroPaymentWorkflow {
     }
     if (!settings.hasPublicNoticeTemplate) {
       throw const LroWorkflowException(
-        'LRO not configured: Public Notice Template has not been uploaded.',
+        'LRO not configured: a Public Notice Template has not been created or uploaded '
+        'in LRO Settings.',
       );
     }
 
@@ -83,27 +86,43 @@ class LroPaymentWorkflow {
       existingNumbers: existingNumbers,
     );
 
-    // ── Step 2: Personalize the Public Notice Template ───────────────────
-    final templateBytes = await this._lroService.loadPublicNoticeTemplateBytes();
-    if (templateBytes == null || templateBytes.isEmpty) {
-      throw const LroWorkflowException(
-        'Public Notice Template image could not be loaded. Upload it in LRO Settings.',
-      );
-    }
-
+    // ── Step 2: Personalize the Public Notice ─────────────────────────────
+    // If the Admin created a parametric template (Phase 2), render from scratch
+    // using the style params. Otherwise fall back to the legacy image-overlay
+    // path (requires an uploaded template image).
     final countyProfile = await _countySvc.load();
     final countyName = countyProfile.countyName.trim().isNotEmpty
         ? countyProfile.countyName.trim()
         : 'Garden Town County';
 
-    final personalizedBytes = await _personalizeImage(
-      templateBytes,
-      countyName: countyName,
-      memberName: member.fullName,
-      recordingNumber: recordingNumber,
-      paymentDate: paymentDate,
-      statusCorrections: settings.statusCorrections,
-    );
+    final Uint8List personalizedBytes;
+    if (settings.noticeTemplate != null) {
+      final sealBytes = await _lroService.loadCountySealBytes();
+      personalizedBytes = LroNoticeRenderer.render(
+        style: settings.noticeTemplate!,
+        countyName: countyName,
+        memberName: member.fullName,
+        recordingNumber: recordingNumber,
+        paymentDate: paymentDate,
+        statusCorrections: settings.statusCorrections,
+        sealBytes: (sealBytes != null && sealBytes.isNotEmpty) ? sealBytes : null,
+      );
+    } else {
+      final templateBytes = await _lroService.loadPublicNoticeTemplateBytes();
+      if (templateBytes == null || templateBytes.isEmpty) {
+        throw const LroWorkflowException(
+          'Public Notice Template image could not be loaded. Upload it in LRO Settings.',
+        );
+      }
+      personalizedBytes = await _personalizeImage(
+        templateBytes,
+        countyName: countyName,
+        memberName: member.fullName,
+        recordingNumber: recordingNumber,
+        paymentDate: paymentDate,
+        statusCorrections: settings.statusCorrections,
+      );
+    }
 
     // ── Step 3a: Save to in-app LRO Publications ─────────────────────────
     await _db.createLroPublication(

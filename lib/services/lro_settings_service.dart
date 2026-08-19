@@ -1,4 +1,4 @@
-import 'dart:convert' show base64Decode, jsonEncode;
+import 'dart:convert' show base64Decode, base64Encode, jsonEncode;
 import 'dart:io' show File;
 import 'dart:typed_data';
 
@@ -66,8 +66,7 @@ class LroSettingsService {
       if (bytes.length > 5 * 1024 * 1024) {
         throw Exception('Public Notice Template image too large (max 5 MB).');
       }
-      final encoded =
-          Uri.dataFromBytes(bytes, mimeType: 'image/jpeg').toString();
+      final encoded = base64Encode(bytes);
       await prefs.setString('${_prefix}publicNoticeTemplateBase64', encoded);
       await prefs.setString('${_prefix}publicNoticeTemplatePath', 'web://publicNoticeTemplate');
     } else {
@@ -88,8 +87,7 @@ class LroSettingsService {
       if (bytes.length > 2 * 1024 * 1024) {
         throw Exception('County seal image too large (max 2 MB).');
       }
-      final encoded =
-          Uri.dataFromBytes(bytes, mimeType: 'image/png').toString();
+      final encoded = base64Encode(bytes);
       await prefs.setString('${_prefix}countySealBase64', encoded);
       await prefs.setString('${_prefix}countySealPath', 'web://seal');
     } else {

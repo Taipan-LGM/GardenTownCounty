@@ -9,6 +9,8 @@ import '../../l10n/app_strings.dart';
 import '../../models/county_profile.dart';
 import '../../models/lro_settings.dart';
 import '../../models/lro_status_correction.dart' as sc;
+import '../../models/lro_notice_template.dart';
+import '../../services/lro_notice_renderer.dart';
 import '../../providers/providers.dart';
 import '../../services/lro_email_service.dart' as email;
 import '../../services/lro_settings_service.dart';
@@ -48,6 +50,14 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   bool _smtpConfigured = false;
   final List<TextEditingController> _statusCorrectionControllers = [];
   final Map<int, String?> _statusCorrectionErrors = {};
+  // Stable per-row identity so Flutter reconciles list removals correctly.
+  // Without keys, unkeyed TextFields drift after removeAt on the index lists.
+  final List<int> _statusCorrectionIds = [];
+  int _statusCorrectionIdCounter = 1;
+
+  // Template designer state (Phase 2).
+  LroNoticeTemplateStyle? _draftTemplate;
+  bool _editingTemplate = false;
 
   @override
   void initState() {
@@ -898,49 +908,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   Widget _buildRightColumn(AppStrings strings) {
     return Column(
       children: [
-        // ── Public Notice Template ─────────────────────
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.photo_library, size: 20, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        strings.publicNoticeTemplate,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  strings.publicNoticeTemplateDesc,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 12),
-                _picturePublicNoticeTemplateArea(strings),
-                const SizedBox(height: 8),
-                Text(
-                  'Master template for all LRO Public Notices.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // ── Public Notice Template (Phase 2 designer) ─────
+        _buildTemplateDesignerCard(strings),
         const SizedBox(height: 16),
 
         // ── County Seal ─────────────────────────────────────────────
@@ -1030,6 +999,10 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                                     description: '', isChecked: true),
                               ],
                             );
+                            _statusCorrectionControllers.add(TextEditingController(text: ''));
+                            _statusCorrectionErrors[_settings.statusCorrections.length - 1] =
+                                'Description is required.';
+                            _statusCorrectionIds.add(_statusCorrectionIdCounter++);
                           }),
                   icon: const Icon(Icons.add, size: 18),
                   label: Text(strings.addStatus),
@@ -1057,11 +1030,379 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
+  // ── Public Notice Template designer (Phase 2) ──────────────────────────
+  static const List<String> _fontFamilies = [
+    'Arial',
+    'Times New Roman',
+    'Courier New',
+    'Georgia',
+    'Verdana',
+    'Tahoma',
+  ];
+  static const List<String> _colorPalette = [
+    '#14202E',
+    '#000000',
+    '#FFFFFF',
+    '#B91C1C',
+    '#15803D',
+    '#1D4ED8',
+    '#9333EA',
+    '#FDD835',
+    '#6B7280',
+  ];
+
+  Widget _buildTemplateDesignerCard(AppStrings strings) {
+    final hasTemplate = _draftTemplate != null || _settings.noticeTemplate != null;
+    final style = _draftTemplate ?? _settings.noticeTemplate ??
+        const LroNoticeTemplateStyle();
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.article_outlined, size: 20, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    strings.createPublicNoticeTemplate,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              hasTemplate
+                  ? 'Master Public Notice template (created).'
+                  : 'Create a Public Notice template on screen — no image upload needed.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _draftTemplate = _settings.noticeTemplate ??
+                          const LroNoticeTemplateStyle();
+                      _editingTemplate = true;
+                    });
+                  },
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: Text(hasTemplate ? strings.edit : strings.createPublicNoticeTemplate),
+                ),
+                if (hasTemplate)
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _draftTemplate = const LroNoticeTemplateStyle();
+                      });
+                    },
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: Text(strings.resetTemplate),
+                  ),
+              ],
+            ),
+            if (_editingTemplate) ...[
+              const Divider(height: 24),
+              Text(strings.templatePreview,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              _buildTemplatePreview(style, strings),
+              const SizedBox(height: 16),
+              Text(strings.templateControls,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              _buildTemplateControls(style, strings),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  FilledButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _settings = _settings.copyWith(noticeTemplate: _draftTemplate);
+                        _editingTemplate = false;
+                      });
+                    },
+                    icon: const Icon(Icons.save, size: 18),
+                    label: Text(strings.saveTemplate),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _draftTemplate = null;
+                        _editingTemplate = false;
+                      });
+                    },
+                    child: Text(strings.cancel),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTemplatePreview(LroNoticeTemplateStyle style, AppStrings strings) {
+    final sample = _settings.statusCorrections.isNotEmpty
+        ? _settings.statusCorrections
+        : const [
+            sc.LroStatusCorrection(description: 'Voter Deregistration', isChecked: true),
+            sc.LroStatusCorrection(description: 'BIO Pages', isChecked: true),
+            sc.LroStatusCorrection(description: '2 x Witness Testimonies', isChecked: true),
+            sc.LroStatusCorrection(description: 'Universal Declaration', isChecked: true),
+          ];
+    final bytes = LroNoticeRenderer.render(
+      style: style,
+      countyName: 'Garden Town County',
+      memberName: 'John Doe',
+      recordingNumber: '0241501251234567',
+      paymentDate: DateTime.now(),
+      statusCorrections: sample,
+      sealBytes: (_sealBytes != null && _sealBytes!.isNotEmpty) ? _sealBytes : null,
+    );
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
+      constraints: const BoxConstraints(maxHeight: 420),
+      child: Image.memory(bytes, fit: BoxFit.contain),
+    );
+  }
+
+  Widget _buildTemplateControls(LroNoticeTemplateStyle style, AppStrings strings) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _labeled(strings.fontFamily,
+            DropdownButton<String>(
+              value: style.fontFamily,
+              isExpanded: true,
+              items: _fontFamilies
+                  .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                  .toList(),
+              onChanged: (v) => _updateDraft((s) => s.copyWith(fontFamily: v!)),
+            )),
+        Row(
+          children: [
+            Expanded(
+              child: _labeled(
+                  '${strings.fontSize}: ${style.fontSize.round()}',
+                  Slider(
+                    value: style.fontSize,
+                    min: 8,
+                    max: 72,
+                    divisions: 64,
+                    onChanged: (v) => _updateDraft((s) => s.copyWith(fontSize: v)),
+                  )),
+            ),
+          ],
+        ),
+        Wrap(
+          spacing: 12,
+          children: [
+            _toggleChip(strings.bold, style.bold,
+                (v) => _updateDraft((s) => s.copyWith(bold: v))),
+            _toggleChip(strings.italic, style.italic,
+                (v) => _updateDraft((s) => s.copyWith(italic: v))),
+            _toggleChip(strings.underline, style.underline,
+                (v) => _updateDraft((s) => s.copyWith(underline: v))),
+          ],
+        ),
+        _labeled(strings.textAlignment,
+            SegmentedButton<LroNoticeAlignment>(
+              segments: [
+                ButtonSegment(
+                    value: LroNoticeAlignment.left, label: Text(strings.alignLeft)),
+                ButtonSegment(
+                    value: LroNoticeAlignment.center,
+                    label: Text(strings.alignCenter)),
+                ButtonSegment(
+                    value: LroNoticeAlignment.right, label: Text(strings.alignRight)),
+              ],
+              selected: {style.alignment},
+              onSelectionChanged: (s) =>
+                  _updateDraft((st) => st.copyWith(alignment: s.first)),
+            )),
+        _labeled(strings.fontColor, _colorDropdown(style.fontColor,
+            (v) => _updateDraft((s) => s.copyWith(fontColor: v!)))),
+        _labeled(strings.backgroundColor, _colorDropdown(style.backgroundColor,
+            (v) => _updateDraft((s) => s.copyWith(backgroundColor: v!)))),
+        _labeled(strings.borderStyle,
+            DropdownButton<LroNoticeBorderStyle>(
+              value: style.borderStyle,
+              isExpanded: true,
+              items: [
+                DropdownMenuItem(
+                    value: LroNoticeBorderStyle.none,
+                    child: Text(strings.borderNone)),
+                DropdownMenuItem(
+                    value: LroNoticeBorderStyle.solid,
+                    child: Text(strings.borderSolid)),
+                DropdownMenuItem(
+                    value: LroNoticeBorderStyle.dashed,
+                    child: Text(strings.borderDashed)),
+                DropdownMenuItem(
+                    value: LroNoticeBorderStyle.dotted,
+                    child: Text(strings.borderDotted)),
+              ],
+              onChanged: (v) =>
+                  _updateDraft((s) => s.copyWith(borderStyle: v!)),
+            )),
+        Row(
+          children: [
+            Expanded(
+              child: _labeled(
+                  '${strings.borderWidth}: ${style.borderWidth}',
+                  Slider(
+                    value: style.borderWidth.toDouble(),
+                    min: 1,
+                    max: 10,
+                    divisions: 9,
+                    onChanged: (v) =>
+                        _updateDraft((s) => s.copyWith(borderWidth: v.round())),
+                  )),
+            ),
+          ],
+        ),
+        _labeled(strings.borderColor, _colorDropdown(style.borderColor,
+            (v) => _updateDraft((s) => s.copyWith(borderColor: v!)))),
+        _labeled(strings.padding,
+            DropdownButton<String>(
+              value: style.padding,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: 'small', child: Text('Small')),
+                DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                DropdownMenuItem(value: 'large', child: Text('Large')),
+              ],
+              onChanged: (v) => _updateDraft((s) => s.copyWith(padding: v!)),
+            )),
+        Row(
+          children: [
+            Expanded(
+              child: _labeled(
+                  '${strings.lineSpacing}: ${style.lineSpacing.toStringAsFixed(1)}',
+                  Slider(
+                    value: style.lineSpacing,
+                    min: 1.0,
+                    max: 2.0,
+                    divisions: 10,
+                    onChanged: (v) =>
+                        _updateDraft((s) => s.copyWith(lineSpacing: v)),
+                  )),
+            ),
+          ],
+        ),
+        _labeled(strings.sealPosition,
+            DropdownButton<LroNoticeSealPosition>(
+              value: style.sealPosition,
+              isExpanded: true,
+              items: [
+                DropdownMenuItem(
+                    value: LroNoticeSealPosition.top,
+                    child: Text(strings.sealTop)),
+                DropdownMenuItem(
+                    value: LroNoticeSealPosition.bottom,
+                    child: Text(strings.sealBottom)),
+                DropdownMenuItem(
+                    value: LroNoticeSealPosition.left,
+                    child: Text(strings.sealLeft)),
+                DropdownMenuItem(
+                    value: LroNoticeSealPosition.right,
+                    child: Text(strings.sealRight)),
+              ],
+              onChanged: (v) =>
+                  _updateDraft((s) => s.copyWith(sealPosition: v!)),
+            )),
+        _labeled(strings.placeholderColor, _colorDropdown(style.placeholderColor,
+            (v) => _updateDraft((s) => s.copyWith(placeholderColor: v!)))),
+        _toggleChip(strings.showPlaceholders, style.showPlaceholders,
+            (v) => _updateDraft((s) => s.copyWith(showPlaceholders: v))),
+      ],
+    );
+  }
+
+  Widget _labeled(String label, Widget child) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 4),
+            child,
+          ],
+        ),
+      );
+
+  Widget _toggleChip(String label, bool value, ValueChanged<bool> onChanged) =>
+      FilterChip(
+        label: Text(label),
+        selected: value,
+        onSelected: onChanged,
+      );
+
+  Widget _colorDropdown(String value, ValueChanged<String?> onChanged) {
+    final v = _colorPalette.contains(value) ? value : _colorPalette.first;
+    return DropdownButton<String>(
+      value: v,
+      isExpanded: true,
+      items: _colorPalette
+          .map((c) => DropdownMenuItem(
+                value: c,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      color: _hexToColor(c),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(c),
+                  ],
+                ),
+              ))
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  void _updateDraft(LroNoticeTemplateStyle Function(LroNoticeTemplateStyle) updater) {
+    setState(() {
+      _draftTemplate = updater(_draftTemplate ??
+          _settings.noticeTemplate ??
+          const LroNoticeTemplateStyle());
+    });
+  }
+
+  static Color _hexToColor(String hex) {
+    final h = hex.replaceFirst('#', '');
+    if (h.length == 6) {
+      return Color(int.parse('FF$h', radix: 16));
+    }
+    if (h.length == 8) {
+      return Color(int.parse(h, radix: 16));
+    }
+    return Colors.black;
+  }
+
   List<Widget> _buildStatusCorrectionRows(AppStrings strings) {
     return _settings.statusCorrections.asMap().entries.map((entry) {
       final idx = entry.key;
       final field = entry.value;
       return Card(
+        key: ValueKey(_statusCorrectionIds[idx]),
         elevation: 1,
         margin: const EdgeInsets.only(bottom: 8),
         child: Padding(
@@ -1194,6 +1535,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
         _settings = _settings.copyWith(statusCorrections: next);
         _statusCorrectionControllers.removeAt(idx);
         _statusCorrectionErrors.remove(idx);
+        _statusCorrectionIds.removeAt(idx);
       });
     }
   }
@@ -1201,11 +1543,13 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   void _initStatusCorrectionControllers(List<sc.LroStatusCorrection> corrections) {
     _statusCorrectionControllers.clear();
     _statusCorrectionErrors.clear();
+    _statusCorrectionIds.clear();
     for (var i = 0; i < corrections.length; i++) {
       _statusCorrectionControllers.add(TextEditingController(text: corrections[i].description));
       _statusCorrectionErrors[i] = corrections[i].description.trim().isEmpty
           ? 'Description is required.'
           : null;
+      _statusCorrectionIds.add(_statusCorrectionIdCounter++);
     }
   }
 

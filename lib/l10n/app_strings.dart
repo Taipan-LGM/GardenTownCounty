@@ -181,6 +181,42 @@ class AppStrings {
       isAf ? 'Laai County-seël op' : 'Upload County Seal';
   String get uploadPublicNoticeTemplate =>
       isAf ? 'Laai Public-notice sjabloon op' : 'Upload Public Notice Template';
+  // ── Public Notice Template designer ──────────────────────────────────
+  String get createPublicNoticeTemplate =>
+      isAf ? 'Skep Public-notice Sjabloon' : 'Create Public Notice Template';
+  String get saveTemplate => isAf ? 'Stoor Sjabloon' : 'Save Template';
+  String get templatePreview => isAf ? 'Sjabloon Voorbeeld' : 'Template Preview';
+  String get templateControls => isAf ? 'Sjabloon Beheer' : 'Template Controls';
+  String get fontFamily => isAf ? 'Font' : 'Font';
+  String get fontSize => isAf ? 'Fontgrootte' : 'Font Size';
+  String get fontColor => isAf ? 'Fontkleur' : 'Font Color';
+  String get textAlignment => isAf ? 'Teksuitrigting' : 'Text Alignment';
+  String get backgroundColor => isAf ? 'Agtergrondkleur' : 'Background Color';
+  String get borderStyle => isAf ? 'Randstyl' : 'Border Style';
+  String get borderColor => isAf ? 'Randkleur' : 'Border Color';
+  String get borderWidth => isAf ? 'Randbreedte' : 'Border Width';
+  String get padding => isAf ? 'Spasiëring' : 'Padding';
+  String get lineSpacing => isAf ? 'Lynspasiëring' : 'Line Spacing';
+  String get placeholderColor => isAf ? 'Plaashouer-kleur' : 'Placeholder Color';
+  String get showPlaceholders =>
+      isAf ? 'Wys Plaashouers' : 'Show Placeholders';
+  String get sealPosition => isAf ? 'Seël-posisie' : 'Seal Position';
+  String get resetTemplate =>
+      isAf ? 'Herstel na verstek' : 'Reset to Default';
+  String get bold => isAf ? 'Vet' : 'Bold';
+  String get italic => isAf ? 'Skuins' : 'Italic';
+  String get underline => isAf ? 'Onderstreep' : 'Underline';
+  String get alignLeft => isAf ? 'Links' : 'Left';
+  String get alignCenter => isAf ? 'Sentrum' : 'Center';
+  String get alignRight => isAf ? 'Regs' : 'Right';
+  String get borderNone => isAf ? 'Geen' : 'None';
+  String get borderSolid => isAf ? 'Solied' : 'Solid';
+  String get borderDashed => isAf ? 'Gebreek' : 'Dashed';
+  String get borderDotted => isAf ? 'Gestippel' : 'Dotted';
+  String get sealTop => isAf ? 'Bo' : 'Top';
+  String get sealBottom => isAf ? 'Onder' : 'Bottom';
+  String get sealLeft => isAf ? 'Links' : 'Left';
+  String get sealRight => isAf ? 'Regs' : 'Right';
   String get clearImages => isAf ? 'Verwyder beelde' : 'Clear Images';
   String get imagePreview => isAf ? 'Voorbeeld' : 'Preview';
   String get lroSettingsSaved => isAf
