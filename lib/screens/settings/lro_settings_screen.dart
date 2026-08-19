@@ -400,12 +400,20 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ],
         ),
         actions: [
-          TextButton.icon(
-            onPressed: () => _openSmtpSettings(context),
-            icon: const Icon(Icons.email_outlined, size: 18),
-            label: Text(strings.smtpSettingsShort),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
+          // SMTP button: pulled ~10mm (≈38 logical px) in from the right edge
+          // and recolored yellow per the design plan.
+          Padding(
+            padding: const EdgeInsets.only(right: 38),
+            child: TextButton.icon(
+              onPressed: () => _openSmtpSettings(context),
+              icon: const Icon(Icons.email_outlined, size: 18),
+              label: Text(strings.smtpSettingsShort),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.black87,
+                backgroundColor: const Color(0xFFFDD835),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
             ),
           ),
         ],
@@ -1135,28 +1143,59 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Delete button
+              // Delete button (disabled when only one correction remains)
               IconButton(
                 icon: Icon(Icons.delete_outline,
                     color: Colors.red.shade400, size: 22),
-                onPressed: () {
-                  setState(() {
-                    final next =
-                        List<sc.LroStatusCorrection>.from(_settings.statusCorrections)
-                          ..removeAt(idx);
-                    _settings =
-                        _settings.copyWith(statusCorrections: next);
-                    _statusCorrectionControllers.removeAt(idx);
-                    _statusCorrectionErrors.remove(idx);
-                  });
-                },
-                tooltip: strings.delete,
+                onPressed: _settings.statusCorrections.length <= 1
+                    ? null
+                    : () => _confirmDeleteStatusCorrection(idx, strings),
+                tooltip: _settings.statusCorrections.length <= 1
+                    ? 'At least one status correction is required'
+                    : strings.delete,
               ),
             ],
           ),
         ),
       );
     }).toList();
+  }
+
+  Future<void> _confirmDeleteStatusCorrection(
+    int idx,
+    AppStrings strings,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete status correction?'),
+        content: const Text(
+          'Are you sure you want to delete this status correction? '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(strings.cancel),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(strings.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      setState(() {
+        final next =
+            List<sc.LroStatusCorrection>.from(_settings.statusCorrections)
+              ..removeAt(idx);
+        _settings = _settings.copyWith(statusCorrections: next);
+        _statusCorrectionControllers.removeAt(idx);
+        _statusCorrectionErrors.remove(idx);
+      });
+    }
   }
 
   void _initStatusCorrectionControllers(List<sc.LroStatusCorrection> corrections) {
