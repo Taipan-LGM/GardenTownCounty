@@ -1,10 +1,12 @@
+import 'dart:convert' show base64Decode, jsonEncode;
+import 'dart:io' show File;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/lro_settings.dart';
+import '../models/lro_settings.dart' as M;
 import 'lro_settings_io.dart' if (dart.library.html) 'lro_settings_stub.dart';
 
 /// Persists and loads Admin LRO settings using SharedPreferences.
@@ -13,126 +15,146 @@ class LroSettingsService {
 
   static Future<SharedPreferences> _prefs() => SharedPreferences.getInstance();
 
-  Future<LroSettings> load() async {
+  Future<M.LroSettings> load() async {
     final prefs = await _prefs();
-    return LroSettings.fromPrefs({
+    return M.LroSettings.fromPrefs({
       'countyUniqueNo': prefs.getString('${_prefix}countyUniqueNo') ?? '',
       'facebookPageUrl': prefs.getString('${_prefix}facebookPageUrl') ?? '',
       'numberOrder': prefs.getString('${_prefix}numberOrder') ?? '',
-      'blueprintPath': prefs.getString('${_prefix}blueprintPath') ?? '',
-      'blueprintBase64': prefs.getString('${_prefix}blueprintBase64') ?? '',
-      'samplePath': prefs.getString('${_prefix}samplePath') ?? '',
-      'sampleBase64': prefs.getString('${_prefix}sampleBase64') ?? '',
+      'publicNoticeTemplatePath': prefs.getString('${_prefix}publicNoticeTemplatePath') ?? '',
+      'publicNoticeTemplateBase64': prefs.getString('${_prefix}publicNoticeTemplateBase64') ?? '',
+      'countySealPath': prefs.getString('${_prefix}countySealPath') ?? '',
+      'countySealBase64': prefs.getString('${_prefix}countySealBase64') ?? '',
+      'statusCorrectionsJson': prefs.getString('${_prefix}statusCorrectionsJson') ?? '[]',
     });
   }
 
-  Future<LroSettings> save(LroSettings settings) async {
+  Future<void> save(M.LroSettings s) async {
     final prefs = await _prefs();
-    await prefs.setString('${_prefix}countyUniqueNo', settings.countyUniqueNo);
-    await prefs.setString('${_prefix}facebookPageUrl', settings.facebookPageUrl);
-    await prefs.setString('${_prefix}numberOrder', settings.numberOrder.name);
-    if (settings.blueprintPath != null && settings.blueprintPath!.isNotEmpty) {
-      await prefs.setString('${_prefix}blueprintPath', settings.blueprintPath!);
+    await prefs.setString('${_prefix}countyUniqueNo', s.countyUniqueNo);
+    await prefs.setString('${_prefix}facebookPageUrl', s.facebookPageUrl);
+    await prefs.setString('${_prefix}numberOrder', s.numberOrder.name);
+    if (s.publicNoticeTemplatePath != null && s.publicNoticeTemplatePath!.isNotEmpty) {
+      await prefs.setString('${_prefix}publicNoticeTemplatePath', s.publicNoticeTemplatePath!);
     } else {
-      await prefs.remove('${_prefix}blueprintPath');
+      await prefs.remove('${_prefix}publicNoticeTemplatePath');
     }
-    if (settings.blueprintBase64 != null && settings.blueprintBase64!.isNotEmpty) {
-      await prefs.setString('${_prefix}blueprintBase64', settings.blueprintBase64!);
+    if (s.publicNoticeTemplateBase64 != null && s.publicNoticeTemplateBase64!.isNotEmpty) {
+      await prefs.setString('${_prefix}publicNoticeTemplateBase64', s.publicNoticeTemplateBase64!);
     } else {
-      await prefs.remove('${_prefix}blueprintBase64');
+      await prefs.remove('${_prefix}publicNoticeTemplateBase64');
     }
-    if (settings.samplePath != null && settings.samplePath!.isNotEmpty) {
-      await prefs.setString('${_prefix}samplePath', settings.samplePath!);
+    if (s.countySealPath != null && s.countySealPath!.isNotEmpty) {
+      await prefs.setString('${_prefix}countySealPath', s.countySealPath!);
     } else {
-      await prefs.remove('${_prefix}samplePath');
+      await prefs.remove('${_prefix}countySealPath');
     }
-    if (settings.sampleBase64 != null && settings.sampleBase64!.isNotEmpty) {
-      await prefs.setString('${_prefix}sampleBase64', settings.sampleBase64!);
+    if (s.countySealBase64 != null && s.countySealBase64!.isNotEmpty) {
+      await prefs.setString('${_prefix}countySealBase64', s.countySealBase64!);
     } else {
-      await prefs.remove('${_prefix}sampleBase64');
+      await prefs.remove('${_prefix}countySealBase64');
     }
-    return settings;
+    await prefs.setString(
+        '${_prefix}statusCorrectionsJson',
+        jsonEncode(M.LroSettings.encodeJson(s.statusCorrections)));
   }
 
-  /// Returns the stored blueprint image bytes, or null if none uploaded.
-  Future<Uint8List?> loadBlueprintBytes() async {
+  /// Saves uploaded Public Notice Template image bytes (web base64 or desktop path).
+  Future<void> savePublicNoticeTemplateBytes(Uint8List bytes) async {
     final prefs = await _prefs();
-    final base64 = prefs.getString('${_prefix}blueprintBase64');
-    if (base64 != null && base64.isNotEmpty && base64.startsWith('data:')) {
-      final uri = Uri.parse(base64);
-      return uri.data?.contentAsBytes();
+    if (kIsWeb) {
+      if (bytes.length > 5 * 1024 * 1024) {
+        throw Exception('Public Notice Template image too large (max 5 MB).');
+      }
+      final encoded =
+          Uri.dataFromBytes(bytes, mimeType: 'image/jpeg').toString();
+      await prefs.setString('${_prefix}publicNoticeTemplateBase64', encoded);
+      await prefs.setString('${_prefix}publicNoticeTemplatePath', 'web://publicNoticeTemplate');
+    } else {
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName =
+          'lro_publicNoticetemplate_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final filePath = '${dir.path}/$fileName';
+      await writeFileBytes(filePath, bytes);
+      await prefs.setString('${_prefix}publicNoticeTemplatePath', filePath);
+      await prefs.remove('${_prefix}publicNoticeTemplateBase64');
     }
-    final path = prefs.getString('${_prefix}blueprintPath');
-    if (path != null && path.isNotEmpty && path.startsWith('file://')) {
-      return readFileBytes(Uri.parse(path).path);
+  }
+
+  /// Saves uploaded county seal image bytes (web base64 or desktop path).
+  Future<void> saveCountySealBytes(Uint8List bytes) async {
+    final prefs = await _prefs();
+    if (kIsWeb) {
+      if (bytes.length > 2 * 1024 * 1024) {
+        throw Exception('County seal image too large (max 2 MB).');
+      }
+      final encoded =
+          Uri.dataFromBytes(bytes, mimeType: 'image/png').toString();
+      await prefs.setString('${_prefix}countySealBase64', encoded);
+      await prefs.setString('${_prefix}countySealPath', 'web://seal');
+    } else {
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName =
+          'lro_seal_${DateTime.now().millisecondsSinceEpoch}.png';
+      final filePath = '${dir.path}/$fileName';
+      await writeFileBytes(filePath, bytes);
+      await prefs.setString('${_prefix}countySealPath', filePath);
+      await prefs.remove('${_prefix}countySealBase64');
+    }
+  }
+
+  /// Removes Public Notice Template and county seal images.
+  Future<void> clearPublicNoticeTemplate() async {
+    final prefs = await _prefs();
+    await prefs.remove('${_prefix}publicNoticeTemplatePath');
+    await prefs.remove('${_prefix}publicNoticeTemplateBase64');
+  }
+
+  Future<void> clearCountySeal() async {
+    final prefs = await _prefs();
+    await prefs.remove('${_prefix}countySealPath');
+    await prefs.remove('${_prefix}countySealBase64');
+  }
+
+  /// Loads the uploaded Public Notice Template bytes (web base64 or desktop path).
+  Future<Uint8List?> loadPublicNoticeTemplateBytes() async {
+    final prefs = await _prefs();
+    final path = prefs.getString('${_prefix}publicNoticeTemplatePath');
+    if (path != null && path.isNotEmpty) {
+      if (path.startsWith('web://')) {
+        final b64 = prefs.getString('${_prefix}publicNoticeTemplateBase64');
+        if (b64 != null && b64.isNotEmpty) {
+          return base64Decode(b64);
+        }
+      } else {
+        try {
+          return File(path).readAsBytes();
+        } catch (_) {
+          return null;
+        }
+      }
     }
     return null;
   }
 
-  /// Returns the stored sample image bytes, or null if none uploaded.
-  Future<Uint8List?> loadSampleBytes() async {
+  /// Loads the uploaded County Seal bytes (web base64 or desktop path).
+  Future<Uint8List?> loadCountySealBytes() async {
     final prefs = await _prefs();
-    final base64 = prefs.getString('${_prefix}sampleBase64');
-    if (base64 != null && base64.isNotEmpty && base64.startsWith('data:')) {
-      final uri = Uri.parse(base64);
-      return uri.data?.contentAsBytes();
-    }
-    final path = prefs.getString('${_prefix}samplePath');
-    if (path != null && path.isNotEmpty && path.startsWith('file://')) {
-      return readFileBytes(Uri.parse(path).path);
+    final path = prefs.getString('${_prefix}countySealPath');
+    if (path != null && path.isNotEmpty) {
+      if (path.startsWith('web://')) {
+        final b64 = prefs.getString('${_prefix}countySealBase64');
+        if (b64 != null && b64.isNotEmpty) {
+          return base64Decode(b64);
+        }
+      } else {
+        try {
+          return File(path).readAsBytes();
+        } catch (_) {
+          return null;
+        }
+      }
     }
     return null;
-  }
-
-  /// Saves uploaded blueprint image bytes (web base64 or desktop path).
-  Future<void> saveBlueprintBytes(Uint8List bytes) async {
-    final prefs = await _prefs();
-    if (kIsWeb) {
-      if (bytes.length > 5 * 1024 * 1024) {
-        throw Exception('Blueprint image too large (max 5 MB).');
-      }
-      final encoded = Uri.dataFromBytes(bytes, mimeType: 'image/jpeg').toString();
-      await prefs.setString('${_prefix}blueprintBase64', encoded);
-      await prefs.setString('${_prefix}blueprintPath', 'web://blueprint');
-    } else {
-      // Desktop: save to app documents and store the file path.
-      final dir = await getApplicationDocumentsDirectory();
-      final fileName =
-          'lro_blueprint_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final filePath = '${dir.path}/$fileName';
-      await writeFileBytes(filePath, bytes);
-      await prefs.setString('${_prefix}blueprintPath', filePath);
-      await prefs.remove('${_prefix}blueprintBase64');
-    }
-  }
-
-  /// Saves uploaded sample image bytes.
-  Future<void> saveSampleBytes(Uint8List bytes) async {
-    final prefs = await _prefs();
-    if (kIsWeb) {
-      if (bytes.length > 5 * 1024 * 1024) {
-        throw Exception('Sample image too large (max 5 MB).');
-      }
-      final encoded = Uri.dataFromBytes(bytes, mimeType: 'image/jpeg').toString();
-      await prefs.setString('${_prefix}sampleBase64', encoded);
-      await prefs.setString('${_prefix}samplePath', 'web://sample');
-    } else {
-      final dir = await getApplicationDocumentsDirectory();
-      final fileName =
-          'lro_sample_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final filePath = '${dir.path}/$fileName';
-      await writeFileBytes(filePath, bytes);
-      await prefs.setString('${_prefix}samplePath', filePath);
-      await prefs.remove('${_prefix}sampleBase64');
-    }
-  }
-
-  /// Removes both blueprint and sample images.
-  Future<void> clearImages() async {
-    final prefs = await _prefs();
-    await prefs.remove('${_prefix}blueprintPath');
-    await prefs.remove('${_prefix}blueprintBase64');
-    await prefs.remove('${_prefix}samplePath');
-    await prefs.remove('${_prefix}sampleBase64');
   }
 }

@@ -816,7 +816,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
 
   /// Runs the automated Land Recording Office (LRO) workflow when a Step 4_LRO
   /// payment is completed. Generates the Recording Number, personalizes the
-  /// Blueprint picture, publishes to Facebook + in-app + email, and writes the
+  /// Public Notice Template picture, publishes to Facebook + in-app + email, and writes the
   /// number into the Member's application form.
   ///
   /// Failures here are surfaced as a non-blocking SnackBar so the payment
@@ -826,7 +826,8 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
     try {
       final db = ref.read(databaseServiceProvider);
       final activity = ref.read(activityServiceProvider);
-      final workflow = LroPaymentWorkflow(db, activity);
+      final lroSvc = ref.read(lroSettingsServiceProvider);
+      final workflow = LroPaymentWorkflow(db, activity, lroSvc);
       final updated = await workflow.run(
         member: member,
         paymentDate: paymentDate,

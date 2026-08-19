@@ -11,14 +11,13 @@ import '../services/lro_settings_service.dart';
 import '../services/recording_number_service.dart';
 import '../services/activity_service.dart';
 import '../services/lro_email_service.dart';
-import '../providers/providers.dart';
 
 /// Handles the automated LRO (Land Recording Office) workflow that runs after a
 /// Step 4_LRO payment is recorded.
 ///
 /// Sequence (per the Garden Town County LRO design plan):
 ///  1. Generate the unique 16-digit Recording Number.
-///  2. Personalize the Blueprint picture with the Member name (surname + (C)),
+///  2. Personalize the Public Notice Template with the Member name (surname + (C)),
 ///     the 16-digit Recording Number, and the four Publication Dates.
 ///  3. Publish the personalized picture to three locations:
 ///       a. the in-app LRO Publications section,
@@ -26,10 +25,11 @@ import '../providers/providers.dart';
 ///       c. the Member's email address (best-effort, skipped if no email/SMTP).
 ///  4. Update the Member's Application Form (Recording Number + saved notice).
 class LroPaymentWorkflow {
-  LroPaymentWorkflow(this._db, this._activity);
+  LroPaymentWorkflow(this._db, this._activity, this._lroService);
 
   final DatabaseService _db;
   final ActivityService _activity;
+  final LroSettingsService _lroService;
 
   /// Runs the full LRO automation for a Member who just completed a Step 4_LRO
   /// payment.
@@ -46,8 +46,7 @@ class LroPaymentWorkflow {
     required String actorId,
   }) async {
     // ── Step 0: Load LRO settings ────────────────────────────────────────
-    final lroService = LroSettingsService();
-    final settings = await lroService.load();
+    final settings = await _lroService.load();
 
     if (!settings.hasCountyUniqueNo) {
       throw const LroWorkflowException(
@@ -59,9 +58,9 @@ class LroPaymentWorkflow {
         'LRO not configured: Facebook Page URL is missing or invalid.',
       );
     }
-    if (!settings.hasBlueprint) {
+    if (!settings.hasPublicNoticeTemplate) {
       throw const LroWorkflowException(
-        'LRO not configured: Blueprint Public Notice template has not been uploaded.',
+        'LRO not configured: Public Notice Template has not been uploaded.',
       );
     }
 
@@ -74,16 +73,16 @@ class LroPaymentWorkflow {
       existingNumbers: existingNumbers,
     );
 
-    // ── Step 2: Personalize the Blueprint picture ────────────────────────
-    final blueprintBytes = await lroService.loadBlueprintBytes();
-    if (blueprintBytes == null || blueprintBytes.isEmpty) {
+    // ── Step 2: Personalize the Public Notice Template ───────────────────
+    final templateBytes = await this._lroService.loadPublicNoticeTemplateBytes();
+    if (templateBytes == null || templateBytes.isEmpty) {
       throw const LroWorkflowException(
-        'Blueprint image could not be loaded. Upload it in LRO Settings.',
+        'Public Notice Template image could not be loaded. Upload it in LRO Settings.',
       );
     }
 
     final personalizedBytes = await _personalizeImage(
-      blueprintBytes,
+      templateBytes,
       member.fullName,
       recordingNumber,
       paymentDate,
@@ -179,10 +178,10 @@ class LroPaymentWorkflow {
       Uri.dataFromBytes(bytes, mimeType: 'image/jpeg').toString();
 
   /// Overlays the Member name (with (C)), the 16-digit Recording Number, and
-  /// the four Publication Dates onto the Blueprint image, returning the
+  /// the four Publication Dates onto the Public Notice Template image, returning the
   /// personalized Public Notice as JPEG bytes.
   Future<Uint8List> _personalizeImage(
-    Uint8List blueprint,
+    Uint8List templateBytes,
     String memberName,
     String recordingNumber,
     DateTime paymentDate,
@@ -190,10 +189,10 @@ class LroPaymentWorkflow {
     final nameWithC = '$memberName (C)';
     final dateStr = DateFormat('dd/MM/yyyy').format(paymentDate);
 
-    final image = img.decodeImage(blueprint);
+    final image = img.decodeImage(templateBytes);
     if (image == null) {
       throw const LroWorkflowException(
-        'Blueprint image could not be decoded. Upload a valid JPG/PNG.',
+        'Public Notice Template image could not be decoded. Upload a valid JPG/PNG.',
       );
     }
 
@@ -205,9 +204,9 @@ class LroPaymentWorkflow {
     void drawLine(String text) {
       // White shadow offset, then dark text on top for legibility.
       img.drawString(image, '  $text',
-          font: font, x: 24, y: y, color: shadow);
+          x: 24, y: y, font: font, color: shadow);
       img.drawString(image, '  $text',
-          font: font, x: 22, y: y - 2, color: textColor);
+          x: 22, y: y - 2, font: font, color: textColor);
       y += 34;
     }
 
@@ -220,15 +219,28 @@ class LroPaymentWorkflow {
     drawLine('2 x Witness Testimony: $dateStr');
     drawLine('Universal Declaration: $dateStr');
 
+    // ── Overlay the County Seal ─────────────────────────────────────────────
+    final sealBytes = await this._lroService.loadCountySealBytes();
+    if (sealBytes != null && sealBytes.isNotEmpty) {
+      final seal = img.decodeImage(sealBytes);
+      if (seal != null) {
+        final sealW = seal.width;
+        final sealH = seal.height;
+        // Composite the seal centered onto the image (modifies image in place).
+        img.compositeImage(
+          image,
+          seal,
+          dstX: (image.width - sealW) ~/ 2,
+          dstY: (image.height - sealH) ~/ 2,
+          blend: img.BlendMode.alpha,
+        );
+      }
+    }
+
     return Uint8List.fromList(img.encodeJpg(image, quality: 90));
   }
 
   /// Publishes the personalized image to the County's Facebook page.
-  ///
-  /// This is a best-effort operation. The Facebook Graph API requires a Page
-  /// Access Token and Page ID which are not stored in this app, so by default
-  /// this returns null (not published) and the in-app publication still
-  /// succeeds. Wire a real token here when available.
   Future<String?> _publishToFacebook(
     String facebookPageUrl,
     Uint8List imageBytes,

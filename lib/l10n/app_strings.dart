@@ -160,32 +160,36 @@ class AppStrings {
       ? 'LRO-instellings: Kies die display-volgorde vir die 16-syfering Rekordnommer'
       : 'LRO Settings: Select the display order for the 16-digit Recording Number';
   String get smtpSettingsShort => isAf ? 'SMTP' : 'SMTP';
-  String get blueprintPublicNotice => isAf
+  String get publicNoticeTemplate => isAf
       ? 'Blaaie Public Notice ( Sjabloon)'
-      : 'Blueprint Public Notice (Template)';
-  String get blueprintDescription => isAf
+      : 'Public Notice Template';
+  String get publicNoticeTemplateDesc => isAf
       ? 'Leë sjabloon — geen Lid-naam of Rekordnommer nie.'
       : 'Blank template — no Member Name or Recording Number.';
-  String get samplePublicNotice => isAf
-      ? 'Voorbeeld Public Notice (met Lid-data)'
-      : 'Sample Public Notice (With Member Data)';
-  String get sampleDescription => isAf
-      ? 'Voorbeeld wat die finale gepubliseerde kennisgewing vertoon.'
-      : 'Example showing how the final published notice will look.';
-  String get lroPublicNotice => isAf
-      ? 'LRO Public Notice'
-      : 'LRO Public Notice';
-  String get lroPublicNoticeNone => isAf
-      ? 'Geen gepubliseerde Public Notice nie.'
-      : 'No published Public Notice yet.';
-  String get uploadBlueprint => isAf ? 'Laai blaaie op' : 'Upload Blueprint';
+  String get countySeal => isAf ? 'County-se 신' : 'County Seal';
+  String get countySealDesc => isAf
+      ? 'Amptelike County-se 신. Onderaan elke Public Notice geplaat.'
+      : 'Official County Seal. Placed at the bottom of every Public Notice.';
+  String get statusCorrections => isAf
+      ? 'Status-korreksies'
+      : 'Status Corrections';
+  String get statusCorrectionsDesc => isAf
+      ? ' 리스 포스 버스 재단.'
+      : 'Admin-configured status correction descriptions shown on the Public Notice.';
+  String get addStatus => isAf ? 'Status Korreksie Byvoeg' : 'Add Status Correction';
+  String get uploadCountySeal =>
+      isAf ? 'Laai County-se 신 op' : 'Upload County Seal';
+  String get uploadBlueprint => isAf ? 'Laai Public-notice sjabloon op' : 'Upload Public Notice Template';
+  String get uploadPublicNoticeTemplate =>
+      isAf ? 'Laai Public-notice sjabloon op' : 'Upload Public Notice Template';
   String get uploadSample => isAf ? 'Laai voorbeeld op' : 'Upload Sample';
   String get clearImages => isAf ? 'Verwyder beelde' : 'Clear Images';
   String get imagePreview => isAf ? 'Voorbeeld' : 'Preview';
   String get lroSettingsSaved => isAf
       ? 'LRO-instellings gestoor'
       : 'LRO settings saved';
-  String get lroIncomplete => isAf ? 'LRO is onvolledig. Laai die Blaaie sjabloon op en stel die Facebook URL voor lede kan Stap 4_LRO-betalings voltooi.' : 'LRO is incomplete. Upload the Blueprint template and set the Facebook URL before Members can complete Step 4_LRO payments.';
+  String get lroIncomplete =>
+      isAf ? 'LRO is onvolledig. Laai die Public Notice Sjabloon op en stel die Facebook URL voor lede kan Stap 4_LRO-betalings voltooi.' : 'LRO is incomplete. Upload the Public Notice Template and set the Facebook URL before Members can complete Step 4_LRO payments.';
   String get lroSmtpNotConfigured => isAf
       ? 'E-pospublikasie is gedeaktiveer – stel SMTP in Instellings op.'
       : 'Email publishing is disabled – configure SMTP in Settings.';
@@ -210,7 +214,8 @@ class AppStrings {
   String get smtpMustTest => isAf
       ? 'Voer \'n suksesvolle toets uit voordat u stoor.'
       : 'Run a successful Test Connection before saving.';
-  String get lroReady => isAf ? 'LRO is gereed. Blaaie opgelaai, Facebook-keuring gestel, County-nommer geconfigureer.' : 'LRO is ready. Blueprint uploaded, Facebook link set, County number configured.';
+  String get lroReady =>
+      isAf ? 'LRO is gereed. Public Notice Sjabloon opgelaai, Facebook-keuting gestel, County-nommer geconfigureer.' : 'LRO is ready. Public Notice Template uploaded, Facebook link set, County number configured.';
   String get backupOverdue => isAf ? 'Agterstallige rugsteun' : 'Backup overdue';
   String get adminAccessRequired =>
       isAf ? 'Admin-toegang vereis.' : 'Admin access required.';
@@ -258,6 +263,12 @@ class AppStrings {
       ? 'Voorafstel benodig ’n titel en boodskap.'
       : 'Preset needs a title and message.';
   String get email => isAf ? 'E-pos' : 'Email';
+
+  // LRO Public Notice panel
+  String get lroPublicNotice => isAf ? 'LRO-kennisgewing' : 'LRO Public Notice';
+  String get lroPublicNoticeNone => isAf
+      ? 'Geen LRO-kennisgewing nie'
+      : 'No LRO Public Notice';
 
   // Reminders
   String get remindersTitle => isAf ? 'Herinnerings' : 'Reminders';

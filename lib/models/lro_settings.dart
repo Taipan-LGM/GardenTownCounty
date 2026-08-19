@@ -1,125 +1,189 @@
+import 'dart:convert' show jsonDecode, jsonEncode;
 import 'package:flutter/foundation.dart';
+import 'lro_settings_options.dart';
+import 'lro_status_correction.dart' as sc;
+export 'lro_settings_options.dart';
 
-/// How the 16-digit LRO Recording Number is assembled.
-enum LroNumberOrder {
-  countyDateUnique('County No. + Payment Date + Unique No.'),
-  uniqueDateCounty('Unique No. + Payment Date + County No.'),
-  dateCountyUnique('Payment Date + County No. + Unique No.');
-
-  const LroNumberOrder(this.label);
-  final String label;
-}
-
-/// Admin-configured Land Recovery Office settings.
+/// Admin-configured Land Recording Office settings.
 class LroSettings {
   final String countyUniqueNo; // exactly 3 digits, e.g. "024"
   final String facebookPageUrl; // Facebook page URL for auto-publishing
-  final LroNumberOrder numberOrder; // which concatenation order is active
-  final String? blueprintPath; // local path or web marker for blank template image
-  final String? blueprintBase64; // web base64 fallback for the template
-  final String? samplePath; // local path or web marker for sample image
-  final String? sampleBase64; // web base64 fallback for the sample
+  final LroNumberOrder numberOrder;
+  final String? publicNoticeTemplatePath; // local path or web marker for the template image
+  final String? publicNoticeTemplateBase64; // web base64 fallback for the template
+  final String? countySealPath; // local path or web marker for the seal image
+  final String? countySealBase64; // web base64 fallback for the seal
+  final List<sc.LroStatusCorrection> statusCorrections; // dynamic 528 descriptions
 
   const LroSettings({
     this.countyUniqueNo = '',
     this.facebookPageUrl = '',
     this.numberOrder = LroNumberOrder.countyDateUnique,
-    this.blueprintPath,
-    this.blueprintBase64,
-    this.samplePath,
-    this.sampleBase64,
+    this.publicNoticeTemplatePath,
+    this.publicNoticeTemplateBase64,
+    this.countySealPath,
+    this.countySealBase64,
+    this.statusCorrections = const [],
   });
 
-  bool get hasBlueprint =>
-      (blueprintPath != null && blueprintPath!.isNotEmpty) ||
-      (blueprintBase64 != null && blueprintBase64!.isNotEmpty);
+  bool get hasPublicNoticeTemplate =>
+      (publicNoticeTemplatePath != null && publicNoticeTemplatePath!.isNotEmpty) ||
+      (publicNoticeTemplateBase64 != null && publicNoticeTemplateBase64!.isNotEmpty);
 
-  bool get hasSample =>
-      (samplePath != null && samplePath!.isNotEmpty) ||
-      (sampleBase64 != null && sampleBase64!.isNotEmpty);
+  bool get hasCountySeal =>
+      (countySealPath != null && countySealPath!.isNotEmpty) ||
+      (countySealBase64 != null && countySealBase64!.isNotEmpty);
 
   bool get hasCountyUniqueNo => countyUniqueNo.trim().length == 3;
 
   bool get isValidFacebookUrl =>
-      facebookPageUrl.trim().isNotEmpty &&
-      checkFacebookUrl(facebookPageUrl.trim());
+      facebookPageUrl.trim().isNotEmpty && checkFacebookUrl(facebookPageUrl.trim());
 
   bool get isComplete =>
-      hasCountyUniqueNo &&
-      isValidFacebookUrl &&
-      hasBlueprint;
+      hasCountyUniqueNo && isValidFacebookUrl && hasPublicNoticeTemplate;
+
+  /// Whether the status corrections list is still the first-run defaults.
+  bool get isFirstRunStatusCorrections =>
+      statusCorrections.length == sc.kDefaultStatusCorrections.length &&
+      statusCorrections
+          .every((c) => c.description == sc.kDefaultStatusCorrections[
+              sc.kDefaultStatusCorrections.indexOf(c.description)] &&
+              c.isChecked);
 
   LroSettings copyWith({
     String? countyUniqueNo,
     String? facebookPageUrl,
     LroNumberOrder? numberOrder,
-    String? blueprintPath,
-    String? blueprintBase64,
-    String? samplePath,
-    String? sampleBase64,
-    bool clearBlueprintPath = false,
-    bool clearBlueprintBase64 = false,
-    bool clearSamplePath = false,
-    bool clearSampleBase64 = false,
+    String? publicNoticeTemplatePath,
+    String? publicNoticeTemplateBase64,
+    String? countySealPath,
+    String? countySealBase64,
+    List<sc.LroStatusCorrection>? statusCorrections,
+    bool clearPublicNoticeTemplatePath = false,
+    bool clearPublicNoticeTemplateBase64 = false,
+    bool clearCountySealPath = false,
+    bool clearCountySealBase64 = false,
   }) {
     return LroSettings(
       countyUniqueNo: countyUniqueNo ?? this.countyUniqueNo,
       facebookPageUrl: facebookPageUrl ?? this.facebookPageUrl,
       numberOrder: numberOrder ?? this.numberOrder,
-      blueprintPath:
-          clearBlueprintPath ? null : (blueprintPath ?? this.blueprintPath),
-      blueprintBase64: clearBlueprintBase64
+      publicNoticeTemplatePath: clearPublicNoticeTemplatePath
           ? null
-          : (blueprintBase64 ?? this.blueprintBase64),
-      samplePath: clearSamplePath ? null : (samplePath ?? this.samplePath),
-      sampleBase64:
-          clearSampleBase64 ? null : (sampleBase64 ?? this.sampleBase64),
+          : (publicNoticeTemplatePath ?? this.publicNoticeTemplatePath),
+      publicNoticeTemplateBase64: clearPublicNoticeTemplateBase64
+          ? null
+          : (publicNoticeTemplateBase64 ?? this.publicNoticeTemplateBase64),
+      countySealPath: clearCountySealPath
+          ? null
+          : (countySealPath ?? this.countySealPath),
+      countySealBase64: clearCountySealBase64
+          ? null
+          : (countySealBase64 ?? this.countySealBase64),
+      statusCorrections: statusCorrections ?? this.statusCorrections,
     );
+  }
+
+  /// Validates the status corrections list for save: every row must have a
+  /// non-empty description.
+  Map<int, String> validateStatusCorrections() {
+    final errors = <int, String>{};
+    for (var i = 0; i < statusCorrections.length; i++) {
+      if (statusCorrections[i].description.trim().isEmpty) {
+        errors[i] = 'Description is required.';
+      }
+    }
+    return errors;
+  }
+
+  static Map<String, dynamic> encodeJson(List<sc.LroStatusCorrection> corrections) {
+    return {
+      'items': corrections.map((c) => c.toJson()).toList(),
+    };
+  }
+
+  static List<sc.LroStatusCorrection> decodeJson(Map<String, dynamic> json) {
+    final items = json['items'];
+    if (items is! List) return const [];
+    try {
+      return items
+          .whereType<Map>()
+          .map((m) => sc.LroStatusCorrection.fromJson(
+              Map<String, dynamic>.from(m)))
+          .where((c) => c.description.trim().isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Map<String, String> toPrefs() => {
         'countyUniqueNo': countyUniqueNo,
         'facebookPageUrl': facebookPageUrl,
         'numberOrder': numberOrder.name,
-        'blueprintPath': blueprintPath ?? '',
-        'blueprintBase64': blueprintBase64 ?? '',
-        'samplePath': samplePath ?? '',
-        'sampleBase64': sampleBase64 ?? '',
+        'publicNoticeTemplatePath': publicNoticeTemplatePath ?? '',
+        'publicNoticeTemplateBase64': publicNoticeTemplateBase64 ?? '',
+        'countySealPath': countySealPath ?? '',
+        'countySealBase64': countySealBase64 ?? '',
+        'statusCorrectionsJson': jsonEncode(
+            statusCorrections.map((c) => c.toJson()).toList()),
       };
 
   factory LroSettings.fromPrefs(Map<String, String> map) {
-    final orderName = map['numberOrder'] ?? LroNumberOrder.countyDateUnique.name;
+    final correctionsJson = map['statusCorrectionsJson'] ??
+        jsonEncode(sc.kDefaultStatusCorrections.map((d) => {
+              'description': d,
+              'isChecked': true,
+            }).toList());
+    final corrections = <sc.LroStatusCorrection>[];
+    try {
+      final decoded = jsonDecode(correctionsJson) as List;
+      for (final item in decoded) {
+        if (item is Map) {
+          final c = sc.LroStatusCorrection.fromJson(
+              Map<String, dynamic>.from(item));
+          if (c.description.trim().isNotEmpty) corrections.add(c);
+        }
+      }
+    } catch (_) {
+      // corrupt data — fall back to defaults
+    }
+    if (corrections.isEmpty) {
+      corrections.addAll(sc.kDefaultStatusCorrections.map(
+          (d) => sc.LroStatusCorrection(description: d, isChecked: true)));
+    }
     return LroSettings(
       countyUniqueNo: map['countyUniqueNo'] ?? '',
       facebookPageUrl: map['facebookPageUrl'] ?? '',
       numberOrder: LroNumberOrder.values.firstWhere(
-        (o) => o.name == orderName,
+        (o) => o.name == (map['numberOrder'] ?? ''),
         orElse: () => LroNumberOrder.countyDateUnique,
       ),
-      blueprintPath: (map['blueprintPath'] ?? '').isEmpty ? null : map['blueprintPath'],
-      blueprintBase64:
-          (map['blueprintBase64'] ?? '').isEmpty ? null : map['blueprintBase64'],
-      samplePath: (map['samplePath'] ?? '').isEmpty ? null : map['samplePath'],
-      sampleBase64:
-          (map['sampleBase64'] ?? '').isEmpty ? null : map['sampleBase64'],
+      publicNoticeTemplatePath:
+          (map['publicNoticeTemplatePath'] ?? '').isEmpty ? null : map['publicNoticeTemplatePath'],
+      publicNoticeTemplateBase64: (map['publicNoticeTemplateBase64'] ?? '').isEmpty
+          ? null
+          : map['publicNoticeTemplateBase64'],
+      countySealPath:
+          (map['countySealPath'] ?? '').isEmpty ? null : map['countySealPath'],
+      countySealBase64: (map['countySealBase64'] ?? '').isEmpty
+          ? null
+          : map['countySealBase64'],
+      statusCorrections: corrections,
     );
   }
 
   /// Validates a Facebook URL string.
-  /// Accepts facebook.com/PageName, www.facebook.com/PageName,
-  /// m.facebook.com/PageName, fb.com/PageName.
   static bool checkFacebookUrl(String url) {
     final lower = url.toLowerCase().trim();
     if (!lower.contains('facebook.com') && !lower.contains('fb.com')) {
       return false;
     }
-    // Must start with a scheme or www.
     if (!lower.startsWith('http://') &&
         !lower.startsWith('https://') &&
         !lower.startsWith('www.')) {
       return false;
     }
-    // Reject personal profile URLs that contain /profile.php or /posts/
     if (lower.contains('/profile.php') || lower.contains('/posts/')) {
       return false;
     }
@@ -129,5 +193,6 @@ class LroSettings {
   @override
   String toString() =>
       'LroSettings(countyUniqueNo=$countyUniqueNo, order=${numberOrder.name}, '
-      'hasBlueprint=${hasBlueprint}, hasFacebook=${facebookPageUrl.isNotEmpty})';
+      'hasPublicNoticeTemplate=$hasPublicNoticeTemplate, hasFacebook=${facebookPageUrl.isNotEmpty}, '
+      'hasSeal=$hasCountySeal, corrections=${statusCorrections.length})';
 }

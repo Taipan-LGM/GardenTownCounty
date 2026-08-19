@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/county_profile.dart';
 import '../../models/lro_settings.dart';
+import '../../models/lro_status_correction.dart' as sc;
 import '../../providers/providers.dart';
 import '../../services/lro_email_service.dart' as email;
 import '../../services/lro_settings_service.dart';
@@ -19,7 +20,7 @@ import '../../widgets/standard_buttons.dart';
 /// Layout (corrected per Part 2):
 ///   LEFT COLUMN  — Facebook link, County Name (auto), County Unique No (3 digits),
 ///                  Radio buttons for 16-digit Recording Number order.
-///   RIGHT COLUMN — Blueprint picture (template) and Sample picture (with Member data).
+///   RIGHT COLUMN — Public Notice Template picture and Status Corrections.
 class LroSettingsScreen extends ConsumerStatefulWidget {
   const LroSettingsScreen({super.key});
 
@@ -38,13 +39,15 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   String? _countyUniqueError;
   String? _countyDuplicateError;
   bool _saving = false;
-  bool _blueprintLoading = false;
-  bool _sampleLoading = false;
-  Uint8List? _blueprintBytes;
-  Uint8List? _sampleBytes;
-  bool _hasBlueprint = false;
-  bool _hasSample = false;
+  bool _publicNoticeTemplateLoading = false;
+  bool _sealLoading = false;
+  Uint8List? _publicNoticeTemplateBytes;
+  Uint8List? _sealBytes;
+  bool _hasPublicNoticeTemplate = false;
+  bool _hasSeal = false;
   bool _smtpConfigured = false;
+  final List<TextEditingController> _statusCorrectionControllers = [];
+  final Map<int, String?> _statusCorrectionErrors = {};
 
   @override
   void initState() {
@@ -55,8 +58,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   Future<void> _loadSettings() async {
     final svc = ref.read(lroSettingsServiceProvider);
     final settings = await svc.load();
-    final blueprint = await svc.loadBlueprintBytes();
-    final sample = await svc.loadSampleBytes();
+    final publicNoticeTemplateBytes = await svc.loadPublicNoticeTemplateBytes();
+    final seal = await svc.loadCountySealBytes();
     final smtpConfigured = await email.LroEmailService.isConfigured();
 
     if (!mounted) return;
@@ -70,15 +73,16 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           : null;
       _countyUniqueError = settings.countyUniqueNo.isNotEmpty &&
               settings.countyUniqueNo.trim().length != 3
-          ? 'Enter exactly 3 digits.'
+          ? 'Enter exactly 3 digits (for example, 024).'
           : null;
-      _blueprintBytes = blueprint;
-      _sampleBytes = sample;
-      _hasBlueprint = settings.hasBlueprint;
-      _hasSample = settings.hasSample;
+      _publicNoticeTemplateBytes = publicNoticeTemplateBytes;
+      _sealBytes = seal;
+      _hasPublicNoticeTemplate = settings.hasPublicNoticeTemplate;
+      _hasSeal = settings.hasCountySeal;
       _smtpConfigured = smtpConfigured;
-      _blueprintLoading = false;
-      _sampleLoading = false;
+      _publicNoticeTemplateLoading = false;
+      _sealLoading = false;
+      _initStatusCorrectionControllers(settings.statusCorrections);
     });
   }
 
@@ -128,7 +132,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   }
 
   Future<void> _pickImage({
-    required bool isBlueprint,
+    required bool isPublicNoticeTemplate,
     required bool isWeb,
   }) async {
     final pick = await FilePicker.platform.pickFiles(
@@ -165,43 +169,43 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
     if (!mounted) return;
     setState(() {
-      if (isBlueprint) {
-        _blueprintLoading = true;
+      if (isPublicNoticeTemplate) {
+        _publicNoticeTemplateLoading = true;
       } else {
-        _sampleLoading = true;
+        _sealLoading = true;
       }
     });
 
     try {
       final svc = ref.read(lroSettingsServiceProvider);
-      if (isBlueprint) {
-        await svc.saveBlueprintBytes(bytes);
-        final loaded = await svc.loadBlueprintBytes();
+      if (isPublicNoticeTemplate) {
+        await svc.savePublicNoticeTemplateBytes(bytes);
+        final loaded = await svc.loadPublicNoticeTemplateBytes();
         setState(() {
-          _blueprintBytes = loaded;
-          _hasBlueprint = loaded != null;
-          _blueprintLoading = false;
+          _publicNoticeTemplateBytes = loaded;
+          _hasPublicNoticeTemplate = loaded != null;
+          _publicNoticeTemplateLoading = false;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Blueprint template uploaded.'),
+              content: Text('Public Notice template uploaded.'),
               backgroundColor: Colors.green,
             ),
           );
         }
       } else {
-        await svc.saveSampleBytes(bytes);
-        final loaded = await svc.loadSampleBytes();
+        await svc.saveCountySealBytes(bytes);
+        final loaded = await svc.loadCountySealBytes();
         setState(() {
-          _sampleBytes = loaded;
-          _hasSample = loaded != null;
-          _sampleLoading = false;
+          _sealBytes = loaded;
+          _hasSeal = loaded != null;
+          _sealLoading = false;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Sample notice uploaded.'),
+              content: Text('County seal uploaded.'),
               backgroundColor: Colors.green,
             ),
           );
@@ -210,8 +214,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          if (isBlueprint) _blueprintLoading = false;
-          else _sampleLoading = false;
+          if (isPublicNoticeTemplate) _publicNoticeTemplateLoading = false;
+          else _sealLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -279,6 +283,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
         countyUniqueNo: countyUnique,
         facebookPageUrl: facebook,
         numberOrder: _settings.numberOrder,
+        statusCorrections: _settings.statusCorrections,
       );
       await svc.save(updated);
       if (mounted) {
@@ -314,8 +319,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Clear Images'),
         content: const Text(
-          'This will remove both the Blueprint template and the Sample notice. '
-          'Published notices will not be affected.',
+   'This will remove both the Public Notice Template and the County seal. '
+   'Published notices will not be affected.',
         ),
         actions: [
           TextButton(
@@ -336,13 +341,14 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     if (confirmed != true) return;
 
     setState(() {
-      _blueprintLoading = true;
-      _sampleLoading = true;
+      _publicNoticeTemplateLoading = true;
+      _sealLoading = true;
     });
 
     try {
       final svc = ref.read(lroSettingsServiceProvider);
-      await svc.clearImages();
+      await svc.clearPublicNoticeTemplate();
+      await svc.clearCountySeal();
       await _loadSettings();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -355,8 +361,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _blueprintLoading = false;
-          _sampleLoading = false;
+          _publicNoticeTemplateLoading = false;
+          _sealLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -884,7 +890,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   Widget _buildRightColumn(AppStrings strings) {
     return Column(
       children: [
-        // ── Blueprint Picture ──────────────────────────────────────
+        // ── Public Notice Template ─────────────────────
         Card(
           elevation: 2,
           child: Padding(
@@ -898,7 +904,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        strings.blueprintPublicNotice,
+                        strings.publicNoticeTemplate,
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -909,11 +915,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  strings.blueprintDescription,
+                  strings.publicNoticeTemplateDesc,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 12),
-                _pictureBlueprintArea(strings),
+                _picturePublicNoticeTemplateArea(strings),
                 const SizedBox(height: 8),
                 Text(
                   'Master template for all LRO Public Notices.',
@@ -929,7 +935,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // ── Sample Picture ─────────────────────────────────────────
+        // ── County Seal ─────────────────────────────────────────────
         Card(
           elevation: 2,
           child: Padding(
@@ -939,11 +945,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.photo, size: 20, color: Colors.grey),
+                    const Icon(Icons.account_balance, size: 20, color: Colors.grey),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        strings.samplePublicNotice,
+                        strings.countySeal,
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -954,14 +960,81 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  strings.sampleDescription,
+                  strings.countySealDesc,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 12),
-                _pictureSampleArea(strings),
+                _pictureSealArea(strings),
                 const SizedBox(height: 8),
                 Text(
-                  'Optional — for Admin reference only. Not required for workflow.',
+                  'Official County Seal. Placed at the bottom of every Public Notice.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Status Corrections ─────────────────────────────────────
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.checklist, size: 20, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        strings.statusCorrections,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  strings.statusCorrectionsDesc,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 12),
+                ..._buildStatusCorrectionRows(strings),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _settings.statusCorrections.length >= 12
+                      ? null
+                      : () => setState(() {
+                            _settings = _settings.copyWith(
+                              statusCorrections: [
+                                ..._settings.statusCorrections,
+                                sc.LroStatusCorrection(
+                                    description: '', isChecked: true),
+                              ],
+                            );
+                          }),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(strings.addStatus),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Maximum 12 status corrections.',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade500,
@@ -976,19 +1049,140 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  Widget _pictureBlueprintArea(AppStrings strings) {
-    if (_blueprintLoading) {
+  List<Widget> _buildStatusCorrectionRows(AppStrings strings) {
+    return _settings.statusCorrections.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final field = entry.value;
+      return Card(
+        elevation: 1,
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Checkbox (toggleable ✅)
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: RawMaterialButton(
+                  onPressed: () {
+                    setState(() {
+                      final next =
+                          List<sc.LroStatusCorrection>.from(_settings.statusCorrections);
+                      next[idx] = field.copyWith(isChecked: !field.isChecked);
+                      _settings = _settings.copyWith(statusCorrections: next);
+                    });
+                  },
+                  child: Icon(
+                    field.isChecked ? Icons.check_circle : Icons.check_circle_outline,
+                    color: field.isChecked ? Colors.green : Colors.white70,
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Description inline field
+              SizedBox(
+                width: 400,
+                child: TextField(
+                  controller: _statusCorrectionControllers[idx],
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Voter Deregistration',
+                    errorText: _statusCorrectionErrors[idx],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.white38),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.blue, width: 1.5),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.05),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  onChanged: (value) {
+                    setState(() {
+                      final next =
+                          List<sc.LroStatusCorrection>.from(_settings.statusCorrections);
+                      next[idx] = field.copyWith(description: value);
+                      _settings = _settings.copyWith(statusCorrections: next);
+                      _statusCorrectionErrors[idx] =
+                          value.trim().isEmpty ? 'Description is required.' : null;
+                    });
+                  },
+                  onEditingComplete: () {
+                    // Commit on Enter; keep focus in field.
+                    _statusCorrectionControllers[idx].text =
+                        _statusCorrectionControllers[idx].text.trim();
+                    if (_statusCorrectionControllers[idx].text.trim().isNotEmpty) {
+                      setState(() {
+                        final next =
+                            List<sc.LroStatusCorrection>.from(_settings.statusCorrections);
+                        next[idx] = field.copyWith(
+                            description: _statusCorrectionControllers[idx].text.trim());
+                        _settings = _settings.copyWith(statusCorrections: next);
+                        _statusCorrectionErrors[idx] = null;
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Delete button
+              IconButton(
+                icon: Icon(Icons.delete_outline,
+                    color: Colors.red.shade400, size: 22),
+                onPressed: () {
+                  setState(() {
+                    final next =
+                        List<sc.LroStatusCorrection>.from(_settings.statusCorrections)
+                          ..removeAt(idx);
+                    _settings =
+                        _settings.copyWith(statusCorrections: next);
+                    _statusCorrectionControllers.removeAt(idx);
+                    _statusCorrectionErrors.remove(idx);
+                  });
+                },
+                tooltip: strings.delete,
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  void _initStatusCorrectionControllers(List<sc.LroStatusCorrection> corrections) {
+    _statusCorrectionControllers.clear();
+    _statusCorrectionErrors.clear();
+    for (var i = 0; i < corrections.length; i++) {
+      _statusCorrectionControllers.add(TextEditingController(text: corrections[i].description));
+      _statusCorrectionErrors[i] = corrections[i].description.trim().isEmpty
+          ? 'Description is required.'
+          : null;
+    }
+  }
+
+  Widget _picturePublicNoticeTemplateArea(AppStrings strings) {
+    if (_publicNoticeTemplateLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_blueprintBytes != null && _blueprintBytes!.isNotEmpty) {
+    if (_publicNoticeTemplateBytes != null && _publicNoticeTemplateBytes!.isNotEmpty) {
       return Stack(
         alignment: Alignment.center,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.memory(
-              _blueprintBytes!,
+              _publicNoticeTemplateBytes!,
               width: double.infinity,
               height: 160,
               fit: BoxFit.cover,
@@ -1015,11 +1209,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white, size: 18),
               onPressed: () {
-                // Remove blueprint.
-                ref.read(lroSettingsServiceProvider).clearImages().then((_) {
+                // Remove Public Notice Template.
+                ref.read(lroSettingsServiceProvider).clearPublicNoticeTemplate().then((_) {
                   setState(() {
-                    _blueprintBytes = null;
-                    _hasBlueprint = false;
+                    _publicNoticeTemplateBytes = null;
+                    _hasPublicNoticeTemplate = false;
                   });
                 });
               },
@@ -1047,14 +1241,14 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           const Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
           const SizedBox(height: 8),
           Text(
-            'No blueprint uploaded',
+            'No template uploaded',
             style: const TextStyle(color: Colors.grey, fontSize: 13),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: () => _pickImage(isBlueprint: true, isWeb: kIsWeb),
+            onPressed: () => _pickImage(isPublicNoticeTemplate: true, isWeb: kIsWeb),
             icon: const Icon(Icons.upload, size: 18),
-            label: Text(strings.uploadBlueprint),
+            label: Text(strings.uploadPublicNoticeTemplate),
             style: FilledButton.styleFrom(
               backgroundColor: Colors.blue.shade700,
               foregroundColor: Colors.white,
@@ -1066,22 +1260,22 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  Widget _pictureSampleArea(AppStrings strings) {
-    if (_sampleLoading) {
+  Widget _pictureSealArea(AppStrings strings) {
+    if (_sealLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_sampleBytes != null && _sampleBytes!.isNotEmpty) {
+    if (_sealBytes != null && _sealBytes!.isNotEmpty) {
       return Stack(
         alignment: Alignment.center,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.memory(
-              _sampleBytes!,
+              _sealBytes!,
               width: double.infinity,
-              height: 160,
-              fit: BoxFit.cover,
+              height: 120,
+              fit: BoxFit.contain,
             ),
           ),
           Positioned(
@@ -1105,10 +1299,10 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white, size: 18),
               onPressed: () {
-                ref.read(lroSettingsServiceProvider).clearImages().then((_) {
+                ref.read(lroSettingsServiceProvider).clearCountySeal().then((_) {
                   setState(() {
-                    _sampleBytes = null;
-                    _hasSample = false;
+                    _sealBytes = null;
+                    _hasSeal = false;
                   });
                 });
               },
@@ -1124,7 +1318,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
     return Container(
       width: double.infinity,
-      height: 160,
+      height: 120,
       decoration: BoxDecoration(
         color: Colors.grey.shade800,
         borderRadius: BorderRadius.circular(8),
@@ -1133,19 +1327,19 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
+          const Icon(Icons.account_balance, size: 40, color: Colors.grey),
           const SizedBox(height: 8),
           Text(
-            'No sample uploaded',
+            'No county seal uploaded',
             style: const TextStyle(color: Colors.grey, fontSize: 13),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: () => _pickImage(isBlueprint: false, isWeb: kIsWeb),
+            onPressed: () => _pickImage(isPublicNoticeTemplate: false, isWeb: kIsWeb),
             icon: const Icon(Icons.upload, size: 18),
-            label: Text(strings.uploadSample),
+            label: Text(strings.uploadCountySeal),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
+              backgroundColor: Colors.green.shade700,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
