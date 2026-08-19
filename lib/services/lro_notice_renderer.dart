@@ -18,8 +18,10 @@ import '../models/lro_notice_template.dart';
 /// previously produced opaque black blocks behind every line of text.
 class LroNoticeRenderer {
   // Fixed canvas (portrait). The Admin's design intent scales to this.
+  // Height is tall enough that the body content AND a reserved seal band
+  // (bottom/top) both fit, so Status Corrections are never clipped.
   static const int canvasW = 1000;
-  static const int canvasH = 1400;
+  static const int canvasH = 1850;
   static const double ptToPx = 3.0; // 1 pt ≈ 3 css px on this canvas
 
   const LroNoticeRenderer._();
@@ -113,13 +115,58 @@ class LroNoticeRenderer {
     drawLine('Land Recording Office');
     y += (lineH * 0.4).round();
 
+    // Label + value on one line: the LABEL is permanently bold, the VALUE
+    // is regular (Admin's Bold toggle does not affect either; this is the
+    // design standard — only the label portion is bold).
+    void drawLabeledLine(String label, String value) {
+      if (!_room()) return;
+      final h = (style.fontSize * ptToPx).round().clamp(8, 400);
+      // Width per char must use the SAME snapped bitmap-font height that
+      // _drawText uses internally, otherwise label/value positions drift.
+      final fh = _fontPx(_nearestFont(h));
+      final cw = (fh * 0.55).round();
+      final labelW = label.length * cw;
+      final valueW = value.length * cw;
+      final gap = (h * 0.3).round();
+      final totalW = labelW + gap + valueW;
+      int x0;
+      switch (style.alignment) {
+        case LroNoticeAlignment.left:
+          x0 = margin;
+          break;
+        case LroNoticeAlignment.right:
+          x0 = (canvasW - margin - totalW).clamp(0, canvasW - 1);
+          break;
+        case LroNoticeAlignment.center:
+          x0 = ((canvasW - totalW) ~/ 2).clamp(0, canvasW - 1);
+          break;
+      }
+      _drawText(image, label,
+          color: textColor,
+          heightPx: h,
+          align: LroNoticeAlignment.left,
+          bold: true,
+          x: x0,
+          maxW: labelW + 40,
+          y: y);
+      _drawText(image, value,
+          color: textColor,
+          heightPx: h,
+          align: LroNoticeAlignment.left,
+          bold: false,
+          x: x0 + labelW + gap,
+          maxW: valueW + 400,
+          y: y);
+      y += lineH;
+    }
+
     // ── Member details ──────────────────────────────────────────────
     drawLine('This is to confirm that:', forceBold: true);
     y += (lineH * 0.2).round();
-    drawLine('Member: $memberName (C)', forceBold: true);
-    drawLine('Recording Number: $recordingNumber', forceBold: true);
-    drawLine('Date of Registration: ${DateFormat('dd/MM/yyyy').format(paymentDate)}',
-        forceBold: true);
+    drawLabeledLine('Member:', '$memberName (C)');
+    drawLabeledLine('Recording Number:', recordingNumber);
+    drawLabeledLine('Date of Registration:',
+        DateFormat('dd/MM/yyyy').format(paymentDate));
     y += (lineH * 0.5).round();
 
     // ── Status Corrections (descriptions only, no dates) ─────────────
