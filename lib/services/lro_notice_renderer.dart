@@ -94,18 +94,33 @@ class LroNoticeRenderer {
       if (!_room()) return;
       final h = (style.fontSize * ptToPx * sizeScale).round().clamp(8, 400);
       if (checked) {
-        _drawCheck(image, margin + 4, y + h ~/ 2, (h * 0.7).round());
+        // Inline tick: draw the check just left of the text, same line,
+        // so it reads as "✓ description" rather than a far-left column.
+        final cw = (h * 0.72).round();
+        final textX = margin + cw + 6;
+        _drawCheck(image, margin + 2, y + h ~/ 2, cw);
+        _drawText(image, text,
+            color: placeholder ? placeholderColor : textColor,
+            heightPx: h,
+            align: align ?? style.alignment,
+            bold: style.bold || forceBold,
+            underline: style.underline,
+            italic: style.italic,
+            x: textX,
+            maxW: canvasW - margin - textX,
+            y: y);
+      } else {
+        _drawText(image, text,
+            color: placeholder ? placeholderColor : textColor,
+            heightPx: h,
+            align: align ?? style.alignment,
+            bold: style.bold || forceBold,
+            underline: style.underline,
+            italic: style.italic,
+            x: margin,
+            maxW: canvasW - margin * 2,
+            y: y);
       }
-      _drawText(image, text,
-          color: placeholder ? placeholderColor : textColor,
-          heightPx: h,
-          align: align ?? style.alignment,
-          bold: style.bold || forceBold,
-          underline: style.underline,
-          italic: style.italic,
-          x: checked ? margin + h : margin,
-          maxW: canvasW - margin * 2 - (checked ? h : 0),
-          y: y);
       y += lineH;
     }
 

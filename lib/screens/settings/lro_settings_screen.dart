@@ -1079,9 +1079,20 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // 2) Edit / Reset buttons (always visible, below the preview).
+        // 2) Edit / Reset buttons (aligned far RIGHT; Reset left of Edit).
         Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _draftTemplate = const LroNoticeTemplateStyle();
+                });
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(strings.resetTemplate),
+            ),
+            const SizedBox(width: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: primary),
               onPressed: () {
@@ -1096,16 +1107,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                   _editingTemplate ? Icons.visibility_off : Icons.edit,
                   size: 18),
               label: Text(_editingTemplate ? strings.hideControls : strings.edit),
-            ),
-            const SizedBox(width: 12),
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _draftTemplate = const LroNoticeTemplateStyle();
-                });
-              },
-              icon: const Icon(Icons.refresh, size: 18),
-              label: Text(strings.resetTemplate),
             ),
           ],
         ),
