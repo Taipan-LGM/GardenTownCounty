@@ -907,126 +907,91 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
   Widget _buildRightColumn(AppStrings strings) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Public Notice Template (Phase 2 designer) ─────
-        _buildTemplateDesignerCard(strings),
+        // 1) Public Notice preview (top) + 2) Edit/Reset buttons + 3) Controls.
+        _buildTemplatePreviewSection(strings),
         const SizedBox(height: 16),
-
-        // ── County Seal ─────────────────────────────────────────────
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.account_balance, size: 20, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        strings.countySeal,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  strings.countySealDesc,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 12),
-                _pictureSealArea(strings),
-                const SizedBox(height: 8),
-                Text(
-                  'Official County Seal. Placed at the bottom of every Public Notice.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // 4) County Seal (below the buttons).
+        _buildCountySealCard(strings),
         const SizedBox(height: 16),
-
-        // ── Status Corrections ─────────────────────────────────────
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.checklist, size: 20, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        strings.statusCorrections,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  strings.statusCorrectionsDesc,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 12),
-                ..._buildStatusCorrectionRows(strings),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _settings.statusCorrections.length >= 12
-                      ? null
-                      : () => setState(() {
-                            _settings = _settings.copyWith(
-                              statusCorrections: [
-                                ..._settings.statusCorrections,
-                                sc.LroStatusCorrection(
-                                    description: '', isChecked: true),
-                              ],
-                            );
-                            _statusCorrectionControllers.add(TextEditingController(text: ''));
-                            _statusCorrectionErrors[_settings.statusCorrections.length - 1] =
-                                'Description is required.';
-                            _statusCorrectionIds.add(_statusCorrectionIdCounter++);
-                          }),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(strings.addStatus),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Maximum 12 status corrections.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // 5) Status Corrections (moved here, under County Seal).
+        _buildStatusCorrectionsCard(strings),
       ],
+    );
+  }
+
+  // ── Status Corrections (right column, under County Seal) ─────────────
+  Widget _buildStatusCorrectionsCard(AppStrings strings) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.checklist, size: 20, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    strings.statusCorrections,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              strings.statusCorrectionsDesc,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+            ..._buildStatusCorrectionRows(strings),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _settings.statusCorrections.length >= 12
+                  ? null
+                  : () => setState(() {
+                        _settings = _settings.copyWith(
+                          statusCorrections: [
+                            ..._settings.statusCorrections,
+                            sc.LroStatusCorrection(
+                                description: '', isChecked: true),
+                          ],
+                        );
+                        _statusCorrectionControllers
+                            .add(TextEditingController(text: ''));
+                        _statusCorrectionErrors[
+                                _settings.statusCorrections.length - 1] =
+                            'Description is required.';
+                        _statusCorrectionIds.add(_statusCorrectionIdCounter++);
+                      }),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(strings.addStatus),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Maximum 12 status corrections.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1051,11 +1016,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     '#6B7280',
   ];
 
-  Widget _buildTemplateDesignerCard(AppStrings strings) {
-    final hasTemplate = _draftTemplate != null || _settings.noticeTemplate != null;
-    final style = _draftTemplate ?? _settings.noticeTemplate ??
-        const LroNoticeTemplateStyle();
-
+  // ── County Seal form (left, below Create form) ───────────────────────
+  Widget _buildCountySealCard(AppStrings strings) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -1065,11 +1027,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.article_outlined, size: 20, color: Colors.grey),
+                const Icon(Icons.account_balance, size: 20, color: Colors.grey),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    strings.createPublicNoticeTemplate,
+                    strings.countySeal,
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
@@ -1080,76 +1042,122 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              hasTemplate
-                  ? 'Master Public Notice template (created).'
-                  : 'Create a Public Notice template on screen — no image upload needed.',
+              strings.countySealDesc,
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            _pictureSealArea(strings),
+            const SizedBox(height: 8),
+            Text(
+              'Official County Seal. Placed at the bottom of every Public Notice.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Public Notice preview (top) + Edit/Reset buttons + Controls ──────
+  Widget _buildTemplatePreviewSection(AppStrings strings) {
+    final style = _draftTemplate ?? _settings.noticeTemplate ??
+        const LroNoticeTemplateStyle();
+    final primary = Theme.of(context).colorScheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1) Live preview (always visible, top of right column).
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildTemplatePreview(style, strings),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // 2) Edit / Reset buttons (always visible, below the preview).
+        Row(
+          children: [
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: primary),
+              onPressed: () {
+                setState(() {
+                  _draftTemplate = _draftTemplate ??
+                      _settings.noticeTemplate ??
+                      const LroNoticeTemplateStyle();
+                  _editingTemplate = !_editingTemplate;
+                });
+              },
+              icon: Icon(
+                  _editingTemplate ? Icons.visibility_off : Icons.edit,
+                  size: 18),
+              label: Text(_editingTemplate ? strings.hideControls : strings.edit),
+            ),
+            const SizedBox(width: 12),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _draftTemplate = const LroNoticeTemplateStyle();
+                });
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(strings.resetTemplate),
+            ),
+          ],
+        ),
+        // 3) Template Controls: hidden by default, revealed when Edit pressed.
+        if (_editingTemplate) ...[
+          const SizedBox(height: 12),
+          _buildTemplateControlsCard(strings),
+        ],
+      ],
+    );
+  }
+
+  // ── Template Controls card (hidden by default; full width below) ──────
+  Widget _buildTemplateControlsCard(AppStrings strings) {
+    final style = _draftTemplate ?? _settings.noticeTemplate ??
+        const LroNoticeTemplateStyle();
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(strings.templateControls,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            _buildTemplateControls(style, strings),
+            const SizedBox(height: 16),
+            Row(
               children: [
                 FilledButton.icon(
                   onPressed: () {
                     setState(() {
-                      _draftTemplate = _settings.noticeTemplate ??
-                          const LroNoticeTemplateStyle();
-                      _editingTemplate = true;
+                      _settings = _settings.copyWith(noticeTemplate: _draftTemplate);
+                      _editingTemplate = false;
                     });
                   },
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: Text(hasTemplate ? strings.edit : strings.createPublicNoticeTemplate),
+                  icon: const Icon(Icons.save, size: 18),
+                  label: Text(strings.saveTemplate),
                 ),
-                if (hasTemplate)
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _draftTemplate = const LroNoticeTemplateStyle();
-                      });
-                    },
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: Text(strings.resetTemplate),
-                  ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _draftTemplate = null;
+                      _editingTemplate = false;
+                    });
+                  },
+                  child: Text(strings.cancel),
+                ),
               ],
             ),
-            if (_editingTemplate) ...[
-              const Divider(height: 24),
-              Text(strings.templatePreview,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              _buildTemplatePreview(style, strings),
-              const SizedBox(height: 16),
-              Text(strings.templateControls,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              _buildTemplateControls(style, strings),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  FilledButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _settings = _settings.copyWith(noticeTemplate: _draftTemplate);
-                        _editingTemplate = false;
-                      });
-                    },
-                    icon: const Icon(Icons.save, size: 18),
-                    label: Text(strings.saveTemplate),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _draftTemplate = null;
-                        _editingTemplate = false;
-                      });
-                    },
-                    child: Text(strings.cancel),
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),
@@ -1175,8 +1183,9 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       sealBytes: (_sealBytes != null && _sealBytes!.isNotEmpty) ? _sealBytes : null,
     );
     return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 520),
       decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
-      constraints: const BoxConstraints(maxHeight: 420),
       child: Image.memory(bytes, fit: BoxFit.contain),
     );
   }

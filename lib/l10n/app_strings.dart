@@ -77,6 +77,7 @@ class AppStrings {
   String get save => isAf ? 'Stoor' : 'Save';
   String get cancel => isAf ? 'Kanselleer' : 'Cancel';
   String get edit => isAf ? 'Wysig' : 'Edit';
+  String get hideControls => isAf ? 'Versteek Beheer' : 'Hide Controls';
   String get delete => isAf ? 'Skrap' : 'Delete';
   String get close => isAf ? 'Maak toe' : 'Close';
   String get continueLabel => isAf ? 'Gaan voort' : 'Continue';
