@@ -90,7 +90,8 @@ class LroNoticeRenderer {
         bool checked = false,
         bool forceBold = false,
         double sizeScale = 1.0,
-        LroNoticeAlignment? align}) {
+        LroNoticeAlignment? align,
+        int xShift = 0}) {
       if (!_room()) return;
       final h = (style.fontSize * ptToPx * sizeScale).round().clamp(8, 400);
       if (checked) {
@@ -99,8 +100,8 @@ class LroNoticeRenderer {
         // Indented 2mm (ptToPx px/mm) to the right per design standard.
         final indent = (2 * ptToPx).round();
         final cw = (h * 0.72).round();
-        final textX = margin + indent + cw + 6;
-        _drawCheck(image, margin + indent + 2, y + h ~/ 2, cw);
+        final textX = margin + indent + cw + 6 + xShift;
+        _drawCheck(image, margin + indent + 2 + xShift, y + h ~/ 2, cw);
         _drawText(image, text,
             color: placeholder ? placeholderColor : textColor,
             heightPx: h,
@@ -109,7 +110,7 @@ class LroNoticeRenderer {
             underline: style.underline,
             italic: style.italic,
             x: textX,
-            maxW: canvasW - margin - textX,
+            maxW: canvasW - margin - textX - xShift,
             y: y);
       } else {
         _drawText(image, text,
@@ -119,8 +120,8 @@ class LroNoticeRenderer {
             bold: style.bold || forceBold,
             underline: style.underline,
             italic: style.italic,
-            x: margin,
-            maxW: canvasW - margin * 2,
+            x: margin + xShift,
+            maxW: canvasW - margin * 2 - xShift,
             y: y);
       }
       y += lineH;
@@ -135,9 +136,10 @@ class LroNoticeRenderer {
     // ── Header ───────────────────────────────────────────────────────
     drawTitle('PUBLIC NOTICE'); // +2 sizes, permanently bold
     y += (lineH * 0.3).round();
-    drawLine(countyName, forceBold: true, sizeScale: 1 + 2 / 12,
-        align: headerAlign); // +2 sizes, bold
-    drawLine('Land Recording Office', align: headerAlign);
+    drawLine(countyName, forceBold: true, sizeScale: 1 + 1 / 12,
+        align: headerAlign); // +1 size, bold
+    drawLine('Land Recording Office', align: headerAlign,
+        xShift: ptToPx.round()); // +1mm right
     y += (lineH * 0.4).round();
 
     // Label + value on one line: the LABEL is permanently bold, the VALUE
