@@ -96,9 +96,11 @@ class LroNoticeRenderer {
       if (checked) {
         // Inline tick: draw the check just left of the text, same line,
         // so it reads as "✓ description" rather than a far-left column.
+        // Indented 2mm (ptToPx px/mm) to the right per design standard.
+        final indent = (2 * ptToPx).round();
         final cw = (h * 0.72).round();
-        final textX = margin + cw + 6;
-        _drawCheck(image, margin + 2, y + h ~/ 2, cw);
+        final textX = margin + indent + cw + 6;
+        _drawCheck(image, margin + indent + 2, y + h ~/ 2, cw);
         _drawText(image, text,
             color: placeholder ? placeholderColor : textColor,
             heightPx: h,

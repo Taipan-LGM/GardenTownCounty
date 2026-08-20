@@ -35,11 +35,11 @@ class LroNoticeTemplateStyle {
     this.borderStyle = LroNoticeBorderStyle.solid,
     this.borderColor = '#14202E',
     this.borderWidth = 2,
-    this.padding = 'medium',
+    this.padding = 'small',
     this.lineSpacing = 1.2,
     this.showPlaceholders = true,
     this.placeholderColor = '#6B7280',
-    this.sealPosition = LroNoticeSealPosition.bottomCenter,
+    this.sealPosition = LroNoticeSealPosition.bottomRight,
   });
 
   LroNoticeTemplateStyle copyWith({
@@ -115,7 +115,7 @@ class LroNoticeTemplateStyle {
       borderStyle: _enum(LroNoticeBorderStyle.values, json['borderStyle'] as String?,
           LroNoticeBorderStyle.solid),
       borderColor: json['borderColor'] as String? ?? '#14202E',
-      borderWidth: json['borderWidth'] as int? ?? 2,
+      borderWidth: json['borderWidth'] as int? ?? 1,
       padding: json['padding'] as String? ?? 'medium',
       lineSpacing: (json['lineSpacing'] as num? ?? 1.2).toDouble(),
       showPlaceholders: json['showPlaceholders'] as bool? ?? true,
@@ -145,8 +145,8 @@ class LroNoticeTemplateStyle {
       case 'left':
       case 'right':
       default:
-        // Old single-axis values / unknown → default Bottom-Centre.
-        return LroNoticeSealPosition.bottomCenter;
+        // Old single-axis values / unknown → default Bottom-Right.
+        return LroNoticeSealPosition.bottomRight;
     }
   }
 
