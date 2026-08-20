@@ -40,6 +40,9 @@ class LroNoticeRenderer {
     img.fill(image, color: _parseColor(style.backgroundColor));
 
     final margin = _paddingPx(style.padding);
+    // Physical scale: the 1000px canvas represents a ~210mm-wide page, so
+    // 1mm ≈ 1000/210 px. Used for the mm-accurate design shifts below.
+    final double pxPerMm = canvasW / 210.0;
     final textColor = _parseColor(style.fontColor);
     final placeholderColor = _parseColor(style.placeholderColor);
     final lineH = (style.fontSize * ptToPx * style.lineSpacing).round().clamp(8, 400);
@@ -97,8 +100,8 @@ class LroNoticeRenderer {
       if (checked) {
         // Inline tick: draw the check just left of the text, same line,
         // so it reads as "✓ description" rather than a far-left column.
-        // Indented 2mm (ptToPx px/mm) to the right per design standard.
-        final indent = (2 * ptToPx).round();
+        // Indented 2mm (pxPerMm px/mm) to the right per design standard.
+        final indent = (2 * pxPerMm).round();
         final cw = (h * 0.72).round();
         final textX = margin + indent + cw + 6 + xShift;
         _drawCheck(image, margin + indent + 2 + xShift, y + h ~/ 2, cw);
@@ -139,7 +142,7 @@ class LroNoticeRenderer {
     drawLine(countyName, forceBold: true, sizeScale: 1 + 1 / 12,
         align: headerAlign); // +1 size, bold
     drawLine('Land Recording Office', align: headerAlign,
-        xShift: ptToPx.round()); // +1mm right
+        xShift: pxPerMm.round()); // +1mm right
     y += (lineH * 0.4).round();
 
     // Label + value on one line: the LABEL is permanently bold, the VALUE
