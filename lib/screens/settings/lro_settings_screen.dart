@@ -1183,11 +1183,15 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       statusCorrections: sample,
       sealBytes: (_sealBytes != null && _sealBytes!.isNotEmpty) ? _sealBytes : null,
     );
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxHeight: 520),
-      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
-      child: Image.memory(bytes, fit: BoxFit.contain),
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
+          child: Image.memory(bytes, width: 700, fit: BoxFit.contain),
+        ),
+      ),
     );
   }
 
