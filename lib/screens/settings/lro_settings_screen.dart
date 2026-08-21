@@ -707,7 +707,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
             // ── Radio Buttons (Dark Blue / White theme) ───────────────
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
               decoration: BoxDecoration(
                 color: const Color(0xFF1A237E),
                 borderRadius: BorderRadius.circular(12),
