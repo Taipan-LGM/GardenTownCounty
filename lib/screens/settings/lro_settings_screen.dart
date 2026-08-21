@@ -56,7 +56,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
   // Template designer state (Phase 2).
   LroNoticeTemplateStyle? _draftTemplate;
-  bool _editingTemplate = false;
 
   @override
   void initState() {
@@ -759,6 +758,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             const SizedBox(height: 8),
             const Divider(height: 1),
             const SizedBox(height: 8),
+            // ── County Seal (moved to far left, under the display-order card) ──
+            _buildCountySealCard(strings),
+            const SizedBox(height: 16),
+            // ── Status Corrections (moved to far left, under County Seal) ──
+            _buildStatusCorrectionsCard(strings),
           ],
         ),
       ),
@@ -839,14 +843,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1) Public Notice preview (top) + 2) Edit/Reset buttons + 3) Controls.
+        // 1) Public Notice preview (top) + 2) Reset button + 3) Controls (permanent).
         _buildTemplatePreviewSection(strings),
-        const SizedBox(height: 16),
-        // 4) County Seal (below the buttons).
-        _buildCountySealCard(strings),
-        const SizedBox(height: 16),
-        // 5) Status Corrections (moved here, under County Seal).
-        _buildStatusCorrectionsCard(strings),
       ],
     );
   }
@@ -996,7 +994,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   Widget _buildTemplatePreviewSection(AppStrings strings) {
     final style = _draftTemplate ?? _settings.noticeTemplate ??
         const LroNoticeTemplateStyle();
-    final primary = Theme.of(context).colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1009,7 +1006,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // 2) Edit / Reset buttons (aligned far RIGHT; Reset left of Edit).
+        // 2) Reset to Default button (aligned far RIGHT).
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -1022,29 +1019,11 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
               icon: const Icon(Icons.refresh, size: 18),
               label: Text(strings.resetTemplate),
             ),
-            const SizedBox(width: 12),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: primary),
-              onPressed: () {
-                setState(() {
-                  _draftTemplate = _draftTemplate ??
-                      _settings.noticeTemplate ??
-                      const LroNoticeTemplateStyle();
-                  _editingTemplate = !_editingTemplate;
-                });
-              },
-              icon: Icon(
-                  _editingTemplate ? Icons.visibility_off : Icons.edit,
-                  size: 18),
-              label: Text(_editingTemplate ? strings.hideControls : strings.edit),
-            ),
           ],
         ),
-        // 3) Template Controls: hidden by default, revealed when Edit pressed.
-        if (_editingTemplate) ...[
-          const SizedBox(height: 12),
-          _buildTemplateControlsCard(strings),
-        ],
+        // 3) Template Controls: shown PERMANENTLY, directly under Reset.
+        const SizedBox(height: 12),
+        _buildTemplateControlsCard(strings),
       ],
     );
   }
@@ -1071,7 +1050,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                   onPressed: () {
                     setState(() {
                       _settings = _settings.copyWith(noticeTemplate: _draftTemplate);
-                      _editingTemplate = false;
                     });
                   },
                   icon: const Icon(Icons.save, size: 18),
@@ -1082,7 +1060,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                   onPressed: () {
                     setState(() {
                       _draftTemplate = null;
-                      _editingTemplate = false;
                     });
                   },
                   child: Text(strings.cancel),
