@@ -482,7 +482,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           const Divider(),
           const SizedBox(height: 16),
 
-          // Two-column layout.
+          // ── Row 1: Public Notice stretches to the Radio Box bottom. ──
           // IntrinsicHeight + CrossAxisAlignment.stretch makes the right
           // Public Notice preview stretch to exactly the left card's height
           // (County Facebook URL top -> bottom of display-order box), so the
@@ -491,29 +491,41 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── LEFT COLUMN ──────────────────────────────────────
+                // ── LEFT COLUMN (ends at Radio Box) ────────────────
                 Expanded(
                   flex: 2,
                   child: _buildLeftColumn(strings),
                 ),
                 const SizedBox(width: 16),
-                // ── RIGHT COLUMN ─────────────────────────────────────
+                // ── RIGHT COLUMN (Public Notice only, stretched) ────
                 Expanded(
                   flex: 3,
-                  child: _buildRightColumn(strings),
+                  child: _buildRightColumnTop(strings),
                 ),
               ],
             ),
           ),
 
           const SizedBox(height: 16),
-          // ── County Seal + Status Corrections (full-width, below) ──
+          // ── Row 2: County Seal (left) across from Template Controls (right). ──
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(flex: 2, child: _buildCountySealCard(strings)),
               const SizedBox(width: 16),
-              Expanded(flex: 3, child: _buildStatusCorrectionsCard(strings)),
+              Expanded(flex: 3, child: _buildTemplateControlsSection(strings)),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          // ── Row 3: Status Corrections (left). Right is intentionally
+          // left empty (not duplicated on the right per instruction). ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: _buildStatusCorrectionsCard(strings)),
+              const SizedBox(width: 16),
+              const Expanded(flex: 3, child: SizedBox.shrink()),
             ],
           ),
 
@@ -849,12 +861,34 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  Widget _buildRightColumn(AppStrings strings) {
+  // ── Right column TOP (Public Notice only, stretched to Radio Box) ──
+  Widget _buildRightColumnTop(AppStrings strings) {
+    return _buildTemplatePreviewSection(strings, stretch: true);
+  }
+
+  // ── Template Controls section (Reset + Controls), right column Row 2 ──
+  Widget _buildTemplateControlsSection(AppStrings strings) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1) Public Notice preview (top) + 2) Reset button + 3) Controls (permanent).
-        _buildTemplatePreviewSection(strings),
+        const SizedBox(height: 12),
+        // Reset to Default button (aligned far RIGHT).
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _draftTemplate = const LroNoticeTemplateStyle();
+                });
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(strings.resetTemplate),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildTemplateControlsCard(strings),
       ],
     );
   }
@@ -1000,45 +1034,49 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  // ── Public Notice preview (top) + Edit/Reset buttons + Controls ──────
-  Widget _buildTemplatePreviewSection(AppStrings strings) {
+  // ── Public Notice preview (Row 1, stretched to Radio Box). ──────────
+  // When stretch:true, renders ONLY the preview (Reset/Controls live in
+  // _buildTemplateControlsSection further down). When stretch:false, it
+  // also includes Reset + Controls (legacy full-column mode).
+  Widget _buildTemplatePreviewSection(AppStrings strings, {bool stretch = false}) {
     final style = _draftTemplate ?? _settings.noticeTemplate ??
         const LroNoticeTemplateStyle();
+    final previewCard = Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _buildTemplatePreview(style, strings),
+      ),
+    );
+    if (!stretch) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: previewCard),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _draftTemplate = const LroNoticeTemplateStyle();
+                  });
+                },
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(strings.resetTemplate),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildTemplateControlsCard(strings),
+        ],
+      );
+    }
+    // Stretch mode: only the preview, expanded to the column height.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 1) Live preview (always visible, top of right column).
-        // Expanded so it fills the stretched column height (matching the
-        // left display-order box bottom), with the Reset + Controls below.
-        Expanded(
-          child: Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildTemplatePreview(style, strings),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // 2) Reset to Default button (aligned far RIGHT).
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _draftTemplate = const LroNoticeTemplateStyle();
-                });
-              },
-              icon: const Icon(Icons.refresh, size: 18),
-              label: Text(strings.resetTemplate),
-            ),
-          ],
-        ),
-        // 3) Template Controls: shown PERMANENTLY, directly under Reset.
-        const SizedBox(height: 12),
-        _buildTemplateControlsCard(strings),
-      ],
+      children: [Expanded(child: previewCard)],
     );
   }
 
