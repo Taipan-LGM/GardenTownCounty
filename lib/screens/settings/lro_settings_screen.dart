@@ -1090,13 +1090,20 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       statusCorrections: sample,
       sealBytes: (_sealBytes != null && _sealBytes!.isNotEmpty) ? _sealBytes : null,
     );
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
+    return Container(
+      // Cap the preview so the Public Notice form matches the combined
+      // height of the four compact left-column boxes (~470px). The full
+      // notice remains scrollable inside this window.
+      constraints: const BoxConstraints(maxHeight: 440),
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
-          child: Image.memory(bytes, width: 700, fit: BoxFit.contain),
+        scrollDirection: Axis.vertical,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Container(
+            decoration:
+                BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
+            child: Image.memory(bytes, width: 460, fit: BoxFit.contain),
+          ),
         ),
       ),
     );
@@ -1368,9 +1375,9 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Description inline field
-              SizedBox(
-                width: 400,
+              // Description inline field (flexible so Delete stays on-screen
+              // even in the narrower left column).
+              Expanded(
                 child: TextField(
                   controller: _statusCorrectionControllers[idx],
                   decoration: InputDecoration(
