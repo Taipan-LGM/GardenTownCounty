@@ -1146,10 +1146,18 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       // The preview container stretches to the left card's height (set by
       // IntrinsicHeight in build). FittedBox scales the notice to fit that
       // height with NO scroll bars.
+      // NOTE: the rendered notice has a large intrinsic height (~1295px).
+      // Without a cap, that intrinsic height wins in the IntrinsicHeight row
+      // and stretches the whole row (and the Radio Box) to 1295px. The
+      // ConstrainedBox caps the image's intrinsic height so the LEFT BOX
+      // drives the row height and the preview scales DOWN to fit it.
       decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
       child: FittedBox(
         fit: BoxFit.contain,
-        child: Image.memory(bytes, gaplessPlayback: true),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 400),
+          child: Image.memory(bytes, gaplessPlayback: true),
+        ),
       ),
     );
   }

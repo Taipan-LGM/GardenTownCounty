@@ -3,8 +3,8 @@ class AppConstants {
 
   /// Keep in sync with pubspec.yaml `version:` (name+build).
   /// Scheme: v1.18.12 … v1.18.99 → v1.19.00 → v1.19.01 …
-  static const String appVersion = '1.18.46';
-  static const String buildNumber = '114';
+  static const String appVersion = '1.18.47';
+  static const String buildNumber = '115';
   static String get fullVersion => '$appVersion+$buildNumber';
   static String get versionLabel => 'v$fullVersion';
 
