@@ -507,25 +507,25 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           ),
 
           const SizedBox(height: 16),
-          // ── Row 2: County Seal (left) across from Template Controls (right). ──
+          // ── Row 2: Left = County Seal + Status Corrections (stacked,
+          // Status Corrections directly below the Seal). Right = Template
+          // Controls (visible by default, no Edit button). ──
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 2, child: _buildCountySealCard(strings)),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildCountySealCard(strings),
+                    const SizedBox(height: 16),
+                    _buildStatusCorrectionsCard(strings),
+                  ],
+                ),
+              ),
               const SizedBox(width: 16),
               Expanded(flex: 3, child: _buildTemplateControlsSection(strings)),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          // ── Row 3: Status Corrections (left). Right is intentionally
-          // left empty (not duplicated on the right per instruction). ──
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 2, child: _buildStatusCorrectionsCard(strings)),
-              const SizedBox(width: 16),
-              const Expanded(flex: 3, child: SizedBox.shrink()),
             ],
           ),
 
