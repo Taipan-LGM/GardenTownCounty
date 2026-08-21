@@ -483,24 +483,24 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           const SizedBox(height: 16),
 
           // Two-column layout.
-          // The Public Notice preview (right) is placed in a side-by-side Row
-          // with the four compact left boxes so it stretches to exactly the
-          // same height (County Facebook URL top -> display-order box bottom)
-          // and the notice scales to fit with no scroll bars.
+          // IntrinsicHeight + CrossAxisAlignment.stretch makes the right
+          // Public Notice preview stretch to exactly the left card's height
+          // (County Facebook URL top -> bottom of display-order box), so the
+          // preview bottom is in-line with the display-order box bottom.
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── LEFT: four compact form boxes (stretch defines height) ──
+                // ── LEFT COLUMN ──────────────────────────────────────
                 Expanded(
                   flex: 2,
-                  child: _buildLeftCompactForms(strings),
+                  child: _buildLeftColumn(strings),
                 ),
                 const SizedBox(width: 16),
-                // ── RIGHT: Public Notice preview (stretches to match) ──
+                // ── RIGHT COLUMN ─────────────────────────────────────
                 Expanded(
                   flex: 3,
-                  child: _buildNoticePreviewBox(strings),
+                  child: _buildRightColumn(strings),
                 ),
               ],
             ),
@@ -508,7 +508,14 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
           const SizedBox(height: 16),
           // ── County Seal + Status Corrections (full-width, below) ──
-          _buildSealAndCorrections(strings),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: _buildCountySealCard(strings)),
+              const SizedBox(width: 16),
+              Expanded(flex: 3, child: _buildStatusCorrectionsCard(strings)),
+            ],
+          ),
 
           const SizedBox(height: 24),
           const Divider(),
@@ -557,7 +564,7 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  Widget _buildLeftCompactForms(AppStrings strings) {
+  Widget _buildLeftColumn(AppStrings strings) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -771,17 +778,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  // ── County Seal + Status Corrections (full-width row, below the 4 boxes) ──
-  Widget _buildSealAndCorrections(AppStrings strings) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(flex: 2, child: _buildCountySealCard(strings)),
-        const SizedBox(width: 16),
-        Expanded(flex: 3, child: _buildStatusCorrectionsCard(strings)),
-      ],
-    );
-  }
 
   Widget _radioOption(
     AppStrings strings, {
@@ -854,7 +850,13 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   }
 
   Widget _buildRightColumn(AppStrings strings) {
-    return _buildTemplateControlsCard(strings);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1) Public Notice preview (top) + 2) Reset button + 3) Controls (permanent).
+        _buildTemplatePreviewSection(strings),
+      ],
+    );
   }
 
   // ── Status Corrections (right column, under County Seal) ─────────────
@@ -1006,11 +1008,15 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 1) Live preview (always visible, top of right column).
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _buildTemplatePreview(style, strings),
+        // Expanded so it fills the stretched column height (matching the
+        // left display-order box bottom), with the Reset + Controls below.
+        Expanded(
+          child: Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildTemplatePreview(style, strings),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -1080,40 +1086,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     );
   }
 
-  // ── Public Notice preview box (stretches to the left 4-box height, no scroll) ──
-  Widget _buildNoticePreviewBox(AppStrings strings) {
-    final style = _draftTemplate ?? _settings.noticeTemplate ??
-        const LroNoticeTemplateStyle();
-    final sample = _settings.statusCorrections.isNotEmpty
-        ? _settings.statusCorrections
-        : const [
-            sc.LroStatusCorrection(description: 'Voter Deregistration', isChecked: true),
-            sc.LroStatusCorrection(description: 'BIO Pages', isChecked: true),
-            sc.LroStatusCorrection(description: '2 x Witness Testimonies', isChecked: true),
-            sc.LroStatusCorrection(description: 'Universal Declaration', isChecked: true),
-          ];
-    final bytes = LroNoticeRenderer.render(
-      style: style,
-      countyName: 'Garden Town County',
-      memberName: 'John Doe',
-      recordingNumber: '0241501251234567',
-      paymentDate: DateTime.now(),
-      statusCorrections: sample,
-      sealBytes: (_sealBytes != null && _sealBytes!.isNotEmpty) ? _sealBytes : null,
-    );
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(8),
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: Image.memory(bytes, gaplessPlayback: true),
-      ),
-    );
-  }
-
   Widget _buildTemplatePreview(LroNoticeTemplateStyle style, AppStrings strings) {
     final sample = _settings.statusCorrections.isNotEmpty
         ? _settings.statusCorrections
@@ -1133,20 +1105,13 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       sealBytes: (_sealBytes != null && _sealBytes!.isNotEmpty) ? _sealBytes : null,
     );
     return Container(
-      // Cap the preview so the Public Notice form matches the combined
-      // height of the four compact left-column boxes (~470px). The full
-      // notice remains scrollable inside this window.
-      constraints: const BoxConstraints(maxHeight: 440),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Container(
-            decoration:
-                BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
-            child: Image.memory(bytes, width: 460, fit: BoxFit.contain),
-          ),
-        ),
+      // The preview container stretches to the left card's height (set by
+      // IntrinsicHeight in build). FittedBox scales the notice to fit that
+      // height with NO scroll bars.
+      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: Image.memory(bytes, gaplessPlayback: true),
       ),
     );
   }
