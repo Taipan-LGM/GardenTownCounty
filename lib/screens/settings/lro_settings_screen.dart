@@ -47,7 +47,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   Uint8List? _sealBytes;
   bool _hasPublicNoticeTemplate = false;
   bool _hasSeal = false;
-  bool _smtpConfigured = false;
   final List<TextEditingController> _statusCorrectionControllers = [];
   final Map<int, String?> _statusCorrectionErrors = {};
   // Stable per-row identity so Flutter reconciles list removals correctly.
@@ -70,7 +69,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     final settings = await svc.load();
     final publicNoticeTemplateBytes = await svc.loadPublicNoticeTemplateBytes();
     final seal = await svc.loadCountySealBytes();
-    final smtpConfigured = await email.LroEmailService.isConfigured();
 
     if (!mounted) return;
     setState(() {
@@ -89,7 +87,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
       _sealBytes = seal;
       _hasPublicNoticeTemplate = settings.hasPublicNoticeTemplate;
       _hasSeal = settings.hasCountySeal;
-      _smtpConfigured = smtpConfigured;
       _publicNoticeTemplateLoading = false;
       _sealLoading = false;
       _initStatusCorrectionControllers(settings.statusCorrections);
@@ -762,38 +759,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
             const SizedBox(height: 8),
             const Divider(height: 1),
             const SizedBox(height: 8),
-
-            // Status indicator
-            _buildStatusIndicator(strings),
-
-            // SMTP warning (email leg of the workflow disabled)
-            if (!_smtpConfigured) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade300),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber,
-                        color: Colors.orange.shade800, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        strings.lroSmtpNotConfigured,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.orange.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -866,41 +831,6 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
               const Icon(Icons.check_circle, color: yellow, size: 20),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatusIndicator(AppStrings strings) {
-    final complete = _settings.isComplete;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: complete ? Colors.green.shade50 : Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: complete ? Colors.green.shade300 : Colors.orange.shade300,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            complete ? Icons.check_circle : Icons.warning_amber,
-            color: complete ? Colors.green : Colors.orange,
-            size: 22,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              complete
-                  ? strings.lroReady
-                  : strings.lroIncomplete,
-              style: TextStyle(
-                fontSize: 13,
-                color: complete ? Colors.green.shade800 : Colors.orange.shade800,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
