@@ -284,15 +284,17 @@ class _CountySettingsDialogState extends ConsumerState<CountySettingsDialog> {
     }
 
     try {
+      final countyId = ref.read(activeCountyIdProvider);
       final path = await ref
           .read(countySettingsServiceProvider)
-          .saveLogoBytes(bytes, secondary: secondary);
+          .saveLogoBytes(bytes, secondary: secondary, countyId: countyId);
       final current =
           ref.read(countyProfileProvider).valueOrNull ?? const CountyProfile();
       final updated = secondary
           ? current.copyWith(secondaryLogoPath: path)
           : current.copyWith(logoPath: path);
-      await ref.read(countySettingsServiceProvider).save(updated);
+      await ref.read(countySettingsServiceProvider).save(updated,
+          countyId: countyId);
       ref.invalidate(countyProfileProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

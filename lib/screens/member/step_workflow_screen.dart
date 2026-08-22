@@ -828,7 +828,9 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
       final activity = ref.read(activityServiceProvider);
       final lroSvc = ref.read(lroSettingsServiceProvider);
       final countySvc = ref.read(countySettingsServiceProvider);
-      final workflow = LroPaymentWorkflow(db, activity, lroSvc, countySvc);
+      final countyId = ref.read(activeCountyIdProvider);
+      final workflow = LroPaymentWorkflow(db, activity, lroSvc, countySvc,
+          countyId: countyId);
       final updated = await workflow.run(
         member: member,
         paymentDate: paymentDate,

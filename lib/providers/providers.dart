@@ -171,7 +171,8 @@ Future<void> setAppLanguage(WidgetRef ref, AppLanguage lang) async {
 final countyProfileProvider = FutureProvider.autoDispose<CountyProfile>((
   ref,
 ) async {
-  return ref.watch(countySettingsServiceProvider).load();
+  final countyId = ref.watch(activeCountyIdProvider);
+  return ref.watch(countySettingsServiceProvider).load(countyId: countyId);
 });
 
 /// True after splash logo animation finishes (session).

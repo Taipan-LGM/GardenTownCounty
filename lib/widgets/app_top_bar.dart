@@ -22,9 +22,9 @@ class AppTopBar extends ConsumerWidget {
     final isAdmin = ref.watch(isAdminProvider);
     final isSecretary = ref.watch(isSecretaryProvider);
     final strings = AppStrings(ref.watch(appLanguageProvider));
-    final profile = ref.watch(countyProfileProvider).valueOrNull;
-    final countyName = profile?.countyName.trim().isNotEmpty == true
-        ? profile!.countyName
+    final activeCounty = ref.watch(currentCountyProvider).valueOrNull;
+    final countyName = activeCounty?.countyName.trim().isNotEmpty == true
+        ? activeCounty!.countyName
         : 'Garden Town County';
     final tabs = <Widget>[
       if (isAdmin || isSecretary)
@@ -96,27 +96,39 @@ class AppTopBar extends ConsumerWidget {
                 const SizedBox(width: 8),
                 if (showCountyName)
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
                       children: [
-                        Text(
-                          'CountyConnect',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Image.asset(
+                          'assets/images/countyconnect_logo.png',
+                          height: 34,
+                          fit: BoxFit.contain,
                         ),
-                        Text(
-                          countyName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                countyName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'CountyConnect',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

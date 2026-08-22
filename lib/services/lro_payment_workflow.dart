@@ -35,13 +35,18 @@ class LroPaymentWorkflow {
     this._db,
     this._activity,
     this._lroService,
-    this._countySvc,
-  );
+    this._countySvc, {
+    this.countyId = '',
+  });
 
   final DatabaseService _db;
   final ActivityService _activity;
   final LroSettingsService _lroService;
   final CountySettingsService _countySvc;
+
+  /// Active county id — scopes LRO settings, seal, template and county profile
+  /// so a non-default county publishes its own notice correctly.
+  final String countyId;
 
   /// Runs the full LRO automation for a Member who just completed a Step 4_LRO
   /// payment.
@@ -58,7 +63,7 @@ class LroPaymentWorkflow {
     required String actorId,
   }) async {
     // ── Step 0: Load LRO settings ────────────────────────────────────────
-    final settings = await _lroService.load();
+    final settings = await _lroService.load(countyId: countyId);
 
     if (!settings.hasCountyUniqueNo) {
       throw const LroWorkflowException(
@@ -90,14 +95,14 @@ class LroPaymentWorkflow {
     // If the Admin created a parametric template (Phase 2), render from scratch
     // using the style params. Otherwise fall back to the legacy image-overlay
     // path (requires an uploaded template image).
-    final countyProfile = await _countySvc.load();
+    final countyProfile = await _countySvc.load(countyId: countyId);
     final countyName = countyProfile.countyName.trim().isNotEmpty
         ? countyProfile.countyName.trim()
         : 'Garden Town County';
 
     final Uint8List personalizedBytes;
     if (settings.noticeTemplate != null) {
-      final sealBytes = await _lroService.loadCountySealBytes();
+      final sealBytes = await _lroService.loadCountySealBytes(countyId: countyId);
       personalizedBytes = LroNoticeRenderer.render(
         style: settings.noticeTemplate!,
         countyName: countyName,
@@ -108,7 +113,9 @@ class LroPaymentWorkflow {
         sealBytes: (sealBytes != null && sealBytes.isNotEmpty) ? sealBytes : null,
       );
     } else {
-      final templateBytes = await _lroService.loadPublicNoticeTemplateBytes();
+      final templateBytes = await _lroService.loadPublicNoticeTemplateBytes(
+        countyId: countyId,
+      );
       if (templateBytes == null || templateBytes.isEmpty) {
         throw const LroWorkflowException(
           'Public Notice Template image could not be loaded. Upload it in LRO Settings.',
@@ -316,7 +323,9 @@ class LroPaymentWorkflow {
     }
 
     // ── Overlay the County Seal at the bottom-center ─────────────────────
-    final sealBytes = await this._lroService.loadCountySealBytes();
+    final sealBytes = await this._lroService.loadCountySealBytes(
+      countyId: countyId,
+    );
     if (sealBytes != null && sealBytes.isNotEmpty) {
       final seal = img.decodeImage(sealBytes);
       if (seal != null) {

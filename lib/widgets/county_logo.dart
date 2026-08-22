@@ -29,6 +29,7 @@ class CountyLogoImage extends ConsumerWidget {
       return FutureBuilder<Uint8List?>(
         future: ref.read(countySettingsServiceProvider).loadWebLogoBytes(
               secondary: secondary,
+              countyId: ref.read(activeCountyIdProvider),
             ),
         builder: (context, snap) {
           if (snap.data != null) {

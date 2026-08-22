@@ -132,15 +132,43 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
           if (!_started && !landingDone)
             SafeArea(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 48),
-                  child: ActionButton(
-                    onPressed: _beginTransition,
-                    text: strings.continueLabel,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Brand wordmark so the splash reads as CountyConnect.
+                  Padding(
+                    padding: const EdgeInsets.only(top: 40),
+                    child: Column(
+                      children: [
+                        Text(
+                          strings.appName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          strings.appSlogan,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 48),
+                    child: ActionButton(
+                      onPressed: _beginTransition,
+                      text: strings.continueLabel,
+                    ),
+                  ),
+                ],
               ),
             ),
         ],

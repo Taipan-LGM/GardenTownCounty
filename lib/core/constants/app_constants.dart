@@ -6,12 +6,16 @@ class AppConstants {
 
   /// Keep in sync with pubspec.yaml `version:` (name+build).
   /// Scheme: v1.18.12 … v1.18.99 → v1.19.00 → v1.19.01 …
-  static const String appVersion = '1.18.53';
-  static const String buildNumber = '121';
+  static const String appVersion = '1.18.62';
+  static const String buildNumber = '130';
   static String get fullVersion => '$appVersion+$buildNumber';
   static String get versionLabel => 'v$fullVersion';
 
   static const String logoAsset = 'assets/images/county_logo.png';
+
+  /// Transparent-background CountyConnect mark (sits inline on colored bars).
+  static const String logoTransparentAsset =
+      'assets/images/countyconnect_logo_transparent.png';
 
   /// Default second / corner logo (blue Assembly seal).
   static const String logoAltAsset = 'assets/images/county_logo_alt.png';

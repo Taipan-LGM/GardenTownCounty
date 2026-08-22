@@ -129,48 +129,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // CountyConnect logo plaque (solid background — shown on its
-                      // own grey tile so it reads as a deliberate brand mark).
+                      // CountyConnect logo (original asset) — stretched to fill
+                      // the form, 5mm larger all around (no border/frame).
                       Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2B2F33),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 8,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
+                        margin: const EdgeInsets.all(-19),
                         child: Image.asset(
                           'assets/images/countyconnect_logo.png',
-                          height: 120,
-                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          fit: BoxFit.fitWidth,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        strings.appName,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: textTheme.headlineSmall?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        strings.appSlogan,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                          color: textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 46),
                       Text(
                         AppConstants.versionLabel,
                         textAlign: TextAlign.center,
