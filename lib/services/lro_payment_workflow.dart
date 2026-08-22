@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../models/lro_status_correction.dart' as sc;
 import '../models/member.dart';
-import '../models/lro_notice_template.dart';
+import '../models/lro_settings.dart';
 import '../services/lro_notice_renderer.dart';
 import '../services/county_settings_service.dart';
 import '../services/database_service.dart';
@@ -48,31 +48,25 @@ class LroPaymentWorkflow {
   /// so a non-default county publishes its own notice correctly.
   final String countyId;
 
-  /// Runs the full LRO automation for a Member who just completed a Step 4_LRO
-  /// payment.
+  /// Prepares a Member's LRO record when Step 4_LRO payment is completed.
   ///
-  /// [member] — the Member who paid.
-  /// [paymentDate] — the date the payment was recorded.
-  /// [actorId] — the user who triggered the payment (for audit logging).
+  /// Performs the configuration checks, generates the unique 16-digit
+  /// Recording Number, and personalizes the Public Notice image. It stores the
+  /// Recording Number, the notice image, and marks Step 4_LRO complete on the
+  /// Member — but it does NOT publish. Publishing is a separate, explicit step
+  /// triggered from the "LRO Publication" button (see [publish]).
   ///
-  /// Returns the updated Member (with the new Recording Number) on success.
-  /// Throws [LroWorkflowException] with a descriptive message if anything fails.
-  Future<Member> run({
+  /// Returns the updated Member (with the new Recording Number + notice image).
+  /// Throws [LroWorkflowException] if LRO is not configured.
+  Future<Member> prepare({
     required Member member,
     required DateTime paymentDate,
     required String actorId,
   }) async {
-    // ── Step 0: Load LRO settings ────────────────────────────────────────
     final settings = await _lroService.load(countyId: countyId);
-
     if (!settings.hasCountyUniqueNo) {
       throw const LroWorkflowException(
         'LRO not configured: County Unique Number (3 digits) is missing.',
-      );
-    }
-    if (!settings.isValidFacebookUrl) {
-      throw const LroWorkflowException(
-        'LRO not configured: Facebook Page URL is missing or invalid.',
       );
     }
     if (!settings.hasPublicNoticeTemplate) {
@@ -82,7 +76,6 @@ class LroPaymentWorkflow {
       );
     }
 
-    // ── Step 1: Generate the unique 16-digit Recording Number ────────────
     final existingNumbers = await _db.getAllLroRecordingNumbers();
     final recordingNumber = RecordingNumberService.generate(
       countyUniqueNo: settings.countyUniqueNo,
@@ -91,26 +84,172 @@ class LroPaymentWorkflow {
       existingNumbers: existingNumbers,
     );
 
-    // ── Step 2: Personalize the Public Notice ─────────────────────────────
-    // If the Admin created a parametric template (Phase 2), render from scratch
-    // using the style params. Otherwise fall back to the legacy image-overlay
-    // path (requires an uploaded template image).
     final countyProfile = await _countySvc.load(countyId: countyId);
     final countyName = countyProfile.countyName.trim().isNotEmpty
         ? countyProfile.countyName.trim()
         : 'Garden Town County';
 
-    final Uint8List personalizedBytes;
+    final noticeBytes = await _renderNoticeBytes(
+      member: member,
+      recordingNumber: recordingNumber,
+      paymentDate: paymentDate,
+      settings: settings,
+      countyName: countyName,
+    );
+
+    final updated = member.copyWith(
+      lroRecordNo: recordingNumber,
+      step4LROComplete: true,
+      step4CompletionDate: paymentDate,
+      step4ApprovedBy: actorId,
+      lastModifiedBy: actorId,
+      updatedAt: paymentDate.toUtc(),
+      pendingSync: true,
+      lroNoticeImageBase64: _toDataUri(noticeBytes),
+    );
+    await _db.upsertMember(updated);
+    return updated;
+  }
+
+  /// Publishes the previously-prepared Personal Public Notice for a Member.
+  ///
+  /// This is the explicit "LRO Publication" action. It:
+  ///   a. saves the notice to the in-app LRO Publications section,
+  ///   b. posts to the County Facebook page (best-effort),
+  ///   c. emails the Member (best-effort),
+  ///   d. writes the notice image to the Member's Application Form, and
+  ///   e. stamps the publication date + actor, and marks the payment complete.
+  ///
+  /// Publishing is fail-graceful: a single destination failure does not roll
+  /// back the others. Returns the updated Member.
+  Future<Member> publish({
+    required Member member,
+    required String actorId,
+  }) async {
+    if (member.lroRecordNo == null || member.lroRecordNo!.isEmpty) {
+      throw const LroWorkflowException(
+        'Cannot publish: no Recording Number. Complete Step 4_LRO payment first.',
+      );
+    }
+
+    final settings = await _lroService.load(countyId: countyId);
+    final countyProfile = await _countySvc.load(countyId: countyId);
+    final countyName = countyProfile.countyName.trim().isNotEmpty
+        ? countyProfile.countyName.trim()
+        : 'Garden Town County';
+
+    final noticeBytes = await _renderNoticeBytes(
+      member: member,
+      recordingNumber: member.lroRecordNo!,
+      paymentDate: member.step4CompletionDate ?? DateTime.now(),
+      settings: settings,
+      countyName: countyName,
+    );
+
+    // a. in-app LRO Publications
+    await _db.createLroPublication(
+      memberId: member.id,
+      memberName: member.fullName,
+      recordingNumber: member.lroRecordNo!,
+      imageBytes: noticeBytes,
+      publishedAt: DateTime.now(),
+      actorId: actorId,
+    );
+
+    // b. Facebook (best-effort)
+    String? facebookPostId;
+    try {
+      facebookPostId = await _publishToFacebook(
+        settings.facebookPageUrl,
+        noticeBytes,
+        member.fullName,
+        member.lroRecordNo!,
+      );
+    } catch (e) {
+      await _activity.record(
+        userName: 'System',
+        action: 'LRO Facebook publish failed for ${member.fullName}: $e',
+        captureGps: false,
+      );
+    }
+
+    // c. Email (best-effort)
+    try {
+      final emailResult = await LroEmailService.sendPublicNotice(
+        memberEmail: member.emailAddress,
+        memberName: member.fullName,
+        recordingNumber: member.lroRecordNo!,
+        paymentDate: member.step4CompletionDate ?? DateTime.now(),
+        imageBytes: noticeBytes,
+      );
+      await _activity.record(
+        userName: 'System',
+        action: emailResult.sent
+            ? 'LRO Public Notice emailed to ${member.emailAddress}.'
+            : 'LRO email skipped for ${member.fullName}: ${emailResult.reason}',
+        captureGps: false,
+      );
+    } catch (e) {
+      await _activity.record(
+        userName: 'System',
+        action: 'LRO email error for ${member.fullName}: $e',
+        captureGps: false,
+      );
+    }
+
+    // d. Member Application Form record
+    await _db.saveLroNoticeImage(
+      memberId: member.id,
+      recordingNumber: member.lroRecordNo!,
+      imageBytes: noticeBytes,
+      publishedAt: DateTime.now(),
+    );
+
+    // e. Stamp + audit
+    final publishedAt = DateTime.now();
+    final updated = member.copyWith(
+      lroPublicationDate: publishedAt,
+      lroPublishedBy: actorId,
+      lastModifiedBy: actorId,
+      updatedAt: publishedAt.toUtc(),
+      pendingSync: true,
+      lroNoticeImageBase64: _toDataUri(noticeBytes),
+    );
+    await _db.upsertMember(updated);
+
+    await _activity.record(
+      userName: actorId,
+      action:
+          'LRO Public Notice published for ${member.fullName}: ${member.lroRecordNo} '
+          '(Facebook ${facebookPostId ?? 'skipped'}, Publications, Member Form)',
+      captureGps: false,
+    );
+
+    return updated;
+  }
+
+  /// Renders the personalized Public Notice image for [member].
+  ///
+  /// Uses the parametric template renderer when an Admin-designed template
+  /// exists, otherwise falls back to the legacy image-overlay path.
+  Future<Uint8List> _renderNoticeBytes({
+    required Member member,
+    required String recordingNumber,
+    required DateTime paymentDate,
+    required LroSettings settings,
+    required String countyName,
+  }) async {
     if (settings.noticeTemplate != null) {
       final sealBytes = await _lroService.loadCountySealBytes(countyId: countyId);
-      personalizedBytes = LroNoticeRenderer.render(
+      return LroNoticeRenderer.render(
         style: settings.noticeTemplate!,
         countyName: countyName,
         memberName: member.fullName,
         recordingNumber: recordingNumber,
         paymentDate: paymentDate,
         statusCorrections: settings.statusCorrections,
-        sealBytes: (sealBytes != null && sealBytes.isNotEmpty) ? sealBytes : null,
+        sealBytes:
+            (sealBytes != null && sealBytes.isNotEmpty) ? sealBytes : null,
       );
     } else {
       final templateBytes = await _lroService.loadPublicNoticeTemplateBytes(
@@ -121,7 +260,7 @@ class LroPaymentWorkflow {
           'Public Notice Template image could not be loaded. Upload it in LRO Settings.',
         );
       }
-      personalizedBytes = await _personalizeImage(
+      return await _personalizeImage(
         templateBytes,
         countyName: countyName,
         memberName: member.fullName,
@@ -130,91 +269,39 @@ class LroPaymentWorkflow {
         statusCorrections: settings.statusCorrections,
       );
     }
+  }
 
-    // ── Step 3a: Save to in-app LRO Publications ─────────────────────────
-    await _db.createLroPublication(
-      memberId: member.id,
-      memberName: member.fullName,
-      recordingNumber: recordingNumber,
-      imageBytes: personalizedBytes,
-      publishedAt: paymentDate,
-      actorId: actorId,
-    );
-
-    // ── Step 3b: Publish to Facebook (best-effort) ───────────────────────
-    String? facebookPostId;
-    try {
-      facebookPostId = await _publishToFacebook(
-        settings.facebookPageUrl,
-        personalizedBytes,
-        member.fullName,
-        recordingNumber,
-      );
-    } catch (e) {
-      await _activity.record(
-        userName: 'System',
-        action:
-            'LRO Facebook publish failed for ${member.fullName}: $e',
-        captureGps: false,
-      );
-    }
-
-    // ── Step 3c: Email the Public Notice to the Member (best-effort) ──────
-    LroEmailResult emailResult;
-    try {
-      emailResult = await LroEmailService.sendPublicNotice(
-        memberEmail: member.emailAddress,
-        memberName: member.fullName,
+  /// Public wrapper around the legacy template-image overlay, used by the
+  /// review dialog when no parametric template exists.
+  Future<Uint8List> renderLegacyOverlay(
+    Uint8List templateBytes, {
+    required String countyName,
+    required String memberName,
+    required String recordingNumber,
+    required DateTime paymentDate,
+    required List<sc.LroStatusCorrection> statusCorrections,
+  }) =>
+      _personalizeImage(
+        templateBytes,
+        countyName: countyName,
+        memberName: memberName,
         recordingNumber: recordingNumber,
         paymentDate: paymentDate,
-        imageBytes: personalizedBytes,
+        statusCorrections: statusCorrections,
       );
-      await _activity.record(
-        userName: 'System',
-        action: emailResult.sent
-            ? 'LRO Public Notice emailed to ${member.emailAddress}.'
-            : 'LRO email skipped for ${member.fullName}: ${emailResult.reason}',
-        captureGps: false,
-      );
-    } catch (e) {
-      emailResult = LroEmailResult(
-        sent: false,
-        skipped: false,
-        reason: 'Email error: $e',
-      );
-    }
 
-    // ── Step 3d: Save the personalized image to the Member's record ───────
-    await _db.saveLroNoticeImage(
-      memberId: member.id,
-      recordingNumber: recordingNumber,
-      imageBytes: personalizedBytes,
-      publishedAt: paymentDate,
+  /// Backwards-compatible convenience: prepare then publish in one call.
+  Future<Member> run({
+    required Member member,
+    required DateTime paymentDate,
+    required String actorId,
+  }) async {
+    final prepared = await prepare(
+      member: member,
+      paymentDate: paymentDate,
+      actorId: actorId,
     );
-
-    // ── Step 4: Update the Member's Application Form ──────────────────────
-    final updated = member.copyWith(
-      lroRecordNo: recordingNumber,
-      step4LROComplete: true,
-      step4CompletionDate: paymentDate,
-      step4ApprovedBy: actorId,
-      lastModifiedBy: actorId,
-      updatedAt: paymentDate.toUtc(),
-      pendingSync: true,
-      lroNoticeImageBase64: _toDataUri(personalizedBytes),
-    );
-    await _db.upsertMember(updated);
-
-    // ── Audit log ────────────────────────────────────────────────────────
-    await _activity.record(
-      userName: actorId,
-      action:
-          'LRO Recording Number generated for ${member.fullName}: $recordingNumber '
-          '(Facebook ${facebookPostId ?? "skipped"}, Email ${emailResult.sent ? "sent" : "skipped"})',
-      captureGps: false,
-    );
-
-    return updated;
+    return await publish(member: prepared, actorId: actorId);
   }
 
   String _toDataUri(Uint8List bytes) =>

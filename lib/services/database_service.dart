@@ -179,7 +179,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 26,
+      version: 27,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -469,6 +469,21 @@ class DatabaseService extends _DatabaseServiceBase
         'CREATE INDEX IF NOT EXISTS idx_lroRecordNo ON members(lroRecordNo)',
       );
     }
+    // NEW ADDITION - LRO Publication audit columns (publish date + actor)
+    if (oldVersion < 27) {
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'lroPublicationDate',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'lroPublishedBy',
+        'TEXT',
+      );
+    }
     // NEW ADDITION - soft cancellation columns (Delete block to revert v14)
     if (oldVersion < 14) {
       await _addColumnIfMissing(database, 'members', 'isCancelled', 'INTEGER');
@@ -713,6 +728,8 @@ class DatabaseService extends _DatabaseServiceBase
         step2ApprovedBy TEXT,
         step3ApprovedBy TEXT,
         step4ApprovedBy TEXT,
+        lroPublicationDate TEXT,
+        lroPublishedBy TEXT,
         step5ApprovedBy TEXT,
         isLocked INTEGER,
         lockedDate TEXT,
@@ -1099,6 +1116,8 @@ class DatabaseService extends _DatabaseServiceBase
         step2ApprovedBy TEXT,
         step3ApprovedBy TEXT,
         step4ApprovedBy TEXT,
+        lroPublicationDate TEXT,
+        lroPublishedBy TEXT,
         step5ApprovedBy TEXT,
         memberStepsJson TEXT NOT NULL DEFAULT '{}',
         isLocked INTEGER,
