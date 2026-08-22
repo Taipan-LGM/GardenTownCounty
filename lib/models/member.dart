@@ -89,6 +89,9 @@ class Member {
   final String? lastModifiedBy;
   final DateTime? createdAt;
 
+  /// Multi-county tenancy: every member belongs to exactly one county.
+  final String countyId;
+
   final DateTime updatedAt;
   final bool pendingSync;
   final bool deleted;
@@ -158,6 +161,7 @@ class Member {
     this.createdBy,
     this.lastModifiedBy,
     this.createdAt,
+    this.countyId = '',
     required this.updatedAt,
     this.pendingSync = true,
     this.deleted = false,
@@ -265,6 +269,7 @@ class Member {
     String? lroRecordNo,
     String? lroNoticeImageBase64,
     String registrationStatus = 'pending',
+    String countyId = '',
   }) {
     final now = DateTime.now().toUtc();
     return Member(
@@ -289,6 +294,7 @@ class Member {
       registrationDate: now,
       createdBy: createdBy,
       createdAt: now,
+      countyId: countyId,
       updatedAt: now,
       pendingSync: true,
     );
@@ -359,6 +365,7 @@ class Member {
     String? createdBy,
     String? lastModifiedBy,
     DateTime? createdAt,
+    String? countyId,
     DateTime? updatedAt,
     bool? pendingSync,
     bool? deleted,
@@ -470,6 +477,7 @@ class Member {
       createdBy: createdBy ?? this.createdBy,
       lastModifiedBy: lastModifiedBy ?? this.lastModifiedBy,
       createdAt: createdAt ?? this.createdAt,
+      countyId: countyId ?? this.countyId,
       updatedAt: updatedAt ?? this.updatedAt,
       pendingSync: pendingSync ?? this.pendingSync,
       deleted: deleted ?? this.deleted,
@@ -545,6 +553,7 @@ class Member {
       'lastModifiedBy': lastModifiedBy,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'countyId': countyId,
       'pendingSync': pendingSync ? 1 : 0,
       'deleted': deleted ? 1 : 0,
     };
@@ -619,6 +628,7 @@ class Member {
       'lastModifiedBy': lastModifiedBy,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'countyId': countyId,
       'deleted': deleted,
     };
   }
@@ -691,6 +701,7 @@ class Member {
       createdBy: map['createdBy'] as String?,
       lastModifiedBy: map['lastModifiedBy'] as String?,
       createdAt: _asDate(map['createdAt']),
+      countyId: map['countyId'] as String? ?? '',
       updatedAt: _asDate(map['updatedAt']) ?? DateTime.now().toUtc(),
       pendingSync: _asBool(map['pendingSync']),
       deleted: _asBool(map['deleted']),

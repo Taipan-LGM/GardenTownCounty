@@ -5,9 +5,11 @@ mixin _DbMembers on _DatabaseServiceBase {
   // ── Members ────────────────────────────────────────────────────────────
 
   Future<List<Member>> getAllMembers() async {
+    final filterCounty = _activeCountyId;
     if (_memoryMode) {
       final list = _members.values
           .where((m) => !m.deleted && !m.isCancelled)
+          .where((m) => filterCounty.isEmpty || m.countyId == filterCounty)
           .toList()
         ..sort((a, b) {
           final s = a.surname.toLowerCase().compareTo(b.surname.toLowerCase());
@@ -16,9 +18,18 @@ mixin _DbMembers on _DatabaseServiceBase {
         });
       return list;
     }
+    final whereBuf = StringBuffer(
+      'deleted = 0 AND (isCancelled IS NULL OR isCancelled = 0)',
+    );
+    final whereArgs = <dynamic>[];
+    if (filterCounty.isNotEmpty) {
+      whereBuf.write(' AND countyId = ?');
+      whereArgs.add(filterCounty);
+    }
     final rows = await db.query(
       'members',
-      where: 'deleted = 0 AND (isCancelled IS NULL OR isCancelled = 0)',
+      where: whereBuf.toString(),
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
       orderBy: 'surname COLLATE NOCASE ASC, memberName COLLATE NOCASE ASC',
     );
     return rows.map(Member.fromMap).toList();
@@ -298,24 +309,28 @@ mixin _DbMembers on _DatabaseServiceBase {
   }
 
   Future<void> _writeMemberRow(Member member) async {
+    // Multi-county: ensure every member carries the active county if unset.
+    final scoped = member.countyId.isEmpty && _activeCountyId.isNotEmpty
+        ? member.copyWith(countyId: _activeCountyId)
+        : member;
     if (_memoryMode) {
-      _members[member.id] = member;
+      _members[scoped.id] = scoped;
       return;
     }
 
-    final existing = await getMemberById(member.id);
+    final existing = await getMemberById(scoped.id);
     if (existing == null) {
       await db.insert(
         'members',
-        member.toMap(),
+        scoped.toMap(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
     } else {
       await db.update(
         'members',
-        member.toMap(),
+        scoped.toMap(),
         where: 'id = ?',
-        whereArgs: [member.id],
+        whereArgs: [scoped.id],
       );
     }
   }

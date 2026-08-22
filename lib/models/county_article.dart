@@ -20,6 +20,7 @@ class CountyArticle {
   final String createdBy;
   final String syncStatus;
   final bool isDeleted;
+  final String countyId;
 
   const CountyArticle({
     required this.id,
@@ -38,6 +39,7 @@ class CountyArticle {
     required this.createdBy,
     this.syncStatus = 'pending',
     this.isDeleted = false,
+    this.countyId = '',
   });
 
   factory CountyArticle.create({
@@ -48,6 +50,7 @@ class CountyArticle {
     String? pdfLocalPath,
     String? category,
     bool isPublished = true,
+    String countyId = '',
   }) {
     return CountyArticle(
       id: const Uuid().v4(),
@@ -59,6 +62,7 @@ class CountyArticle {
       isPublished: isPublished,
       category: category,
       createdBy: createdBy,
+      countyId: countyId,
     );
   }
 
@@ -79,6 +83,7 @@ class CountyArticle {
     String? createdBy,
     String? syncStatus,
     bool? isDeleted,
+    String? countyId,
     bool clearAuthor = false,
     bool clearPdf = false,
     bool clearCategory = false,
@@ -100,6 +105,7 @@ class CountyArticle {
       createdBy: createdBy ?? this.createdBy,
       syncStatus: syncStatus ?? this.syncStatus,
       isDeleted: isDeleted ?? this.isDeleted,
+      countyId: countyId ?? this.countyId,
     );
   }
 
@@ -120,6 +126,7 @@ class CountyArticle {
         'createdBy': createdBy,
         'syncStatus': syncStatus,
         'isDeleted': isDeleted ? 1 : 0,
+        'countyId': countyId,
       };
 
   factory CountyArticle.fromMap(Map<String, dynamic> map) {
@@ -141,6 +148,7 @@ class CountyArticle {
       createdBy: map['createdBy'] as String? ?? 'system',
       syncStatus: map['syncStatus'] as String? ?? 'pending',
       isDeleted: (map['isDeleted'] as int? ?? 0) == 1,
+      countyId: map['countyId'] as String? ?? '',
     );
   }
 }

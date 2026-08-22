@@ -29,6 +29,9 @@ class CountySelector extends ConsumerWidget {
           orElse: () => counties.first,
         );
 
+        // Keep DB scoping in sync with the selected (or default) county.
+        ref.read(databaseServiceProvider).setActiveCounty(active.id);
+
         return Container(
           constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -68,6 +71,7 @@ class CountySelector extends ConsumerWidget {
                     ],
                     onChanged: (id) {
                       if (id == null) return;
+                      ref.read(databaseServiceProvider).setActiveCounty(id);
                       ref.read(currentCountyIdProvider.notifier).state = id;
                       _invalidateScopedLists(ref);
                       ScaffoldMessenger.of(context).showSnackBar(

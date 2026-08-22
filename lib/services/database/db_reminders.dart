@@ -5,23 +5,43 @@ mixin _DbReminders on _DatabaseServiceBase {
   // ── Reminders ──────────────────────────────────────────────────────────
 
   Future<List<Reminder>> getReminders({bool includeCompleted = true}) async {
+    final filterCounty = _activeCountyId;
     if (_memoryMode) {
       final list = _reminders.values
           .where((r) => !r.deleted && (includeCompleted || !r.isCompleted))
+          .where((r) {
+            if (filterCounty.isEmpty) return true;
+            final m = r.memberId != null ? _members[r.memberId] : null;
+            return m != null && m.countyId == filterCounty;
+          })
           .toList()
         ..sort(
           (a, b) => a.reminderDateTime.compareTo(b.reminderDateTime),
         );
       return list;
     }
-    final where = includeCompleted
-        ? 'deleted = 0'
-        : 'deleted = 0 AND isCompleted = 0';
-    final rows = await db.query(
-      'reminders',
-      where: where,
-      orderBy: 'reminderDateTime ASC',
-    );
+    final whereBuf = StringBuffer('r.deleted = 0');
+    final whereArgs = <dynamic>[];
+    if (!includeCompleted) whereBuf.write(' AND r.isCompleted = 0');
+    if (filterCounty.isNotEmpty) {
+      whereBuf.write(
+        ' AND r.memberId IS NOT NULL AND m.id = r.memberId AND m.countyId = ?',
+      );
+      whereArgs.add(filterCounty);
+    }
+    final rows = filterCounty.isEmpty
+        ? await db.query(
+            'reminders',
+            where: whereBuf.toString(),
+            whereArgs: whereArgs.isEmpty ? null : whereArgs,
+            orderBy: 'reminderDateTime ASC',
+          )
+        : await db.rawQuery('''
+            SELECT r.* FROM reminders r
+            JOIN members m ON m.id = r.memberId
+            WHERE ${whereBuf.toString()}
+            ORDER BY r.reminderDateTime ASC
+          ''', whereArgs);
     return rows.map(Reminder.fromMap).toList();
   }
 

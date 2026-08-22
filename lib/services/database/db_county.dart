@@ -33,16 +33,25 @@ mixin _DbCounty on _DatabaseServiceBase {
   // ── County articles & videos ───────────────────────────────────────────
 
   Future<List<CountyArticle>> getPublishedArticles() async {
+    final filterCounty = _activeCountyId;
     if (_memoryMode) {
       final list = _articles.values
           .where((a) => !a.isDeleted && a.isPublished)
+          .where((a) => filterCounty.isEmpty || a.countyId == filterCounty)
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     }
+    final whereBuf = StringBuffer('isDeleted = 0 AND isPublished = 1');
+    final whereArgs = <dynamic>[];
+    if (filterCounty.isNotEmpty) {
+      whereBuf.write(' AND countyId = ?');
+      whereArgs.add(filterCounty);
+    }
     final rows = await db.query(
       'county_articles',
-      where: 'isDeleted = 0 AND isPublished = 1',
+      where: whereBuf.toString(),
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
       orderBy: 'createdAt DESC',
     );
     return rows.map(CountyArticle.fromMap).toList();
@@ -64,13 +73,17 @@ mixin _DbCounty on _DatabaseServiceBase {
   }
 
   Future<void> upsertArticle(CountyArticle article) async {
+    // Multi-county: stamp the active county if the article has none.
+    final scoped = article.countyId.isEmpty && _activeCountyId.isNotEmpty
+        ? article.copyWith(countyId: _activeCountyId)
+        : article;
     if (_memoryMode) {
-      _articles[article.id] = article;
+      _articles[scoped.id] = scoped;
       return;
     }
     await db.insert(
       'county_articles',
-      article.toMap(),
+      scoped.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -92,16 +105,25 @@ mixin _DbCounty on _DatabaseServiceBase {
   }
 
   Future<List<CountyVideo>> getActiveVideos() async {
+    final filterCounty = _activeCountyId;
     if (_memoryMode) {
       final list = _videos.values
           .where((v) => !v.isDeleted && v.isActive)
+          .where((v) => filterCounty.isEmpty || v.countyId == filterCounty)
           .toList()
         ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
       return list;
     }
+    final whereBuf = StringBuffer('isDeleted = 0 AND isActive = 1');
+    final whereArgs = <dynamic>[];
+    if (filterCounty.isNotEmpty) {
+      whereBuf.write(' AND countyId = ?');
+      whereArgs.add(filterCounty);
+    }
     final rows = await db.query(
       'county_videos',
-      where: 'isDeleted = 0 AND isActive = 1',
+      where: whereBuf.toString(),
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
       orderBy: 'uploadedAt DESC',
     );
     return rows.map(CountyVideo.fromMap).toList();
@@ -123,13 +145,17 @@ mixin _DbCounty on _DatabaseServiceBase {
   }
 
   Future<void> upsertVideo(CountyVideo video) async {
+    // Multi-county: stamp the active county if the video has none.
+    final scoped = video.countyId.isEmpty && _activeCountyId.isNotEmpty
+        ? video.copyWith(countyId: _activeCountyId)
+        : video;
     if (_memoryMode) {
-      _videos[video.id] = video;
+      _videos[scoped.id] = scoped;
       return;
     }
     await db.insert(
       'county_videos',
-      video.toMap(),
+      scoped.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }

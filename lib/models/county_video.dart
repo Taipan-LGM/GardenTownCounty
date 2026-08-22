@@ -20,6 +20,7 @@ class CountyVideo {
   final String uploadedBy;
   final String syncStatus;
   final bool isDeleted;
+  final String countyId;
 
   const CountyVideo({
     required this.id,
@@ -38,6 +39,7 @@ class CountyVideo {
     required this.uploadedBy,
     this.syncStatus = 'pending',
     this.isDeleted = false,
+    this.countyId = '',
   });
 
   factory CountyVideo.create({
@@ -51,6 +53,7 @@ class CountyVideo {
     String? duration,
     String? category,
     bool isActive = true,
+    String countyId = '',
   }) {
     return CountyVideo(
       id: const Uuid().v4(),
@@ -65,6 +68,7 @@ class CountyVideo {
       category: category,
       isActive: isActive,
       uploadedBy: uploadedBy,
+      countyId: countyId,
     );
   }
 
@@ -85,6 +89,7 @@ class CountyVideo {
     String? uploadedBy,
     String? syncStatus,
     bool? isDeleted,
+    String? countyId,
     bool clearThumbnail = false,
     bool clearDuration = false,
     bool clearCategory = false,
@@ -108,27 +113,29 @@ class CountyVideo {
       uploadedBy: uploadedBy ?? this.uploadedBy,
       syncStatus: syncStatus ?? this.syncStatus,
       isDeleted: isDeleted ?? this.isDeleted,
+      countyId: countyId ?? this.countyId,
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'firestoreId': firestoreId,
-    'title': title,
-    'description': description,
-    'videoLocalPath': videoLocalPath,
-    'videoUrl': videoUrl,
-    'thumbnailLocalPath': thumbnailLocalPath,
-    'thumbnailUrl': thumbnailUrl,
-    'duration': duration,
-    'uploadedAt': uploadedAt.toIso8601String(),
-    'category': category,
-    'viewCount': viewCount,
-    'isActive': isActive ? 1 : 0,
-    'uploadedBy': uploadedBy,
-    'syncStatus': syncStatus,
-    'isDeleted': isDeleted ? 1 : 0,
-  };
+        'id': id,
+        'firestoreId': firestoreId,
+        'title': title,
+        'description': description,
+        'videoLocalPath': videoLocalPath,
+        'videoUrl': videoUrl,
+        'thumbnailLocalPath': thumbnailLocalPath,
+        'thumbnailUrl': thumbnailUrl,
+        'duration': duration,
+        'uploadedAt': uploadedAt.toIso8601String(),
+        'category': category,
+        'viewCount': viewCount,
+        'isActive': isActive ? 1 : 0,
+        'uploadedBy': uploadedBy,
+        'syncStatus': syncStatus,
+        'isDeleted': isDeleted ? 1 : 0,
+        'countyId': countyId,
+      };
 
   factory CountyVideo.fromMap(Map<String, dynamic> map) {
     return CountyVideo(
@@ -150,6 +157,7 @@ class CountyVideo {
       uploadedBy: map['uploadedBy'] as String? ?? 'system',
       syncStatus: map['syncStatus'] as String? ?? 'pending',
       isDeleted: (map['isDeleted'] as int? ?? 0) == 1,
+      countyId: map['countyId'] as String? ?? '',
     );
   }
 }

@@ -68,6 +68,13 @@ abstract class _DatabaseServiceBase {
   final Map<String, LroHistory> _lroHistory = {};
   final Map<String, Reminder> _reminders = {};
   final Map<String, TemporaryAccessLog> _tempAccessLogs = {};
+
+  /// Multi-county: the currently active county for scoped reads/writes.
+  /// Empty string means "all counties" (legacy behaviour). Set by the UI
+  /// county selector; persisted via currentCountyIdProvider.
+  String _activeCountyId = '';
+  String get activeCountyId => _activeCountyId;
+  void setActiveCounty(String id) => _activeCountyId = id;
   // NEW ADDITION - RS remuneration memory maps (Delete maps + methods to revert)
   final Map<String, RemunerationSettings> _remunerationSettings = {};
   final Map<String, SecretaryRemuneration> _secretaryRemunerations = {};
@@ -172,7 +179,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 25,
+      version: 26,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -648,6 +655,20 @@ class DatabaseService extends _DatabaseServiceBase
         'CREATE INDEX IF NOT EXISTS idx_members_county ON members(countyId)',
       );
       await ensureSeedCounty();
+    }
+    if (oldVersion < 26) {
+      await _addColumnIfMissing(
+        database,
+        'county_articles',
+        'countyId',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        database,
+        'county_videos',
+        'countyId',
+        "TEXT NOT NULL DEFAULT ''",
+      );
     }
   }
 
@@ -1218,7 +1239,8 @@ class DatabaseService extends _DatabaseServiceBase
         viewCount INTEGER NOT NULL DEFAULT 0,
         createdBy TEXT NOT NULL,
         syncStatus TEXT NOT NULL DEFAULT 'pending',
-        isDeleted INTEGER NOT NULL DEFAULT 0
+        isDeleted INTEGER NOT NULL DEFAULT 0,
+        countyId TEXT NOT NULL DEFAULT ''
       )
     ''');
     await database.execute('''
@@ -1238,7 +1260,8 @@ class DatabaseService extends _DatabaseServiceBase
         isActive INTEGER NOT NULL DEFAULT 1,
         uploadedBy TEXT NOT NULL,
         syncStatus TEXT NOT NULL DEFAULT 'pending',
-        isDeleted INTEGER NOT NULL DEFAULT 0
+        isDeleted INTEGER NOT NULL DEFAULT 0,
+        countyId TEXT NOT NULL DEFAULT ''
       )
     ''');
   }

@@ -268,17 +268,31 @@ mixin _DbAssignmentRemuneration on _DatabaseServiceBase {
   }
 
   Future<List<SecretaryRemuneration>> getAllRemunerationRecords() async {
+    final filterCounty = _activeCountyId;
     if (_memoryMode) {
-      return _secretaryRemunerations.values
+      final list = _secretaryRemunerations.values
           .where((r) => !r.isDeleted)
+          .where((r) {
+            if (filterCounty.isEmpty) return true;
+            final m = r.memberId != null ? _members[r.memberId] : null;
+            return m != null && m.countyId == filterCounty;
+          })
           .toList()
         ..sort((a, b) => b.dateEarned.compareTo(a.dateEarned));
+      return list;
     }
-    final rows = await db.query(
-      'secretary_remuneration',
-      where: 'isDeleted = 0',
-      orderBy: 'dateEarned DESC',
-    );
+    final rows = filterCounty.isEmpty
+        ? await db.query(
+            'secretary_remuneration',
+            where: 'isDeleted = 0',
+            orderBy: 'dateEarned DESC',
+          )
+        : await db.rawQuery('''
+            SELECT s.* FROM secretary_remuneration s
+            JOIN members m ON m.id = s.memberId
+            WHERE s.isDeleted = 0 AND m.countyId = ?
+            ORDER BY s.dateEarned DESC
+          ''', [filterCounty]);
     return rows.map(SecretaryRemuneration.fromMap).toList();
   }
 
