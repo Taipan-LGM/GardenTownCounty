@@ -30,6 +30,7 @@ linux
 assets/images/*.png
 !assets/images/county_logo.png
 !assets/images/county_logo_alt.png
+!assets/images/countyconnect_logo.png
 
 # Docs / local tooling
 graphify-out
