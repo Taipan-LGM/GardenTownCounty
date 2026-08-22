@@ -8,6 +8,7 @@ import '../models/user_role.dart';
 import '../navigation/app_drawer_catalog.dart';
 import '../providers/providers.dart';
 import '../screens/search/global_search_dialog.dart';
+import '../screens/settings/county/county_dashboard_screen.dart';
 import 'standard_buttons.dart';
 import 'county_logo.dart';
 
@@ -220,6 +221,22 @@ class AppDrawer extends ConsumerWidget {
             style: TextStyle(color: item.accentColor ?? Colors.redAccent),
           ),
           onTap: () => _confirmSignOut(context, ref, strings),
+        );
+      case AppDrawerAction.manageCounties:
+        return ListTile(
+          leading: Icon(item.icon, color: item.accentColor ?? AppTheme.gold),
+          title: Text(
+            label,
+            style: TextStyle(color: item.accentColor ?? AppTheme.gold),
+          ),
+          onTap: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => CountyDashboardScreen(),
+              ),
+            );
+          },
         );
       case AppDrawerAction.navigate:
         final target = item.section;

@@ -5,6 +5,7 @@ import '../models/activity_log.dart';
 import '../models/app_user.dart';
 import '../models/county_info.dart';
 import '../models/county_profile.dart';
+import '../models/county.dart';
 import '../models/lookup_item.dart';
 import '../models/live_view_data.dart';
 import '../models/member.dart';
@@ -105,6 +106,23 @@ final countyInfoServiceProvider = Provider<CountyInfoService>((ref) {
 
 final countyInfoProvider = FutureProvider.autoDispose<CountyInfo>((ref) async {
   return ref.watch(countyInfoServiceProvider).getCountyInfo();
+});
+
+/// Current active county id (Super Admin switches between counties).
+/// Persisted via shared_preferences so it survives reloads.
+final currentCountyIdProvider = StateProvider<String>((ref) => '');
+
+final countiesProvider = FutureProvider.autoDispose<List<County>>((ref) async {
+  return ref.watch(databaseServiceProvider).getCounties();
+});
+
+final currentCountyProvider = FutureProvider.autoDispose<County?>((ref) async {
+  final id = ref.watch(currentCountyIdProvider);
+  if (id.isEmpty) {
+    final counties = await ref.watch(countiesProvider.future);
+    return counties.isNotEmpty ? counties.first : null;
+  }
+  return ref.watch(databaseServiceProvider).getCountyById(id);
 });
 
 final countyMediaServiceProvider = Provider<CountyMediaService>((ref) {

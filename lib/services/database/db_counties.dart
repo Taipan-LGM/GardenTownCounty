@@ -99,6 +99,32 @@ mixin _DbCounties on _DatabaseServiceBase {
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────────
+  /// Quick per-county metrics for the dashboard.
+  Future<({int memberCount, double revenue})> getCountyStats(
+    String countyId,
+  ) async {
+    int memberCount = 0;
+    double revenue = 0;
+    if (_memoryMode) {
+      // Web / in-memory mode starts empty; member countyId isn't modelled yet.
+      return (memberCount: 0, revenue: 0.0);
+    }
+    final mRows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM members WHERE countyId = ? AND deleted = 0 AND (isCancelled IS NULL OR isCancelled = 0)',
+      [countyId],
+    );
+    memberCount = (mRows.first['c'] as int?) ?? 0;
+    // Revenue = approved/paid secretary remuneration for this county's members.
+    final rRows = await db.rawQuery('''
+      SELECT COALESCE(SUM(s.amount), 0) AS total
+      FROM secretary_remuneration s
+      JOIN members m ON m.id = s.memberId
+      WHERE m.countyId = ? AND s.isDeleted = 0
+    ''', [countyId]);
+    revenue = (rRows.first['total'] as num?)?.toDouble() ?? 0;
+    return (memberCount: memberCount, revenue: revenue);
+  }
+
   Future<List<County>> getCounties() async {
     if (_memoryMode) {
       return _counties.values

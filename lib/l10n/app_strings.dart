@@ -699,4 +699,31 @@ class AppStrings {
         return countyVideos;
     }
   }
+
+  String get currentCounty => isAf ? 'Huidige County' : 'Current County';
+  String get countyDashboard => isAf ? 'County Oorsig' : 'County Dashboard';
+  String get manageCounties => isAf ? 'Bestuur Counties' : 'Manage Counties';
+  String get createNewCounty =>
+      isAf ? 'Skep Nuwe County' : 'Create New County';
+  String get countyNameLabel => isAf ? 'County Naam' : 'County Name';
+  String get countyAddressLabel =>
+      isAf ? 'County Adres' : 'County Address';
+  String get countyContactNoLabel =>
+      isAf ? 'Kontak Nommer' : 'Contact No.';
+  String get countyEmailLabel => isAf ? 'County E-pos' : 'County Email';
+  String get countyRegNoLabel =>
+      isAf ? 'Registrasie Nommer' : 'Registration No.';
+  String get countyFacebookUrlLabel =>
+      isAf ? 'Facebook URL' : 'Facebook URL';
+  String get countyUniqueNumberLabel =>
+      isAf ? 'Unieke 3-syfer Kode' : 'County Unique Number (3 digits)';
+  String get countySealLabel => isAf ? 'County Seël' : 'County Seal';
+  String get cloneSettingsFrom =>
+      isAf ? 'Kloon instellings van' : 'Clone settings from';
+  String get deleteCountyConfirm => isAf
+      ? 'Wil jy hierdie County en al sy data verwyder?'
+      : 'Delete this county and ALL its members, payments and publications?';
+  String get membersCount => isAf ? 'Lede' : 'Members';
+  String get revenue => isAf ? 'Inkomste' : 'Revenue';
+  String get none => isAf ? 'Geen' : 'None';
 }

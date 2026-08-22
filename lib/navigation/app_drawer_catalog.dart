@@ -4,7 +4,7 @@ import '../models/user_role.dart';
 import 'app_section.dart';
 
 /// How a drawer row behaves when tapped.
-enum AppDrawerAction { navigate, search, demoData, signOut }
+enum AppDrawerAction { navigate, search, demoData, signOut, manageCounties }
 
 /// Single source of truth for left-drawer rows + Recording Secretary Rights.
 ///
@@ -181,6 +181,14 @@ class AppDrawerCatalog {
       adminOnly: true,
       showInDrawer: false,
       accentColor: Colors.purpleAccent,
+    ),
+    AppDrawerItemDef(
+      id: 'manage_counties',
+      label: 'Manage Counties',
+      icon: Icons.map_outlined,
+      action: AppDrawerAction.manageCounties,
+      adminOnly: true,
+      accentColor: Color(0xFF388E3C),
     ),
     AppDrawerItemDef(
       id: 'sign_out',

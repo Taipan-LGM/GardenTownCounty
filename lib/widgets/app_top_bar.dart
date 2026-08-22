@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/app_strings.dart';
 import '../providers/providers.dart';
 import 'county_logo.dart';
+import 'county_selector.dart';
 import 'standard_buttons.dart';
 
 /// Fixed top chrome with a horizontally scrollable phone layout.
@@ -134,6 +135,10 @@ class AppTopBar extends ConsumerWidget {
                     scrollDirection: Axis.horizontal,
                     child: Row(children: tabs),
                   ),
+                if (isAdmin) ...[
+                  const SizedBox(width: 10),
+                  const CountySelector(),
+                ],
               ],
             );
           },
