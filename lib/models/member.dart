@@ -13,6 +13,11 @@ class Member {
   /// NEW ADDITION - Personalized LRO Public Notice image (data URI) saved
   /// to the right of the Member's photo as a permanent record.
   final String? lroNoticeImageBase64;
+  /// NEW ADDITION - When the Personal Public Notice was published via the
+  /// "LRO Publication" button (null until published).
+  final DateTime? lroPublicationDate;
+  /// NEW ADDITION - The Recording Secretary / Admin who published the notice.
+  final String? lroPublishedBy;
   final String memberName;
   final String surname;
   final String address;
@@ -102,6 +107,8 @@ class Member {
     required this.globalRecordNo,
     this.lroRecordNo,
     this.lroNoticeImageBase64,
+    this.lroPublicationDate,
+    this.lroPublishedBy,
     required this.memberName,
     required this.surname,
     this.address = '',
@@ -306,6 +313,8 @@ class Member {
     String? globalRecordNo,
     String? lroRecordNo,
     String? lroNoticeImageBase64,
+    DateTime? lroPublicationDate,
+    String? lroPublishedBy,
     String? memberName,
     String? surname,
     String? address,
@@ -377,6 +386,7 @@ class Member {
     bool clearSecretaryAssignment = false,
     bool clearLroRecordNo = false,
     bool clearLroNoticeImage = false,
+    bool clearLroPublication = false,
     bool clearCancellation = false,
   }) {
     return Member(
@@ -386,6 +396,11 @@ class Member {
       lroRecordNo: clearLroRecordNo ? null : (lroRecordNo ?? this.lroRecordNo),
       lroNoticeImageBase64:
           clearLroNoticeImage ? null : (lroNoticeImageBase64 ?? this.lroNoticeImageBase64),
+      lroPublicationDate: clearLroPublication
+          ? null
+          : (lroPublicationDate ?? this.lroPublicationDate),
+      lroPublishedBy:
+          clearLroPublication ? null : (lroPublishedBy ?? this.lroPublishedBy),
       memberName: memberName ?? this.memberName,
       surname: surname ?? this.surname,
       address: address ?? this.address,
@@ -493,6 +508,8 @@ class Member {
       'globalRecordNo': globalRecordNo,
       'lroRecordNo': lroRecordNo,
       'lroNoticeImageBase64': lroNoticeImageBase64,
+      'lroPublicationDate': lroPublicationDate?.toIso8601String(),
+      'lroPublishedBy': lroPublishedBy,
       'memberName': memberName,
       'surname': surname,
       'address': address,
@@ -569,6 +586,8 @@ class Member {
       'globalRecordNo': globalRecordNo,
       'lroRecordNo': lroRecordNo,
       'lroNoticeImageBase64': lroNoticeImageBase64,
+      'lroPublicationDate': lroPublicationDate?.toIso8601String(),
+      'lroPublishedBy': lroPublishedBy,
       'memberName': memberName,
       'surname': surname,
       'address': address,
@@ -640,6 +659,8 @@ class Member {
       globalRecordNo: map['globalRecordNo'] as String? ?? '',
       lroRecordNo: map['lroRecordNo'] as String?,
       lroNoticeImageBase64: map['lroNoticeImageBase64'] as String?,
+      lroPublicationDate: _asDate(map['lroPublicationDate']),
+      lroPublishedBy: map['lroPublishedBy'] as String?,
       memberName: map['memberName'] as String? ?? '',
       surname: map['surname'] as String? ?? '',
       address: map['address'] as String? ?? '',

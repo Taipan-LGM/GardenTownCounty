@@ -13,6 +13,7 @@ import '../../models/remuneration_settings.dart';
 import '../../models/secretary_remuneration.dart';
 import '../../services/lro_payment_workflow.dart';
 import '../../providers/providers.dart';
+import '../../widgets/lro_publication_dialog.dart';
 import '../../widgets/standard_buttons.dart';
 
 class _ManualPaymentRequest {
@@ -814,15 +815,18 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
     }
   }
 
-  /// Runs the automated Land Recording Office (LRO) workflow when a Step 4_LRO
-  /// payment is completed. Generates the Recording Number, personalizes the
-  /// Public Notice Template picture, publishes to Facebook + in-app + email, and writes the
-  /// number into the Member's application form.
+  /// Runs the LRO "prepare" step when a Step 4_LRO payment is completed:
+  /// generates the Recording Number, personalizes the Public Notice, and marks
+  /// Step 4_LRO complete on the Member. Publishing to Facebook / in-app /
+  /// Member Form is a separate, explicit action from the "LRO Publication"
+  /// button (see [LroPublicationDialog]).
   ///
   /// Failures here are surfaced as a non-blocking SnackBar so the payment
   /// itself is never lost.
   Future<void> _runLroIfStep4(Member member, DateTime paymentDate) async {
-    if (member.step4LROComplete) return; // already processed
+    if (member.step4LROComplete && member.lroRecordNo != null) {
+      return; // already prepared
+    }
     try {
       final db = ref.read(databaseServiceProvider);
       final activity = ref.read(activityServiceProvider);
@@ -831,7 +835,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
       final countyId = ref.read(activeCountyIdProvider);
       final workflow = LroPaymentWorkflow(db, activity, lroSvc, countySvc,
           countyId: countyId);
-      final updated = await workflow.run(
+      final updated = await workflow.prepare(
         member: member,
         paymentDate: paymentDate,
         actorId: (ref.read(authUserProvider)?.displayName ?? 'System'),
@@ -841,7 +845,8 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Land Recording Office: Recording Number ${updated.lroRecordNo} generated.',
+              'Land Recording Office: Recording Number ${updated.lroRecordNo} generated. '
+              'Use "LRO Publication" to publish the Public Notice.',
             ),
             backgroundColor: Colors.green,
           ),
@@ -1671,6 +1676,55 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                           })
                                           .toList(),
                                     ),
+                                    if (isAdmin) ...[
+                                      const SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: OutlinedButton.icon(
+                                          onPressed: busy
+                                              ? null
+                                              : () async {
+                                                  final updated = await showDialog<
+                                                          Member>(
+                                                        context: context,
+                                                        builder: (context) =>
+                                                            LroPublicationDialog(
+                                                          member: member,
+                                                        ),
+                                                      ) ??
+                                                      member;
+                                                  if (mounted) {
+                                                    setState(() {
+                                                      // Refresh the row's data
+                                                      // from the returned member
+                                                      // if the dialog published.
+                                                      _historyRefreshTick++;
+                                                    });
+                                                    if (updated
+                                                            .lroPublicationDate !=
+                                                        null) {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Public Notice published.',
+                                                          ),
+                                                          backgroundColor:
+                                                              Colors.green,
+                                                        ),
+                                                      );
+                                                    }
+                                                  }
+                                                },
+                                          icon: const Icon(
+                                            Icons.menu_book_outlined,
+                                            size: 18,
+                                          ),
+                                          label: const Text('LRO Publication'),
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 8),
                                     Text(
                                       'Total: R ${remunerationSettings.configuredTotalAmount.toStringAsFixed(2)}',
