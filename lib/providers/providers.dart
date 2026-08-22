@@ -125,6 +125,16 @@ final currentCountyProvider = FutureProvider.autoDispose<County?>((ref) async {
   return ref.watch(databaseServiceProvider).getCountyById(id);
 });
 
+/// Resolved active county id used for scoping SharedPreferences-backed LRO
+/// settings. Falls back to the first seeded county when none is selected.
+final activeCountyIdProvider = Provider<String>((ref) {
+  final selected = ref.watch(currentCountyIdProvider);
+  if (selected.isNotEmpty) return selected;
+  final counties = ref.watch(countiesProvider).valueOrNull;
+  if (counties != null && counties.isNotEmpty) return counties.first.id;
+  return '';
+});
+
 final countyMediaServiceProvider = Provider<CountyMediaService>((ref) {
   return CountyMediaService(ref.watch(databaseServiceProvider));
 });

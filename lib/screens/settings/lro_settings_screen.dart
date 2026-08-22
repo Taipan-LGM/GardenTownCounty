@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_strings.dart';
+import '../../models/county.dart';
 import '../../models/county_profile.dart';
 import '../../models/lro_settings.dart';
 import '../../models/lro_status_correction.dart' as sc;
@@ -64,10 +65,12 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
+    final countyId = ref.read(activeCountyIdProvider);
     final svc = ref.read(lroSettingsServiceProvider);
-    final settings = await svc.load();
-    final publicNoticeTemplateBytes = await svc.loadPublicNoticeTemplateBytes();
-    final seal = await svc.loadCountySealBytes();
+    final settings = await svc.load(countyId: countyId);
+    final publicNoticeTemplateBytes =
+        await svc.loadPublicNoticeTemplateBytes(countyId: countyId);
+    final seal = await svc.loadCountySealBytes(countyId: countyId);
 
     if (!mounted) return;
     setState(() {
@@ -184,9 +187,10 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
     try {
       final svc = ref.read(lroSettingsServiceProvider);
+      final countyId = ref.read(activeCountyIdProvider);
       if (isPublicNoticeTemplate) {
-        await svc.savePublicNoticeTemplateBytes(bytes);
-        final loaded = await svc.loadPublicNoticeTemplateBytes();
+        await svc.savePublicNoticeTemplateBytes(bytes, countyId: countyId);
+        final loaded = await svc.loadPublicNoticeTemplateBytes(countyId: countyId);
         setState(() {
           _publicNoticeTemplateBytes = loaded;
           _hasPublicNoticeTemplate = loaded != null;
@@ -201,8 +205,8 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           );
         }
       } else {
-        await svc.saveCountySealBytes(bytes);
-        final loaded = await svc.loadCountySealBytes();
+        await svc.saveCountySealBytes(bytes, countyId: countyId);
+        final loaded = await svc.loadCountySealBytes(countyId: countyId);
         setState(() {
           _sealBytes = loaded;
           _hasSeal = loaded != null;
@@ -285,13 +289,14 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
     setState(() => _saving = true);
     try {
       final svc = ref.read(lroSettingsServiceProvider);
+      final countyId = ref.read(activeCountyIdProvider);
       final updated = _settings.copyWith(
         countyUniqueNo: countyUnique,
         facebookPageUrl: facebook,
         numberOrder: _settings.numberOrder,
         statusCorrections: _settings.statusCorrections,
       );
-      await svc.save(updated);
+      await svc.save(updated, countyId: countyId);
       if (mounted) {
         setState(() {
           _settings = updated;
@@ -353,8 +358,9 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
 
     try {
       final svc = ref.read(lroSettingsServiceProvider);
-      await svc.clearPublicNoticeTemplate();
-      await svc.clearCountySeal();
+      final countyId = ref.read(activeCountyIdProvider);
+      await svc.clearPublicNoticeTemplate(countyId: countyId);
+      await svc.clearCountySeal(countyId: countyId);
       await _loadSettings();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -477,6 +483,28 @@ class _LroSettingsScreenState extends ConsumerState<LroSettingsScreen> {
           Text(
             strings.lroSettingsSubtitle,
             style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          // Per-county scope indicator: these settings belong to the active
+          // county and are stored separately from other counties.
+          Consumer(
+            builder: (context, ref, _) {
+              final countyId = ref.watch(activeCountyIdProvider);
+              return FutureBuilder<County?>(
+                future: countyId.isEmpty
+                    ? null
+                    : ref.read(databaseServiceProvider).getCountyById(countyId),
+                builder: (ctx, snap) {
+                  final name = snap.data?.countyName ?? 'Garden Town County';
+                  return Chip(
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    avatar: const Icon(Icons.location_on, size: 16),
+                    label: Text(strings.lroSettingsForCounty(name)),
+                  );
+                },
+              );
+            },
           ),
           const SizedBox(height: 20),
           const Divider(),

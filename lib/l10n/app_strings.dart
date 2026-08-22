@@ -74,6 +74,9 @@ class AppStrings {
   String get lroSettingsSubtitle => isAf
       ? 'Land Recovery Office-configurasie'
       : 'Land Recovery Office configuration';
+  String lroSettingsForCounty(String countyName) => isAf
+      ? 'LRO-instellings vir $countyName'
+      : 'LRO Settings — $countyName';
   String get uploadLogo =>
       isAf ? 'Laai eerste logo op' : 'Upload first (background) logo';
   String get uploadSecondaryLogo =>
