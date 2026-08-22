@@ -129,17 +129,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // CountyConnect logo (original asset) — stretched to fill
-                      // the form, 5mm larger all around (no border/frame).
+                      // CountyConnect logo (original asset) — enlarged to span
+                      // the full card width, 5mm border (form colour) all sides.
                       Container(
-                        margin: const EdgeInsets.all(-19),
+                        margin: const EdgeInsets.only(
+                          left: -28,
+                          right: -28,
+                          top: -28,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: const Color(0xFF182B22),
+                            width: 19,
+                          ),
+                        ),
                         child: Image.asset(
                           'assets/images/countyconnect_logo.png',
                           width: double.infinity,
                           fit: BoxFit.fitWidth,
                         ),
                       ),
-                      const SizedBox(height: 46),
+                      const SizedBox(height: 8),
                       Text(
                         AppConstants.versionLabel,
                         textAlign: TextAlign.center,
