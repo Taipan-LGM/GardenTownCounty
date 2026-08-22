@@ -15,6 +15,7 @@ import '../../models/user_role.dart';
 import '../../services/lro_payment_workflow.dart';
 import '../../providers/providers.dart';
 import '../../widgets/lro_publication_dialog.dart';
+import '../../widgets/free_upload_dialog.dart';
 import '../../widgets/standard_buttons.dart';
 
 class _ManualPaymentRequest {
@@ -1769,6 +1770,46 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                           icon: Icons.credit_card,
                                           foregroundColor: Colors.white,
                                         ),
+                                        if (isAdmin)
+                                          ActionButton(
+                                            onPressed: busy
+                                                ? null
+                                                : () async {
+                                                    final updated =
+                                                        await showDialog<Member>(
+                                                          context: context,
+                                                          builder: (context) =>
+                                                              FreeUploadDialog(
+                                                            member: member,
+                                                          ),
+                                                        );
+                                                    if (mounted) {
+                                                      setState(() {
+                                                        _historyRefreshTick++;
+                                                      });
+                                                      if (updated != null) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Free Upload applied.',
+                                                            ),
+                                                            backgroundColor:
+                                                                Colors.green,
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  },
+                                            text: 'Free Upload',
+                                            icon: Icons.upload_file_outlined,
+                                            backgroundColor:
+                                                AppButtonColors.editBg,
+                                            foregroundColor: Colors.black,
+                                            borderColor:
+                                                AppButtonColors.blackRing,
+                                          ),
                                       ],
                                     ),
                                   ],
