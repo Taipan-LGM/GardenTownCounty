@@ -11,6 +11,7 @@ import '../../models/member.dart';
 import '../../models/member_file.dart';
 import '../../models/remuneration_settings.dart';
 import '../../models/secretary_remuneration.dart';
+import '../../models/user_role.dart';
 import '../../services/lro_payment_workflow.dart';
 import '../../providers/providers.dart';
 import '../../widgets/lro_publication_dialog.dart';
@@ -1478,6 +1479,11 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
   Widget build(BuildContext context) {
     final actor = ref.watch(authUserProvider);
     final isAdmin = actor?.isAdmin == true || actor?.isSystemAdministrator == true;
+    // The LRO Publication action is available to the admin role AND to any
+    // Recording Secretary who holds Step 4_LRO rights (per the approved design
+    // plan: the RS reviews and publishes the Public Notice).
+    final canPublishLro =
+        isAdmin || (actor?.hasPermission(AppPermission.lro) ?? false);
     final membersAsync = ref.watch(membersProvider);
     final remunerationSettings =
         ref.watch(remunerationSettingsProvider).valueOrNull ??
@@ -1676,7 +1682,7 @@ class _StepWorkflowScreenState extends ConsumerState<StepWorkflowScreen> {
                                           })
                                           .toList(),
                                     ),
-                                    if (isAdmin) ...[
+                                    if (canPublishLro) ...[
                                       const SizedBox(height: 8),
                                       Align(
                                         alignment: Alignment.centerLeft,
