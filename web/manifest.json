@@ -1,11 +1,11 @@
 {
-    "name": "Garden Town County",
-    "short_name": "GTC",
+    "name": "CountyConnect",
+    "short_name": "CountyConnect",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1B4D3E",
     "theme_color": "#1B4D3E",
-    "description": "Garden Town County Assembly",
+    "description": "CountyConnect — Your Community, Your Voice, One App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,10 +1,13 @@
 class AppConstants {
-  static const String appName = 'Garden Town County';
+  static const String appName = 'CountyConnect';
+
+  /// Universal platform slogan shown on login, header and footer.
+  static const String appSlogan = 'Your Community, Your Voice, One App';
 
   /// Keep in sync with pubspec.yaml `version:` (name+build).
   /// Scheme: v1.18.12 … v1.18.99 → v1.19.00 → v1.19.01 …
-  static const String appVersion = '1.18.48';
-  static const String buildNumber = '116';
+  static const String appVersion = '1.18.50';
+  static const String buildNumber = '118';
   static String get fullVersion => '$appVersion+$buildNumber';
   static String get versionLabel => 'v$fullVersion';
 

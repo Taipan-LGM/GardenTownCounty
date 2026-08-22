@@ -140,6 +140,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
+                        strings.appSlogan,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          color: textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
                         AppConstants.versionLabel,
                         textAlign: TextAlign.center,
                         style: TextStyle(

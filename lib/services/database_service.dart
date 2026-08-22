@@ -11,6 +11,7 @@ import '../models/app_user.dart';
 import '../models/county_article.dart';
 import '../models/county_info.dart';
 import '../models/county_video.dart';
+import '../models/county.dart';
 import '../models/lookup_item.dart';
 import '../models/lro_case.dart';
 import '../models/lro_document.dart';
@@ -38,6 +39,7 @@ part 'database/db_lro_publications.dart';
 part 'database/db_snapshot.dart';
 part 'database/db_assignment_remuneration.dart';
 part 'database/db_county.dart';
+part 'database/db_counties.dart';
 
 /// Shared state for [DatabaseService].
 ///
@@ -109,7 +111,9 @@ class DatabaseService extends _DatabaseServiceBase
         _DbLro,
         _DbSnapshot,
         _DbAssignmentRemuneration,
-        _DbCounty {
+        _DbCounty,
+        _DbCounties {
+
   DatabaseService._();
   static final DatabaseService instance = DatabaseService._();
 
@@ -151,6 +155,7 @@ class DatabaseService extends _DatabaseServiceBase
       _memoryMode = true;
       _initialized = true;
       await ensureSeedAdmin();
+      await ensureSeedCounty();
       return;
     }
 
@@ -167,7 +172,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 24,
+      version: 25,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -176,6 +181,7 @@ class DatabaseService extends _DatabaseServiceBase
     );
     _initialized = true;
     await ensureSeedAdmin();
+    await ensureSeedCounty();
   }
 
   @override
@@ -623,6 +629,26 @@ class DatabaseService extends _DatabaseServiceBase
         "TEXT NOT NULL DEFAULT '{}'",
       );
     }
+    // NEW ADDITION - multi-county (Delete block to revert v25)
+    if (oldVersion < 25) {
+      await _createCountiesTable(database);
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'countyId',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        database,
+        'app_users',
+        'countyId',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_members_county ON members(countyId)',
+      );
+      await ensureSeedCounty();
+    }
   }
 
   /// Rebuild members without UNIQUE(saId) / UNIQUE(globalRecordNo).
@@ -867,7 +893,8 @@ class DatabaseService extends _DatabaseServiceBase
         updatedAt TEXT NOT NULL,
         pendingSync INTEGER NOT NULL DEFAULT 1,
         deleted INTEGER NOT NULL DEFAULT 0,
-        active INTEGER NOT NULL DEFAULT 1
+        active INTEGER NOT NULL DEFAULT 1,
+        countyId TEXT NOT NULL DEFAULT ''
       )
     ''');
   }
@@ -1124,6 +1151,11 @@ class DatabaseService extends _DatabaseServiceBase
       )
     ''');
 
+    // Multi-county: ensure members carries countyId even on a fresh install.
+    await database.execute(
+      "ALTER TABLE members ADD COLUMN countyId TEXT NOT NULL DEFAULT ''",
+    );
+
     await database.execute('''
       CREATE TABLE activities (
         id TEXT PRIMARY KEY,
@@ -1164,6 +1196,8 @@ class DatabaseService extends _DatabaseServiceBase
     // NEW ADDITION - county_info on fresh create
     await _createCountyInfoTable(database);
     await _createCountyMediaTables(database);
+    // NEW ADDITION - multi-county
+    await _createCountiesTable(database);
   }
 
   Future<void> _createCountyMediaTables(Database database) async {

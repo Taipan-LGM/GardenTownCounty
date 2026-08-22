@@ -11,7 +11,11 @@ class AppStrings {
 
   bool get isAf => lang == AppLanguage.afrikaans;
 
-  String get appName => 'Garden Town County';
+  String get appName => 'CountyConnect';
+
+  String get appSlogan => isAf
+      ? 'Jou Gemeenskap, Jou Stem, Een App'
+      : 'Your Community, Your Voice, One App';
 
   String get home => isAf ? 'Tuis' : 'Home';
   String get search => isAf ? 'Soek' : 'Search';
