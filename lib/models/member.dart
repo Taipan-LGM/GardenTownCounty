@@ -59,6 +59,12 @@ class Member {
   final String? step5ApprovedBy;
   final Map<int, MemberStepState> additionalStepStates;
 
+  /// Per-step settlement record (Cash / Card / Free Upload), keyed by step
+  /// number (1-5 and any additional steps). Stored as JSON. A step with no
+  /// entry but already complete is treated as generically "Paid". Free Upload
+  /// records paymentMethod = 'free_upload' and paymentAmount = 0.00.
+  final Map<int, StepPayment> stepPayments;
+
   // View-only lock
   final bool isLocked;
   final DateTime? lockedDate;
@@ -142,6 +148,7 @@ class Member {
     this.step4ApprovedBy,
     this.step5ApprovedBy,
     this.additionalStepStates = const {},
+    this.stepPayments = const {},
     this.isLocked = false,
     this.lockedDate,
     this.lockedBy,
@@ -247,6 +254,23 @@ class Member {
     );
   }
 
+  /// Records (or clears) the settlement method for a step, e.g. cash / card /
+  /// free_upload. Pass [payment] = null to clear the record.
+  Member withStepPayment({required int step, StepPayment? payment}) {
+    final next = <int, StepPayment>{...stepPayments};
+    if (payment == null) {
+      next.remove(step);
+    } else {
+      next[step] = payment;
+    }
+    return copyWith(stepPayments: next);
+  }
+
+  /// The settlement record for a step, or null if none stored. A step may be
+  /// complete (from legacy data) without a record — callers should treat a
+  /// null record on a completed step as generically "Paid".
+  StepPayment? paymentFor(int step) => stepPayments[step];
+
   bool get hasActiveTemporaryAccess {
     final code = temporaryAccessCode;
     final expiry = temporaryAccessExpiry;
@@ -348,6 +372,7 @@ class Member {
     String? step4ApprovedBy,
     String? step5ApprovedBy,
     Map<int, MemberStepState>? additionalStepStates,
+    Map<int, StepPayment>? stepPayments,
     bool? isLocked,
     DateTime? lockedDate,
     String? lockedBy,
@@ -440,6 +465,7 @@ class Member {
       step4ApprovedBy: step4ApprovedBy ?? this.step4ApprovedBy,
       step5ApprovedBy: step5ApprovedBy ?? this.step5ApprovedBy,
       additionalStepStates: additionalStepStates ?? this.additionalStepStates,
+      stepPayments: stepPayments ?? this.stepPayments,
       isLocked: clearLock ? false : (isLocked ?? this.isLocked),
       lockedDate: clearLock ? null : (lockedDate ?? this.lockedDate),
       lockedBy: clearLock ? null : (lockedBy ?? this.lockedBy),
@@ -543,6 +569,7 @@ class Member {
       'step4ApprovedBy': step4ApprovedBy,
       'step5ApprovedBy': step5ApprovedBy,
       'memberStepsJson': MemberStepState.encodeMap(additionalStepStates),
+      'stepPaymentsJson': StepPayment.encodeMap(stepPayments),
       'isLocked': isLocked ? 1 : 0,
       'lockedDate': lockedDate?.toIso8601String(),
       'lockedBy': lockedBy,
@@ -696,6 +723,9 @@ class Member {
       additionalStepStates: MemberStepState.decodeMap(
         map['memberStepsJson'] as String? ?? '{}',
       ),
+      stepPayments: StepPayment.decodeMap(
+        map['stepPaymentsJson'] as String? ?? '{}',
+      ),
       isLocked: _asBool(map['isLocked']),
       lockedDate: _asDate(map['lockedDate']),
       lockedBy: map['lockedBy'] as String?,
@@ -761,6 +791,60 @@ class Member {
     if (v is DateTime) return v.toUtc();
     if (v is String && v.isNotEmpty) return DateTime.tryParse(v)?.toUtc();
     return null;
+  }
+}
+
+class StepPayment {
+  const StepPayment({
+    required this.method,
+    this.paymentDate,
+    this.amount = 0.0,
+    this.recordedBy,
+  });
+
+  /// 'cash' | 'card' | 'free_upload'
+  final String method;
+  final DateTime? paymentDate;
+  /// Amount actually paid. 0.00 for free_upload.
+  final double amount;
+  /// Acting Admin / Recording Secretary who recorded the settlement.
+  final String? recordedBy;
+
+  static const String methodCash = 'cash';
+  static const String methodCard = 'card';
+  static const String methodFreeUpload = 'free_upload';
+
+  bool get isFreeUpload => method == methodFreeUpload;
+
+  Map<String, dynamic> toJson() => {
+        'method': method,
+        'paymentDate': paymentDate?.toIso8601String(),
+        'amount': amount,
+        'recordedBy': recordedBy,
+      };
+
+  static String encodeMap(Map<int, StepPayment> payments) => jsonEncode(
+        payments.map((number, payment) => MapEntry('$number', payment.toJson())),
+      );
+
+  static Map<int, StepPayment> decodeMap(String raw) {
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map((number, value) {
+        final json = value as Map<String, dynamic>;
+        return MapEntry(
+          int.parse(number),
+          StepPayment(
+            method: json['method'] as String? ?? methodCard,
+            paymentDate: DateTime.tryParse(json['paymentDate'] as String? ?? ''),
+            amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+            recordedBy: json['recordedBy'] as String?,
+          ),
+        );
+      });
+    } catch (_) {
+      return const {};
+    }
   }
 }
 

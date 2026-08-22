@@ -47,6 +47,7 @@ import '../services/remuneration_service.dart';
 import '../services/member_duplicate_service.dart';
 import '../services/member_repository.dart';
 import '../services/member_lock_service.dart';
+import '../services/free_upload_service.dart';
 import '../services/temporary_access_service.dart';
 import '../services/test_data_service.dart';
 import '../services/smart_auto_assignment_service.dart';
@@ -264,6 +265,17 @@ final memberLockServiceProvider = Provider<MemberLockService>((ref) {
     ref.watch(activityServiceProvider),
     // NEW ADDITION - wire remuneration on step complete
     remunerationService: ref.watch(remunerationServiceProvider),
+  );
+});
+
+final freeUploadServiceProvider = Provider<FreeUploadService>((ref) {
+  return FreeUploadService(
+    ref.watch(databaseServiceProvider),
+    ref.watch(memberLockServiceProvider),
+    ref.watch(activityServiceProvider),
+    ref.watch(lroSettingsServiceProvider),
+    ref.watch(countySettingsServiceProvider),
+    countyId: ref.watch(activeCountyIdProvider),
   );
 });
 

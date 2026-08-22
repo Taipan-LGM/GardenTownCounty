@@ -179,7 +179,7 @@ class DatabaseService extends _DatabaseServiceBase
     _dbPath = dbPath;
     _db = await openDatabase(
       dbPath,
-      version: 27,
+      version: 28,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -481,6 +481,15 @@ class DatabaseService extends _DatabaseServiceBase
         database,
         'members',
         'lroPublishedBy',
+        'TEXT',
+      );
+    }
+    // NEW ADDITION - per-step settlement (Cash/Card/Free Upload). See #28.
+    if (oldVersion < 28) {
+      await _addColumnIfMissing(
+        database,
+        'members',
+        'stepPaymentsJson',
         'TEXT',
       );
     }
@@ -1120,6 +1129,7 @@ class DatabaseService extends _DatabaseServiceBase
         lroPublishedBy TEXT,
         step5ApprovedBy TEXT,
         memberStepsJson TEXT NOT NULL DEFAULT '{}',
+        stepPaymentsJson TEXT NOT NULL DEFAULT '{}',
         isLocked INTEGER,
         lockedDate TEXT,
         lockedBy TEXT,
